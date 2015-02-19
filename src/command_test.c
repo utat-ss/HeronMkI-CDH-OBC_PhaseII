@@ -130,9 +130,9 @@ static void prvCommandTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-			x = send_can_command(low, high, ID, PRIORITY);	//This is the CAN API function I have written for us to use.
-			xLastWakeTime = xTaskGetTickCount();
-			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		x = send_can_command(low, high, ID, PRIORITY);	//This is the CAN API function I have written for us to use.
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/

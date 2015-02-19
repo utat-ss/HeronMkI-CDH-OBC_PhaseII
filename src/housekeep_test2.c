@@ -73,8 +73,8 @@ functionality. */
 /*
  * Functions Prototypes.
  */
-static void prvCommandTask( void *pvParameters );
-void command_test(void);
+static void prvHouseKeepTask2( void *pvParameters );
+void housekeep_test2(void);
 
 /************************************************************************/
 /*			2ND	TEST FUNCTION FOR HOUSEKEEPING                          */
@@ -86,7 +86,7 @@ void housekeep_test2( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
-		xTaskCreate( prvCommandTask,					/* The function that implements the task. */
+		xTaskCreate( prvHouseKeepTask2,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) HK_PARAMETER2, 			/* The parameter passed to the task - just to check the functionality. */
@@ -104,34 +104,27 @@ void housekeep_test2( void )
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
-/*				COMMAND TASK		                                    */
-/*	The sole purpose of this task is to send a single CAN message over	*/
-/*	and over in order to test the STK600's CAN reception.				*/
+/*				HOUSEKEEPING TASK		                                */
+/*	The sole purpose of this task is to send a housekeeping request to	*/
+/*	MOB5 on the ATMEGA32M1 which is being supported by the STK600.		*/
 /************************************************************************/
-/**
- * \brief Performs the housekeeping task.
- * @param *pvParameters:
- */
 static void prvHouseKeepTask2(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER2 );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 15;	//Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 15;	// Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t low, high, ID, PRIORITY, x;
+	uint32_t ID, x;
 	
-	low = DUMMY_COMMAND;
-	high = CAN_MSG_DUMMY_DATA;
-	ID = NODE1_ID;
-	PRIORITY = COMMAND_PRIO;
+	ID = SUB0_ID5;
 	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-			x = send_can_command(low, high, ID, PRIORITY);	//This is the CAN API function I have written for us to use.
-			xLastWakeTime = xTaskGetTickCount();
-			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		x = request_housekeeping(SUB0_ID5);		// This is the CAN API function I have written for us to use.
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/

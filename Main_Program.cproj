@@ -400,6 +400,9 @@
     <Compile Include="src\command_test.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\housekeep_test2.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\stk600_test0.c">
       <SubType>compile</SubType>
     </Compile>

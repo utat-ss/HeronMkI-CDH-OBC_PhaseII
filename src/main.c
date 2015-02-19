@@ -133,9 +133,9 @@ function. */
 * housekeep_test() is used when PROGRAM_CHOICE is set to 6.
 * stk600_test0() is used when PROGRAM_CHOICE is set to 7.
 * command_test() is used when PROGRAM_CHOICE is set to 8
-* main_full() is used when PROGRAM_CHOICE is set to 9.
+* housekeep_test2() is used when PROGRAM_CHOICE is set to 9.
 */
-#define PROGRAM_CHOICE	8
+#define PROGRAM_CHOICE	9
 /*-----------------------------------------------------------*/
 
 /*
@@ -150,6 +150,7 @@ extern void my_blink(void);
 extern void housekeep_test(void);
 extern void stk600_test0(void);
 extern void command_test(void);
+extern void housekeep_test2(void);
 
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
 within this file. */
@@ -215,13 +216,13 @@ int main(void)
 	}
 #endif
 #if PROGRAM_CHOICE == 8
-{
-	command_test();
-}
+	{
+		command_test();
+	}
 #endif
 #if PROGRAM_CHOICE == 9
 	{
-		main_full();
+		housekeep_test2();
 	}
 #endif
 	{

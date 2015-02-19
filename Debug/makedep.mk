@@ -4,6 +4,8 @@
 
 src\command_test.c
 
+src\housekeep_test2.c
+
 src\stk600_test0.c
 
 src\asf\common\services\clock\sam3x\sysclk.c

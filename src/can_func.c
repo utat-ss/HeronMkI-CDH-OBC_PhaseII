@@ -41,6 +41,10 @@
 	*					found was that it is important to use CAN_MID_MIDvA(ID) wherever you set an ID
 	*					because this is the format that was used to set the STANDARD ID TAG.
 	*
+	*	02/18/2015		I added the CAN API function request_houskeeping in order to use it in my second
+	*					housekeeping test program. It takes the ID of the node in interest and requests
+	*					housekeeping from it through the CAN0 MB6 (which is in consumer mode).
+	*
 	*	DESCRIPTION:	
 	*
 	*	This file is being used to house the housekeeping task.
@@ -169,6 +173,11 @@ void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 	{
 		pio_toggle_pin(LED3_GPIO);	// LED3 indicates the reception of a return message.
 	}
+	
+	if ((ul_data_incom == HK_RETURNED) & (controller == CAN0))
+	{
+		pio_toggle_pin(LED3_GPIO);	// LED3 indicates the reception of housekeeping.
+	}	
 	return;
 }
 
@@ -298,6 +307,49 @@ uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRI
 	/* Restore the can0_mailbox object */
 	restore_can_object(&can0_mailbox, &temp_mailbox);
 	
+	return 1;
+}
+
+/************************************************************************/
+/*                 REQUEST HOUSKEEPING TO BE SENT TO CAN0		        */
+/*	This function will take in the ID of the node of interest. It will  */
+/*	then send a housekeeping request to this node at a fixed priority	*/
+/*	from CAN0 MB6.														*/
+/*																		*/
+/*  The function will return 1 if the action was completed and 0 if not.*/
+/*	NOTE: a '1' does not indicate the transaction was successful.		*/
+/*																		*/
+/*	This function does not alter the can0_mailbox object.				*/
+/************************************************************************/
+
+uint32_t request_housekeeping(uint32_t ID)
+{
+	/* Save current can0_mailbox object */
+	can_temp_t temp_mailbox;
+	save_can_object(&can0_mailbox, &temp_mailbox);
+	
+	/* Init CAN0 Mailbox 6 to Housekeeping Request Mailbox. */	
+	reset_mailbox_conf(&can0_mailbox);
+	can0_mailbox.ul_mb_idx = 6;			//Mailbox Number 6
+	can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
+	can0_mailbox.uc_tx_prio = HK_REQUEST_PRIO;		//Transmission Priority (Can be Changed dynamically)
+	can0_mailbox.uc_id_ver = 0;
+	can0_mailbox.ul_id_msk = 0;
+	can_mailbox_init(CAN0, &can0_mailbox);
+
+	/* Write transmit information into mailbox. */
+	can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
+	can0_mailbox.ul_datal = HK_REQUEST;				// shifted over to the standard frame position.
+	can0_mailbox.ul_datah = HK_REQUEST;
+	can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
+	can_mailbox_write(CAN0, &can0_mailbox);
+
+	/* Send out the information in the mailbox. */
+	can_global_send_transfer_cmd(CAN0, CAN_TCR_MB6);
+	
+	/* Restore the can0_mailbox object */
+	restore_can_object(&can0_mailbox, &temp_mailbox);
+		
 	return 1;
 }
 
@@ -471,7 +523,7 @@ uint32_t can_init_mailboxes(uint32_t x)
 	
 	/* Init CAN1 Mailbox 0 to Reception Mailbox. */
 	reset_mailbox_conf(&can1_mailbox);
-	can1_mailbox.ul_mb_idx = 0;
+	can1_mailbox.ul_mb_idx = 0;				// Mailbox 0
 	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
 	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
 	can1_mailbox.ul_id = CAN_MID_MIDvA(NODE0_ID);					  // The ID of CAN1 MB0 is currently NODE0_ID (standard).
@@ -479,6 +531,15 @@ uint32_t can_init_mailboxes(uint32_t x)
 	
 	can_enable_interrupt(CAN1, CAN_IER_MB0);
 	
+	/* Init CAN0 Mailbox 6 to Housekeeping Request Mailbox. */	
+	reset_mailbox_conf(&can0_mailbox);
+	can0_mailbox.ul_mb_idx = 6;			//Mailbox Number 6
+	can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
+	can0_mailbox.uc_tx_prio = HK_REQUEST_PRIO;		//Transmission Priority (Can be Changed dynamically)
+	can0_mailbox.uc_id_ver = 0;
+	can0_mailbox.ul_id_msk = 0;
+	can_mailbox_init(CAN0, &can0_mailbox);
+
 	return 1;
 }
 	

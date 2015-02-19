@@ -31,6 +31,13 @@
 	*	DEVELOPMENT HISTORY:
 	*	01/02/2015		Created.
 	*
+	*	02/01/2015		Added a prototype for send_can_command().
+	*
+	*	02/18/2015		Added a prorotype for request_housekeeping().
+	*
+	*					Added to the list of ID and message definitions in order to communicate
+	*					more effectively with the STK600.
+	*
 */
 
 #include <asf/sam/components/can/sn65hvd234.h>
@@ -76,8 +83,8 @@ typedef struct {
 		COMS RECEIVING DATA			6
 		RECEIVING PAYLOAD DATA		7
 		REQUEST PAYLOAD DATA		8
-		REQUEST HOUSEKEEPING		9
-		TRANMITTING HOUSEKEEPING	10
+		REQUEST HOUSEKEEPING		20
+		TRANMITTING HOUSEKEEPING	15
 		LED TOGGLE (LOWEST + 1) =	11
 */		
 
@@ -87,15 +94,21 @@ typedef struct {
 #define CAN_MSG_DUMMY_DATA          0xFFFFFFFF
 #define DUMMY_COMMAND				0XFFFFFFFF
 #define MSG_ACK						0xABABABAB
+#define HK_RETURNED					0XF0F0F0F0
+#define HK_REQUEST					0x0F0F0F0F
 
 #define NODE0_ID				10
 #define NODE1_ID				9
 
 #define SUB0_ID0				20
+#define SUB0_ID1				21
+#define SUB0_ID2				22
+#define SUB0_ID3				23
 #define SUB0_ID4				24
+#define SUB0_ID5				25
 
-#define COMMAND_PRIO			11
-#define HK_REQUEST_PRIO			9
+#define COMMAND_PRIO			10
+#define HK_REQUEST_PRIO			20
 
 /** CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8
@@ -129,5 +142,5 @@ uint32_t can_init_mailboxes(uint32_t x);
 void save_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void restore_can_object(can_mb_conf_t *original, can_temp_t *temp);
 uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);		// API Function.
-/*---------------------------------------------------------*/
+uint32_t request_housekeeping(uint32_t ID);													// API Function.
 

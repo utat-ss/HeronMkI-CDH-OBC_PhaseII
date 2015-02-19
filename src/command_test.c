@@ -75,7 +75,7 @@ functionality. */
  * Functions Prototypes.
  */
 static void prvCommandTask( void *pvParameters );
-void command_test(void);
+void command_loop(void);
 
 /************************************************************************/
 /*			TEST FUNCTION FOR COMMANDS TO THE STK600                    */
@@ -83,7 +83,7 @@ void command_test(void);
 /**
  * \brief Tests the housekeeping task.
  */
-void command_test( void )
+void command_loop( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
@@ -93,13 +93,6 @@ void command_test( void )
 					( void * ) COMMAND_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					Command_TASK_PRIORITY, 			/* The priority assigned to the task. */
 					NULL );								/* The task handle is not required, so NULL is passed. */
-					
-		vTaskStartScheduler();
-	/* If all is well, the scheduler will now be running, and the following
-	line will never be reached.  If the following line does execute, then
-	there was insufficient FreeRTOS heap memory available for the idle and/or
-	timer tasks	to be created.  See the memory management section on the
-	FreeRTOS web site for more details. */
 	return;
 }
 /*-----------------------------------------------------------*/
@@ -130,7 +123,11 @@ static void prvCommandTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
+		
+		xSemaphoreTake(Can1_Mutex, 2);		// Acquire CAN1 Mutex
 		x = send_can_command(low, high, ID, PRIORITY);	//This is the CAN API function I have written for us to use.
+		xSemaphoreGive(Can1_Mutex);			// Release CAN1 Mutex
+		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}

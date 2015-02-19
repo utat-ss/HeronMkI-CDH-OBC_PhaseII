@@ -4,9 +4,7 @@
 
 src\command_test.c
 
-src\housekeep_test2.c
-
-src\stk600_test0.c
+src\housekeep.c
 
 src\asf\common\services\clock\sam3x\sysclk.c
 
@@ -78,19 +76,9 @@ src\Common-Demo-Source\recmutex.c
 
 src\Common-Demo-Source\semtest.c
 
-src\housekeep_test.c
-
 src\main.c
-
-src\main_blinky.c
-
-src\main_full.c
 
 src\my_blink.c
 
 src\ParTest.c
-
-src\rtt_test0.c
-
-src\serial.c
 

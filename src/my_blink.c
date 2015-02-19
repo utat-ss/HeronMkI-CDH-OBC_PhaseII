@@ -82,26 +82,22 @@ void my_blink( void );
  */
 void my_blink( void )
 {		
-		/* Start the two tasks as described in the comments at the top of this
-		file. */
-		xTaskCreate( prvTurnOnTask,						/* The function that implements the task. */
-					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
-					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
-					( void * ) TurnOn_PARAMETER, 		/* The parameter passed to the task - just to check the functionality. */
-					TurnOn_TASK_PRIORITY, 				/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
+	/* Start the two tasks as described in the comments at the top of this file. */
+		
+	xTaskCreate( prvTurnOnTask,						/* The function that implements the task. */
+				"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
+				configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
+				( void * ) TurnOn_PARAMETER, 		/* The parameter passed to the task - just to check the functionality. */
+				TurnOn_TASK_PRIORITY, 				/* The priority assigned to the task. */
+				NULL );								/* The task handle is not required, so NULL is passed. */
 
-		xTaskCreate( prvTurnOffTask, 
-					 "OFF", 
-					 configMINIMAL_STACK_SIZE, 
-					 ( void * ) TurnOff_PARAMETER, 
-					 TurnOn_TASK_PRIORITY, 
-					 NULL );					 
-	/* If all is well, the scheduler will now be running, and the following
-	line will never be reached.  If the following line does execute, then
-	there was insufficient FreeRTOS heap memory available for the idle and/or
-	timer tasks	to be created.  See the memory management section on the
-	FreeRTOS web site for more details. */
+	xTaskCreate( prvTurnOffTask, 
+				 "OFF", 
+				 configMINIMAL_STACK_SIZE, 
+				 ( void * ) TurnOff_PARAMETER, 
+				 TurnOn_TASK_PRIORITY, 
+				 NULL );
+	return;					 
 }
 /*-----------------------------------------------------------*/
 
@@ -117,7 +113,7 @@ static void prvTurnOnTask( void *pvParameters )
 	/* @non-terminating@ */
 	for( ;; )
 	{
-		gpio_set_pin_high(LED3_GPIO);
+		gpio_set_pin_high(LED0_GPIO);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -134,7 +130,7 @@ static void prvTurnOffTask( void *pvParameters )
 	/* @non-terminating@ */
 	for( ;; )
 	{
-		gpio_set_pin_low(LED3_GPIO);
+		gpio_set_pin_low(LED0_GPIO);
 	}
 }
 /*-----------------------------------------------------------*/

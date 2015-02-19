@@ -400,10 +400,7 @@
     <Compile Include="src\command_test.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\housekeep_test2.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\stk600_test0.c">
+    <Compile Include="src\housekeep.c">
       <SubType>compile</SubType>
     </Compile>
     <None Include="src\asf\common\services\clock\genclk.h">
@@ -697,16 +694,7 @@
     <Compile Include="src\FreeRTOSConfig.h">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="src\housekeep_test.c">
-      <SubType>compile</SubType>
-    </Compile>
     <Compile Include="src\main.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\main_blinky.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\main_full.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\my_blink.c">
@@ -714,15 +702,6 @@
       <Link>my_blink.c</Link>
     </Compile>
     <Compile Include="src\ParTest.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\rtt_test0.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\rtt_test0.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\serial.c">
       <SubType>compile</SubType>
     </Compile>
     <None Include="src\asf.h">

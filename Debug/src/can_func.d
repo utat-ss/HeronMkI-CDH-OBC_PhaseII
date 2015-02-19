@@ -118,7 +118,17 @@ src/can_func.d src/can_func.o: ../src/can_func.c ../src/can_func.h \
  ../src/asf/common/services/clock/sam3x/osc.h \
  ../src/asf/sam/drivers/pmc/pmc.h ../src/asf/common/services/clock/pll.h \
  ../src/asf/common/services/clock/sam3x/pll.h ../src/config/conf_board.h \
- ../src/asf/sam/drivers/pio/pio.h
+ ../src/asf/sam/drivers/pio/pio.h \
+ ../src/asf/thirdparty/FreeRTOS/include/FreeRTOS.h \
+ ../src/FreeRTOSConfig.h \
+ ../src/asf/thirdparty/FreeRTOS/include/projdefs.h \
+ ../src/asf/thirdparty/FreeRTOS/include/portable.h \
+ ../src/asf/thirdparty/FreeRTOS/portable/GCC/ARM_CM3/portmacro.h \
+ ../src/asf/thirdparty/FreeRTOS/include/mpu_wrappers.h \
+ ../src/asf/thirdparty/FreeRTOS/include/task.h \
+ ../src/asf/thirdparty/FreeRTOS/include/list.h \
+ ../src/asf/thirdparty/FreeRTOS/include/semphr.h \
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h
 
 ../src/can_func.h:
 
@@ -369,3 +379,23 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/config/conf_board.h:
 
 ../src/asf/sam/drivers/pio/pio.h:
+
+../src/asf/thirdparty/FreeRTOS/include/FreeRTOS.h:
+
+../src/FreeRTOSConfig.h:
+
+../src/asf/thirdparty/FreeRTOS/include/projdefs.h:
+
+../src/asf/thirdparty/FreeRTOS/include/portable.h:
+
+../src/asf/thirdparty/FreeRTOS/portable/GCC/ARM_CM3/portmacro.h:
+
+../src/asf/thirdparty/FreeRTOS/include/mpu_wrappers.h:
+
+../src/asf/thirdparty/FreeRTOS/include/task.h:
+
+../src/asf/thirdparty/FreeRTOS/include/list.h:
+
+../src/asf/thirdparty/FreeRTOS/include/semphr.h:
+
+../src/asf/thirdparty/FreeRTOS/include/queue.h:

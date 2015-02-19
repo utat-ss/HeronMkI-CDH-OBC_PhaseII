@@ -87,6 +87,12 @@ Author: Keenan Burnett
 *					I am also working on getting housekeeping to work reliably with the subsystem micro which means
 *					getting remote messages working over the CAN bus (these already work between CAN0 and CAN1).
 *
+*	02/18/2015		Today I got housekeeping working with the STK600 and have now created two repositories on which I 
+*					will be working. This repository (PhaseII) shall be used as a prototype for the actual flight 
+*					software which shall be run on our satellite.
+*
+*					I am now removing several test programs from this repository.
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
@@ -113,44 +119,23 @@ function. */
 /* Atmel library includes. */
 #include <asf.h>
 
-/* can_test0 includes */
-//#include "can_test0.h"		Comment out the other can_tests to use the one you want.
-
-/* can_test1 includes */
-//#include "can_test1.h"
-
-/* rtt_test0 includes */
-#include "rtt_test0.h"
-
 #include "can_func.h"
 
-/*
-* my_blink() is used when PROGRAM_CHOICE is set to 1.
-* main_blinky() is used when PROGRAM_CHOICE is set to 2.
-* can_test() is used when PROGRAM_CHOICE is set to 3.
-* can_test1() is used when PROGRAM_CHOICE is set to 4.
-* rtt_test0() is used when PROGRAM_CHOICE is set to 5.
-* housekeep_test() is used when PROGRAM_CHOICE is set to 6.
-* stk600_test0() is used when PROGRAM_CHOICE is set to 7.
-* command_test() is used when PROGRAM_CHOICE is set to 8
-* housekeep_test2() is used when PROGRAM_CHOICE is set to 9.
-*/
-#define PROGRAM_CHOICE	9
-/*-----------------------------------------------------------*/
+/* MUTEXES and SEMAPHORES */
 
 /*
-* Set up the hardware ready to run this demo.
+* Set up the hardware ready to run the program.
 */
 static void prvSetupHardware(void);
 
-extern void main_blinky(void);
-extern void main_full(void);
+/*	Initialize mutexes and semaphores to be used by the programs  */
+static void prvInitializeMutexes(void);
+
+/* External functions used to create and encapsulate different tasks*/
+
 extern void my_blink(void);
-//extern void can_test(void);
-extern void housekeep_test(void);
-extern void stk600_test0(void);
-extern void command_test(void);
-extern void housekeep_test2(void);
+extern void command_loop(void);
+extern void housekeep(void);
 
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
 within this file. */
@@ -172,62 +157,28 @@ full information - including hardware setup requirements. */
 
 int main(void)
 {
-	/* Prepare the hardware to run this demo. */
+	/* Prepare the hardware */
 	prvSetupHardware();
+	
+	/* Initialize Mutexes */
+	prvInitializeMutexes();
 
-#if PROGRAM_CHOICE == 1
-	{
-		gpio_toggle_pin(LED2_GPIO);
-		my_blink();
-		vTaskStartScheduler();
-	}
-#endif
-#if PROGRAM_CHOICE == 2
-	{
-		main_blinky();
-	}
-#endif
-#if PROGRAM_CHOICE == 3
-	{
-//		can_test0();
-	}
-#endif
-#if PROGRAM_CHOICE == 4
-	{
-		can_test1();
-	}
-#endif
-#if PROGRAM_CHOICE == 5
-	{
-		rtt_test0();
-	}
-#endif
-#if PROGRAM_CHOICE == 6
-	{
-		my_blink();
-		housekeep_test();
-		vTaskStartScheduler();
-		while(1) { }
-	}
-#endif
-#if PROGRAM_CHOICE == 7
-	{
-		stk600_test0();
-	}
-#endif
-#if PROGRAM_CHOICE == 8
-	{
-		command_test();
-	}
-#endif
-#if PROGRAM_CHOICE == 9
-	{
-		housekeep_test2();
-	}
-#endif
-	{
-		while (1){}
-	}
+	/* Create Tasks */
+	my_blink();
+	//xSemaphoreTake(Can1_Mutex, 2);
+	//xSemaphoreGive(Can1_Mutex);
+	housekeep();
+	command_loop();
+	
+	/* Start Scheduler */
+	vTaskStartScheduler();
+	
+	/* If all is well, the scheduler will now be running, and the following
+	line will never be reached.  If the following line does execute, then
+	there was insufficient FreeRTOS heap memory available for tasks	to be created.*/
+	
+	while (1);
+			
 	return 0;
 }
 /*-----------------------------------------------------------*/
@@ -258,6 +209,11 @@ static void prvSetupHardware(void)
 }
 /*-----------------------------------------------------------*/
 
+static void prvInitializeMutexes(void)
+{	
+	Can1_Mutex = xSemaphoreCreateBinary();
+	return;
+}
 
 void vApplicationMallocFailedHook(void)
 {

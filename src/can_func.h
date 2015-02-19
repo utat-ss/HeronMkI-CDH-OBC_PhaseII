@@ -38,10 +38,16 @@
 	*					Added to the list of ID and message definitions in order to communicate
 	*					more effectively with the STK600.
 	*
+	*					PHASE II.
+	*
+	*					I am removing the functions command_in() and command_out() because they are no
+	*					longer needed.
+	*
 */
 
 #include <asf/sam/components/can/sn65hvd234.h>
 #include <asf/sam/drivers/can/can.h>
+
 #include <stdio.h>
 #include <string.h>
 #include "board.h"
@@ -51,6 +57,12 @@
 #include "conf_board.h"
 #include "conf_clock.h"
 #include "pio.h"
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+
+SemaphoreHandle_t	Can1_Mutex;
 
 typedef struct {
 	uint32_t ul_mb_idx;
@@ -70,6 +82,10 @@ typedef struct {
 	uint32_t ul_datah;
 } can_temp_t;
 
+/*		CAN MUTEXES DEFINED HERE		*/
+
+
+
 /*		CURRENT PRIORITY LEVELS			
 	Note: ID and priority are two different things.
 		  For the sake of simplicity, I am making them the same.
@@ -86,7 +102,7 @@ typedef struct {
 		REQUEST HOUSEKEEPING		20
 		TRANMITTING HOUSEKEEPING	15
 		LED TOGGLE (LOWEST + 1) =	11
-*/		
+*/
 
 #define COMMAND_OUT					0X01010101
 #define COMMAND_IN					0x11111111
@@ -110,33 +126,30 @@ typedef struct {
 #define COMMAND_PRIO			10
 #define HK_REQUEST_PRIO			20
 
-/** CAN frame max data length */
+/* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8
 
-/** CAN0 Transceiver */
+/* CAN0 Transceiver */
 sn65hvd234_ctrl_t can0_transceiver;
 
-/** CAN1 Transceiver */
+/* CAN1 Transceiver */
 sn65hvd234_ctrl_t can1_transceiver;
 
-/** CAN0 Transfer mailbox structure */
+/* CAN0 Transfer mailbox structure */
 can_mb_conf_t can0_mailbox;
 
-/** CAN1 Transfer mailbox structure */
+/* CAN1 Transfer mailbox structure */
 can_mb_conf_t can1_mailbox;
 
 can_temp_t temp_mailbox_C0;
 can_temp_t temp_mailbox_C1;
 
-/** Receive status */
-//volatile uint32_t g_ul_recv_status = 0;
+/* Function Prototypes */
 
 void CAN1_Handler(void);
 void CAN0_Handler(void);
 void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller);
 void reset_mailbox_conf(can_mb_conf_t *p_mailbox);
-void command_out(void);
-void command_in(void);
 void can_initialize(void);
 uint32_t can_init_mailboxes(uint32_t x);
 void save_can_object(can_mb_conf_t *original, can_temp_t *temp);

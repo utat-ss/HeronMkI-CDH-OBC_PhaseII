@@ -92,8 +92,7 @@ SUBDIRS :=  \
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS +=  \
 ../src/command_test.c \
-../src/housekeep_test2.c \
-../src/stk600_test0.c \
+../src/housekeep.c \
 ../src/asf/common/services/clock/sam3x/sysclk.c \
 ../src/asf/common/utils/interrupt/interrupt_sam_nvic.c \
 ../src/asf/common/utils/stdio/read.c \
@@ -129,14 +128,9 @@ C_SRCS +=  \
 ../src/Common-Demo-Source/PollQ.c \
 ../src/Common-Demo-Source/recmutex.c \
 ../src/Common-Demo-Source/semtest.c \
-../src/housekeep_test.c \
 ../src/main.c \
-../src/main_blinky.c \
-../src/main_full.c \
 ../src/my_blink.c \
-../src/ParTest.c \
-../src/rtt_test0.c \
-../src/serial.c
+../src/ParTest.c
 
 
 PREPROCESSING_SRCS += 
@@ -147,8 +141,7 @@ ASM_SRCS +=
 
 OBJS +=  \
 src/command_test.o \
-src/housekeep_test2.o \
-src/stk600_test0.o \
+src/housekeep.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.o \
 src/asf/common/utils/stdio/read.o \
@@ -184,19 +177,13 @@ src/Common-Demo-Source/integer.o \
 src/Common-Demo-Source/PollQ.o \
 src/Common-Demo-Source/recmutex.o \
 src/Common-Demo-Source/semtest.o \
-src/housekeep_test.o \
 src/main.o \
-src/main_blinky.o \
-src/main_full.o \
 my_blink.o \
-src/ParTest.o \
-src/rtt_test0.o \
-src/serial.o
+src/ParTest.o
 
 OBJS_AS_ARGS +=  \
 src/command_test.o \
-src/housekeep_test2.o \
-src/stk600_test0.o \
+src/housekeep.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.o \
 src/asf/common/utils/stdio/read.o \
@@ -232,19 +219,13 @@ src/Common-Demo-Source/integer.o \
 src/Common-Demo-Source/PollQ.o \
 src/Common-Demo-Source/recmutex.o \
 src/Common-Demo-Source/semtest.o \
-src/housekeep_test.o \
 src/main.o \
-src/main_blinky.o \
-src/main_full.o \
 my_blink.o \
-src/ParTest.o \
-src/rtt_test0.o \
-src/serial.o
+src/ParTest.o
 
 C_DEPS +=  \
 src/command_test.d \
-src/housekeep_test2.d \
-src/stk600_test0.d \
+src/housekeep.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.d \
 src/asf/common/utils/stdio/read.d \
@@ -280,19 +261,13 @@ src/Common-Demo-Source/integer.d \
 src/Common-Demo-Source/PollQ.d \
 src/Common-Demo-Source/recmutex.d \
 src/Common-Demo-Source/semtest.d \
-src/housekeep_test.d \
 src/main.d \
-src/main_blinky.d \
-src/main_full.d \
 my_blink.d \
-src/ParTest.d \
-src/rtt_test0.d \
-src/serial.d
+src/ParTest.d
 
 C_DEPS_AS_ARGS +=  \
 src/command_test.d \
-src/housekeep_test2.d \
-src/stk600_test0.d \
+src/housekeep.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.d \
 src/asf/common/utils/stdio/read.d \
@@ -328,14 +303,9 @@ src/Common-Demo-Source/integer.d \
 src/Common-Demo-Source/PollQ.d \
 src/Common-Demo-Source/recmutex.d \
 src/Common-Demo-Source/semtest.d \
-src/housekeep_test.d \
 src/main.d \
-src/main_blinky.d \
-src/main_full.d \
 my_blink.d \
-src/ParTest.d \
-src/rtt_test0.d \
-src/serial.d
+src/ParTest.d
 
 OUTPUT_FILE_PATH +=Main_Program.elf
 
@@ -352,18 +322,6 @@ LINKER_SCRIPT_DEP+=  \
 
 
 # AVR32/GNU C Compiler
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

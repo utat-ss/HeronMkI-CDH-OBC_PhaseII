@@ -38,6 +38,7 @@ All rights reserved
 *
 *	12/20/2014			I added lines 52-54 in order to allow CAN0 and CAN1 pins to be initialized.
 *
+*	02/28/2015			I added lines 106-114 in order to implement the usart example program.
 */
 
 #ifndef CONF_BOARD_H_INCLUDED
@@ -61,10 +62,10 @@ All rights reserved
 //#define CONF_BOARD_USB_PORT
 
 /*
- * LED pins are not configured for PWM function here.
- * Because those LED pins are enabled for PIO function by default.
- * You can enable them according to application.
- */
+* LED pins are not configured for PWM function here.
+* Because those LED pins are enabled for PIO function by default.
+* You can enable them according to application.
+*/
 /* Configure PWM LED0 pin */
 //#define CONF_BOARD_PWM_LED0
 
@@ -93,14 +94,24 @@ All rights reserved
 //#define CONF_BOARD_TWI1
 
 /*
- * USART pins are configured as basic serial port by default.
- * You can enable other pins according application.
- */
-/* Configure USART RXD pin */
-#define CONF_BOARD_USART_RXD
+* USART pins are configured as basic serial port by default.
+* You can enable other pins according application.
+*/
+#define CONF_BOARD_UART_CONSOLE
 
-/* Configure USART TXD pin */
+/* USART0 module is used in serial mode. */
+#define CONF_BOARD_USART_RXD
 #define CONF_BOARD_USART_TXD
+
+#define BOARD_ID_USART             ID_USART0
+
+#define BOARD_USART                USART0
+
+#define BOARD_USART_BAUDRATE       115200
+
+#define USART_Handler              USART0_Handler
+
+#define USART_IRQn                 USART0_IRQn
 
 /* Configure USART CTS pin */
 //#define CONF_BOARD_USART_CTS

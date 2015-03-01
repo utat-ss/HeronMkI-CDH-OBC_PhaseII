@@ -66,6 +66,8 @@
 #endif
 #include "serial.h"
 
+#include <asf/common/services/serial/sam_uart/uart_serial.h>
+
 #if (XMEGA || MEGA_RF) && defined(__GNUC__)
 	extern int _write (char c, int *f);
 	extern int _read (int *f);

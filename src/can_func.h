@@ -4,10 +4,7 @@
 	***********************************************************************
 	*	FILE NAME:		can_func.h
 	*
-	*	PURPOSE:		
-	*	This file allows can_test0.c to have it's set of includes and variable
-	*	declarations before sysclk_init and board_init are called. This is important
-	*	if CAN is to be initialized correctly.
+	*	PURPOSE:		CAN related includes and structures, and includes for can_func.c
 	*	
 	*
 	*	FILE REFERENCES:	sn65hvd234.h, can.h, stdio.h, string.h, board.h, sysclk.h, exceptions.h

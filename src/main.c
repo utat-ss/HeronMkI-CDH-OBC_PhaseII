@@ -121,6 +121,8 @@ function. */
 
 #include "can_func.h"
 
+#include "usart_func.h"
+
 /* MUTEXES and SEMAPHORES */
 
 /*
@@ -205,6 +207,9 @@ static void prvSetupHardware(void)
 	
 	/* Initialize CAN-related registers and functions for tests and operation */
 	can_initialize();
+	
+	/* Initialize USART-related registers and functions. */
+	usart_initialize();
 	
 }
 /*-----------------------------------------------------------*/

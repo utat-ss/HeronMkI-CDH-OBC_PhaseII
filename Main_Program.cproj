@@ -181,7 +181,7 @@
     <OverrideVtor>false</OverrideVtor>
     <OverrideVtorValue>exception_table</OverrideVtorValue>
     <eraseonlaunchrule>1</eraseonlaunchrule>
-    <avrtoolinterface>SWD</avrtoolinterface>
+    <avrtoolinterface>JTAG</avrtoolinterface>
     <avrtool>com.atmel.avrdbg.tool.samice</avrtool>
     <com_atmel_avrdbg_tool_samice>
       <ToolType>com.atmel.avrdbg.tool.samice</ToolType>
@@ -193,9 +193,9 @@
         <ssl>False</ssl>
       </Channel>
       <ToolOptions>
-        <InterfaceName>SWD</InterfaceName>
+        <InterfaceName>JTAG</InterfaceName>
         <InterfaceProperties>
-          <JtagDbgClock>0</JtagDbgClock>
+          <JtagDbgClock>4000000</JtagDbgClock>
           <JtagProgClock>1000000</JtagProgClock>
           <IspClock>150000</IspClock>
           <JtagInChain>false</JtagInChain>
@@ -397,10 +397,40 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\asf\sam\drivers\pdc\pdc.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\pdc\pdc.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\tc\tc.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\tc\tc.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\tc\tc_capture_waveform_example\tc_capture_waveform_example.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\uart\uart.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\uart\uart.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\command_test.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\config\conf_uart_serial.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\housekeep.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\usart_func.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\usart_func.h">
       <SubType>compile</SubType>
     </Compile>
     <None Include="src\asf\common\services\clock\genclk.h">
@@ -1074,9 +1104,13 @@
     <Folder Include="src\asf\sam\components\can\" />
     <Folder Include="src\asf\sam\drivers\" />
     <Folder Include="src\asf\sam\drivers\can\" />
+    <Folder Include="src\asf\sam\drivers\pdc\" />
     <Folder Include="src\asf\sam\drivers\pio\" />
     <Folder Include="src\asf\sam\drivers\pmc\" />
     <Folder Include="src\asf\sam\drivers\rtt\" />
+    <Folder Include="src\asf\sam\drivers\tc\" />
+    <Folder Include="src\asf\sam\drivers\tc\tc_capture_waveform_example\" />
+    <Folder Include="src\asf\sam\drivers\uart\" />
     <Folder Include="src\asf\sam\drivers\usart\" />
     <Folder Include="src\asf\sam\drivers\wdt\" />
     <Folder Include="src\asf\sam\utils\" />

@@ -66,6 +66,8 @@
 #ifndef SERIAL_COMMS_H
 #define SERIAL_COMMS_H
 
+#include <asf/common/services/serial/portmacro.h>
+
 typedef void * xComPortHandle;
 
 typedef enum

@@ -2,9 +2,17 @@
 # Automatically-generated file. Do not edit or delete the file
 ################################################################################
 
+src\asf\sam\drivers\pdc\pdc.c
+
+src\asf\sam\drivers\tc\tc.c
+
+src\asf\sam\drivers\uart\uart.c
+
 src\command_test.c
 
 src\housekeep.c
+
+src\usart_func.c
 
 src\asf\common\services\clock\sam3x\sysclk.c
 

@@ -135,16 +135,7 @@ void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 	//assert(g_ul_recv_status);		// Only decode if a message was received.	***Asserts here.
 	//assert(controller);				// CAN0 or CAN1 are nonzero.
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
-	
-	//if(controller == CAN0)
-		//pio_toggle_pin(LED0_GPIO);
-	//if(controller == CAN1)
-		//pio_toggle_pin(LED1_GPIO);
-
-	//if (ul_data_incom == DUMMY_COMMAND)
-		//pio_toggle_pin(LED1_GPIO);
-	//if (ul_data_incom == MSG_ACK)
-		//pio_toggle_pin(LED1_GPIO);
+	uint32_t uh_data_incom = p_mailbox->ul_datah;
 	
 	if ((ul_data_incom == MSG_ACK) & (controller == CAN1))
 	{
@@ -153,7 +144,12 @@ void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 	
 	if ((ul_data_incom == HK_RETURNED) & (controller == CAN1))
 	{
-		pio_toggle_pin(LED1_GPIO);	// LED3 indicates the reception of housekeeping.
+		pio_toggle_pin(LED1_GPIO);	// LED1 indicates the reception of housekeeping.
+	}
+	
+	if ((uh_data_incom == DATA_RETURNED) & (controller == CAN1))
+	{
+		pio_toggle_pin(LED2_GPIO);	// LED2 indicates the reception of data.
 	}
 	return;
 }

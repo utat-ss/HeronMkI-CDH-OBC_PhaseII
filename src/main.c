@@ -138,6 +138,7 @@ static void prvInitializeMutexes(void);
 extern void my_blink(void);
 extern void command_loop(void);
 extern void housekeep(void);
+extern void data_test(void);
 
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
 within this file. */
@@ -167,10 +168,9 @@ int main(void)
 
 	/* Create Tasks */
 	my_blink();
-	//xSemaphoreTake(Can1_Mutex, 2);
-	//xSemaphoreGive(Can1_Mutex);
 	housekeep();
 	command_loop();
+	data_test();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

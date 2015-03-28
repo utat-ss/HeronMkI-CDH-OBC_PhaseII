@@ -103,12 +103,18 @@ typedef struct {
 
 #define COMMAND_OUT					0X01010101
 #define COMMAND_IN					0x11111111
+
 #define HK_TRANSMIT					0x12345678
 #define CAN_MSG_DUMMY_DATA          0xFFFFFFFF
+
 #define DUMMY_COMMAND				0XFFFFFFFF
 #define MSG_ACK						0xABABABAB
+
 #define HK_RETURNED					0XF0F0F0F0
 #define HK_REQUEST					0x0F0F0F0F
+
+#define DATA_REQUEST				0x55555555
+#define DATA_RETURNED				0x00000000
 
 #define NODE0_ID				10
 #define NODE1_ID				9
@@ -122,6 +128,7 @@ typedef struct {
 
 #define COMMAND_PRIO			10
 #define HK_REQUEST_PRIO			20
+#define DATA_PRIO				25
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

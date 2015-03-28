@@ -60,6 +60,8 @@ void configure_usart(void);
 void configure_tc(void);
 void usart_clear(void);
 void usart_initialize(void);
+void check_command(void);
+uint8_t check_string(char* str_to_check);
 
 /*-----------------------------------------------------------*/
 

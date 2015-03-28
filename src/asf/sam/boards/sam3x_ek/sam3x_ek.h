@@ -240,6 +240,8 @@ Edited by: Keenan Burnett
 #define PIN_USER_LED3   {PIO_PC22, PIOA, ID_PIOA, PIO_OUTPUT_1, PIO_DEFAULT}
 /*! LED #3 pin definition (RED).   D5 */
 #define PIN_POWER_LED   {PIO_PC23, PIOA, ID_PIOA, PIO_OUTPUT_1, PIO_DEFAULT}
+/*! LED #4 pin definition (GREEN). DP6 */
+#define PIN_USER_LED4   {PIO_PC24, PIOA, ID_PIOA, PIO_OUTPUT_1, PIO_DEFAULT}
 
 #define LED_GREEN     0
 #define LED_AMBER     1
@@ -247,7 +249,7 @@ Edited by: Keenan Burnett
 #define LED_RED       3
 
 /*! List of all LEDs definitions. */
-#define PINS_LEDS   PIN_USER_LED1, PIN_USER_LED2, PIN_USER_LED3, PIN_POWER_LED
+#define PINS_LEDS   PIN_USER_LED1, PIN_USER_LED2, PIN_USER_LED3, PIN_POWER_LED, PIN_USER_LED4
 
 /*! LED #0 pin definition (BLUE). */
 #define LED_0_NAME      "blue LED D2"
@@ -280,6 +282,17 @@ Edited by: Keenan Burnett
 /*! LED #3 pin detection (power) */
 #define LED3_GPIO       (PIO_PC23_IDX)
 #define LED3_FLAGS      (PIO_TYPE_PIO_OUTPUT_0 | PIO_DEFAULT)
+
+/*! LED #4 pin detection */
+#define LED4_GPIO       (PIO_PC24_IDX)
+#define LED4_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+//
+//#define PIN_LED_0       {1 << 27, PIOB, ID_PIOB, PIO_OUTPUT_0, PIO_DEFAULT}
+//#define PIN_LED_0_MASK  (1 << 27)
+//#define PIN_LED_0_PIO   PIOB
+//#define PIN_LED_0_ID    ID_PIOB
+//#define PIN_LED_0_TYPE  PIO_OUTPUT_0
+//#define PIN_LED_0_ATTR  PIO_DEFAULT
 
 /**
  * \file

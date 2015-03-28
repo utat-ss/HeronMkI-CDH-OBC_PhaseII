@@ -99,6 +99,7 @@ C_SRCS +=  \
 ../src/asf/sam/drivers/tc/tc.c \
 ../src/asf/sam/drivers/uart/uart.c \
 ../src/command_test.c \
+../src/data_collect.c \
 ../src/housekeep.c \
 ../src/usart_func.c \
 ../src/asf/common/services/clock/sam3x/sysclk.c \
@@ -152,6 +153,7 @@ src/asf/sam/drivers/pdc/pdc.o \
 src/asf/sam/drivers/tc/tc.o \
 src/asf/sam/drivers/uart/uart.o \
 src/command_test.o \
+src/data_collect.o \
 src/housekeep.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
@@ -198,6 +200,7 @@ src/asf/sam/drivers/pdc/pdc.o \
 src/asf/sam/drivers/tc/tc.o \
 src/asf/sam/drivers/uart/uart.o \
 src/command_test.o \
+src/data_collect.o \
 src/housekeep.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
@@ -244,6 +247,7 @@ src/asf/sam/drivers/pdc/pdc.d \
 src/asf/sam/drivers/tc/tc.d \
 src/asf/sam/drivers/uart/uart.d \
 src/command_test.d \
+src/data_collect.d \
 src/housekeep.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
@@ -290,6 +294,7 @@ src/asf/sam/drivers/pdc/pdc.d \
 src/asf/sam/drivers/tc/tc.d \
 src/asf/sam/drivers/uart/uart.d \
 src/command_test.d \
+src/data_collect.d \
 src/housekeep.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
@@ -346,6 +351,8 @@ LINKER_SCRIPT_DEP+=  \
 
 
 # AVR32/GNU C Compiler
+
+
 
 
 

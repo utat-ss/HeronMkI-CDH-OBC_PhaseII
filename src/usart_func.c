@@ -24,6 +24,15 @@
 	*	DEVELOPMENT HISTORY:
 	*	02/28/2015			Created.
 	*
+	*	03/27/2015			Changed the transfer mode to BYTE TRANSFER
+	*						
+	*						Added helper functions check_command, check_string, and usart_initialize.
+	*
+	*						Deleted all code relating to PDC transfer mode.
+	*
+	*						Essentially we no longer have a software implemented buffer, however it's
+	*						not really that big of a deal considering this code is only for a demonstration.
+	*
 	*	DESCRIPTION:
 	*
 	*	Open a terminal which connects to the appropriate serial port
@@ -53,35 +62,19 @@
 
 #include "usart_func.h"
 
-/** Receive buffer. */
-static uint8_t gs_puc_buffer[2][USART_BUFFER_SIZE];
-
-/** Next Receive buffer. */
-static uint8_t gs_puc_nextbuffer[2][USART_BUFFER_SIZE];
-
-/** Current bytes in buffer. */
-static uint32_t gs_ul_size_buffer = USART_BUFFER_SIZE;
-
-/** Current bytes in next buffer. */
-static uint32_t gs_ul_size_nextbuffer = USART_BUFFER_SIZE;
-
 /** Byte mode read buffer. */
 static uint32_t gs_ul_read_buffer = 0;
 
 /** Current transfer mode. */
-static uint8_t gs_uc_trans_mode = PDC_TRANSFER;
+static uint8_t gs_uc_trans_mode = BYTE_TRANSFER;
 
-/** Buffer number in use. */
-static uint8_t gs_uc_buf_num = 0;
+static uint8_t command_start = 0;		// THis flag indicates that the following characters are for a command.
 
-/** PDC data packet. */
-pdc_packet_t g_st_packet, g_st_nextpacket;
+static uint8_t command_end = 0;			// This flag indicates that the command has been finished.
 
-/** Pointer to PDC register base. */
-Pdc *g_p_pdc;
+static uint8_t command_array[10];		// This array will hold the characters which were went during the "listening" period.
 
-/** Flag of one transfer end. */
-static uint8_t g_uc_transend_flag = 0;
+static uint8_t array_pos = 0;			// This integer is needed to remember the position in the array we are writing to in between interrupts.
 
 /**
  * \brief Interrupt handler for USART. Echo the bytes received and start the
@@ -90,92 +83,150 @@ static uint8_t g_uc_transend_flag = 0;
 void USART_Handler(void)
 {
 	uint32_t ul_status;
+	uint32_t new_char = 0, new_char2 = 0;	// For ease of reading, I have created this variable.
+	uint8_t command_completed = 0;
+	uint8_t i = 0;
 
 	/* Read USART Status. */
 	ul_status = usart_get_status(BOARD_USART);
+	
+	pio_toggle_pin(LED4_GPIO);
 
-	if (gs_uc_trans_mode == PDC_TRANSFER) {
-		/* Receive buffer is full. */
-		if (ul_status & US_CSR_RXBUFF) {
-			/* Disable timer. */
-			tc_stop(TC0, 0);
-
-			/* Echo back buffer. */
-			g_st_packet.ul_addr =									
-					(uint32_t)gs_puc_buffer[gs_uc_buf_num];			// This is the first tx packet.
-					
-			if ( *(gs_puc_buffer[gs_uc_buf_num]) == 0x61)
-			{
-				pio_toggle_pin(LED2_GPIO);
-			}
-			
-			g_st_packet.ul_size = gs_ul_size_buffer;
-			g_st_nextpacket.ul_addr =
-					(uint32_t)gs_puc_nextbuffer[gs_uc_buf_num];		// This is the second tx packet.
-			g_st_nextpacket.ul_size = gs_ul_size_nextbuffer;
-			pdc_tx_init(g_p_pdc, &g_st_packet, &g_st_nextpacket);	// This causes the message to be sent.
-
-			if (g_uc_transend_flag) {
-				gs_ul_size_buffer = USART_BUFFER_SIZE;
-				gs_ul_size_nextbuffer = USART_BUFFER_SIZE;
-				g_uc_transend_flag = 0;
-			}
-
-			gs_uc_buf_num = MAX_BUF_NUM - gs_uc_buf_num;
-
-			/* Restart read on buffer. */
-			g_st_packet.ul_addr =
-					(uint32_t)gs_puc_buffer[gs_uc_buf_num];
-			g_st_packet.ul_size = USART_BUFFER_SIZE;
-			g_st_nextpacket.ul_addr =
-					(uint32_t)gs_puc_nextbuffer[ gs_uc_buf_num];
-			g_st_nextpacket.ul_size = USART_BUFFER_SIZE;
-			pdc_rx_init(g_p_pdc, &g_st_packet, &g_st_nextpacket);	// This causes us to start reading again.
-
-			/* Restart timer. */
-			tc_start(TC0, 0);
-		}
-	} else {
+	if (gs_uc_trans_mode == BYTE_TRANSFER)
+	{
 		/* Transfer without PDC. */
-		if (ul_status & US_CSR_RXRDY) {
+		if (ul_status & US_CSR_RXRDY) 
+		{
 			usart_getchar(BOARD_USART, (uint32_t *)&gs_ul_read_buffer);
-			usart_write(BOARD_USART, gs_ul_read_buffer);
+			new_char = gs_ul_read_buffer;
+			
+			if (new_char == 0x31)									// The character '1' was received, start "listening".
+				command_start = 1;
+				
+			if (new_char == 0x32)									// The character '2' was received, execute command.
+				command_end = 1;
+				
+			if ((command_start == 1) && (new_char != 0) && (new_char != 0x31) && new_char != 0x32)			// Since we are listening, we store the new characters.
+			{
+				command_array[array_pos % 10] = new_char;
+				array_pos ++;
+			}
+			// '1' and '2' were both received, execute command.
+			if ((command_end == 1) && (command_start == 1))
+			{
+				// Check command function.
+				check_command();
+				command_end = 0;
+				command_start = 0;
+				array_pos = 0;
+					
+				for (i = 0; i < 10; i ++)
+				{
+					command_array[i] = 0;
+				}
+				command_completed = 1;
+			}
+
+			if (!command_completed)				
+				usart_write(BOARD_USART, gs_ul_read_buffer);
+					
+			command_completed = 0;
+				
 		}
 	}
 }
 
-/**
- * \brief Interrupt handler for TC0. Record the number of bytes received,
- * and then restart a read transfer on the USART if the transfer was stopped.
- */
-void TC0_Handler(void)
-{
-	uint32_t ul_status;
-	uint32_t ul_byte_total = 0;
+/************************************************************************/
+/*		CHECK WHETHER TO EXECUTE TO THE USART COMMAND                   */
+/*																		*/
+/*		This function will check the contents of the USART command		*/
+/*		which was sent via a computer terminal and determine what		*/
+/*		action to take.													*/
+/************************************************************************/
 
-	/* Read TC0 Status. */
-	ul_status = tc_get_status(TC0, 0);
-
-	/* RC compare. */
-	if (((ul_status & TC_SR_CPCS) == TC_SR_CPCS) &&
-			(gs_uc_trans_mode == PDC_TRANSFER)) {
-		/* Flush PDC buffer. */
-		ul_byte_total = USART_BUFFER_SIZE - pdc_read_rx_counter(g_p_pdc);
-		if ((ul_byte_total != 0) && (ul_byte_total != USART_BUFFER_SIZE)) {
-			/* Log current size. */
-			g_uc_transend_flag = 1;
-			if (pdc_read_rx_next_counter(g_p_pdc) == 0) {
-				gs_ul_size_buffer = USART_BUFFER_SIZE;
-				gs_ul_size_nextbuffer = ul_byte_total;
-			} else {
-				gs_ul_size_buffer = ul_byte_total;
-				gs_ul_size_nextbuffer = 0;
-			}
-
-			/* Trigger USART Receive Buffer Full Interrupt. */
-			pdc_rx_clear_cnt(g_p_pdc);
+void check_command(void)
+{	
+	uint32_t character = 0;
+	
+	char* message_array;
+	
+	char* check_array;
+	
+	uint8_t i = 0;
+	uint8_t hk = 1;
+	uint8_t sad = 1;
+	
+	// Housekeeping requested. "hk" was sent.
+	check_array = "hk";
+	
+	hk =  check_string(check_array);
+	
+	check_array = "i am sad";
+	
+	sad = check_string(check_array);
+	
+	if (hk == 1)
+	{	
+		
+		message_array = "\n\rSYSTEMS ARE NOMINAL, SIR.\n\r";
+		
+		while(*message_array)
+		{
+			character = *message_array;
+			while(usart_write(BOARD_USART, character));	// Send the character.
+			
+			message_array++;
 		}
 	}
+	
+	if (sad == 1)
+	{	
+		
+		message_array = "\n\rDO YOU WANT A BISCUIT?\n\r";
+		
+		while(*message_array)
+		{
+			character = *message_array;
+			while(usart_write(BOARD_USART, character));	// Send the character.
+			
+			message_array++;
+		}
+	}
+	
+	return;
+}
+
+/************************************************************************/
+/*		CHECK STRING                                                    */
+/*																		*/
+/*		This function checks whether the string which is passed to it	*/
+/*		is equal to the array of chars in command_array (which is		*/
+/*		defined globally.												*/	
+/************************************************************************/
+
+uint8_t check_string(char* str_to_check)
+{
+	uint8_t	i = 0;
+	uint8_t ret_val = 1;
+	
+	char* temp_str;
+	
+	temp_str = str_to_check;
+	
+	for (i = 0; i < 10; i++)
+	{
+		if (*temp_str != command_array[i])
+		{
+			ret_val = 0;
+			break;
+		}
+		if (!*temp_str)
+			break;
+			
+		temp_str++;
+	}
+	
+	return ret_val;
 }
 
 /**
@@ -214,32 +265,6 @@ void configure_usart(void)
 }
 
 /**
- * \brief Configure Timer Counter 0 (TC0) to generate an interrupt every 200ms.
- * This interrupt will be used to flush USART input and echo back.
- */
-void configure_tc(void)
-{
-	uint32_t ul_div;
-	uint32_t ul_tcclks;
-	static uint32_t ul_sysclk;
-
-	/* Get system clock. */
-	ul_sysclk = sysclk_get_cpu_hz();
-
-	/* Configure PMC. */
-	pmc_enable_periph_clk(ID_TC0);
-
-	/* Configure TC for a 50Hz frequency and trigger on RC compare. */
-	tc_find_mck_divisor(TC_FREQ, ul_sysclk, &ul_div, &ul_tcclks, ul_sysclk);
-	tc_init(TC0, 0, ul_tcclks | TC_CMR_CPCTRG);
-	tc_write_rc(TC0, 0, (ul_sysclk / ul_div) / TC_FREQ);
-
-	/* Configure and enable interrupt on RC compare. */
-	NVIC_EnableIRQ((IRQn_Type)ID_TC0);
-	tc_enable_interrupt(TC0, 0, TC_IER_CPCS);
-}
-
-/**
  * \brief Reset the TX & RX, and clear the PDC counter.
  */
 void usart_clear(void)
@@ -247,13 +272,6 @@ void usart_clear(void)
 	/* Reset and disable receiver & transmitter. */
 	usart_reset_rx(BOARD_USART);
 	usart_reset_tx(BOARD_USART);
-
-	/* Clear PDC counter. */
-	g_st_packet.ul_addr = 0;
-	g_st_packet.ul_size = 0;
-	g_st_nextpacket.ul_addr = 0;
-	g_st_nextpacket.ul_size = 0;
-	pdc_rx_init(g_p_pdc, &g_st_packet, &g_st_nextpacket);
 
 	/* Enable receiver & transmitter. */
 	usart_enable_tx(BOARD_USART);
@@ -269,37 +287,33 @@ void usart_initialize(void)
 {
 	uint8_t uc_char;
 	uint8_t uc_flag;
-
-	/* Initialize the SAM system. */
-	sysclk_init();
-	board_init();
-
-	/* Output example information. */
+	uint8_t i = 0;
+	char* message_array;
+	uint32_t character = 0;
 
 	/* Configure USART. */
 	configure_usart();
 
-	/* Get board USART PDC base address. */
-	g_p_pdc = usart_get_pdc_base(BOARD_USART);
-	/* Enable receiver and transmitter. */
-	pdc_enable_transfer(g_p_pdc, PERIPH_PTCR_RXTEN | PERIPH_PTCR_TXTEN);
-
-	/* Configure TC. */
-	configure_tc();
-
-	/* Start receiving data and start timer. */
-	g_st_packet.ul_addr = (uint32_t)gs_puc_buffer[gs_uc_buf_num];
-	g_st_packet.ul_size = USART_BUFFER_SIZE;
-	g_st_nextpacket.ul_addr = (uint32_t)gs_puc_nextbuffer[gs_uc_buf_num];
-	g_st_nextpacket.ul_size = USART_BUFFER_SIZE;
-	pdc_rx_init(g_p_pdc, &g_st_packet, &g_st_nextpacket);
-
-	gs_uc_trans_mode = PDC_TRANSFER;
-
-	usart_disable_interrupt(BOARD_USART, US_IDR_RXRDY);
-	usart_enable_interrupt(BOARD_USART, US_IER_RXBUFF);
+	gs_uc_trans_mode = BYTE_TRANSFER;
 	
-	tc_start(TC0, 0);
-}
+	for (i = 0; i < 10; i++)
+	{
+		command_array[i] = 0;
+	}
 
+	usart_enable_interrupt(BOARD_USART, US_IDR_RXRDY);
+	usart_disable_interrupt(BOARD_USART, US_IER_RXBUFF);
+	
+	message_array = "WHAT CAN I DO FOR YOU, SIR?\n\r";
+		
+	while(*message_array)
+	{
+		character = *message_array;
+		while(usart_write(BOARD_USART, character));	// Send the character.
+			
+		message_array++;
+	}
+	
+	return;
+}
 

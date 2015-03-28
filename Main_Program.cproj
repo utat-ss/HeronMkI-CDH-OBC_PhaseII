@@ -195,7 +195,7 @@
       <ToolOptions>
         <InterfaceName>JTAG</InterfaceName>
         <InterfaceProperties>
-          <JtagDbgClock>4000000</JtagDbgClock>
+          <JtagDbgClock>0</JtagDbgClock>
           <JtagProgClock>1000000</JtagProgClock>
           <IspClock>150000</IspClock>
           <JtagInChain>false</JtagInChain>
@@ -422,6 +422,9 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\config\conf_uart_serial.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\data_collect.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\housekeep.c">

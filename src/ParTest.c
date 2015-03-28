@@ -30,6 +30,9 @@ All rights reserved
 *	DEVELOPMENT HISTORY:
 *	11/29/2014			Header Changed.
 *
+*	03/07/2015			I have changed partestNUM_LEDS from 3 to 5 in order to expand the number
+*						of LEDs that I can use in my projects.
+*
 */
 
 /*-----------------------------------------------------------
@@ -48,7 +51,7 @@ All rights reserved
 #include <gpio.h>
 
 /* The number of LEDs available to the user on the evaluation kit. */
-#define partestNUM_LEDS			( 3UL )
+#define partestNUM_LEDS			( 4UL )
 
 /* One of the LEDs is wired in the inverse to the others as it is also used as
 the power LED. */
@@ -57,7 +60,7 @@ the power LED. */
 /* The index of the pins to which the LEDs are connected.  The ordering of the
 LEDs in this array is intentional and matches the order they appear on the
 hardware. */
-static const uint32_t ulLED[] = { LED2_GPIO, LED0_GPIO, LED1_GPIO };
+static const uint32_t ulLED[] = { LED3_GPIO, LED2_GPIO, LED0_GPIO, LED1_GPIO };
 
 /*-----------------------------------------------------------*/
 

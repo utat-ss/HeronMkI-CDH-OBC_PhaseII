@@ -178,7 +178,7 @@ void check_command(void)
 			message_array++;
 		}
 		
-		if(data_reg[0] == 0x550003ff)
+		if(can_glob_data_reg[0] == 0x550003ff)
 		{
 			message_array = "\n\rSUBSYSTEM TEMPERATURE IS 22 C\n\r";			
 		}

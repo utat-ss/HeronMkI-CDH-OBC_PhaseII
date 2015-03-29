@@ -60,6 +60,10 @@
 /* CAN Function includes */
 #include "can_func.h"
 
+/* Global Variable includes */
+#include "global_var.h"
+
+
 /* Priorities at which the tasks are created. */
 #define Data_TASK_PRIORITY		( tskIDLE_PRIORITY + 2 )		// Lower the # means lower the priority
 
@@ -111,7 +115,7 @@ static void prvDataTask( void *pvParameters )
 	const TickType_t xTimeToWait = 15;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t low, high, ID, PRIORITY, x;
+	uint32_t low, high, ID, PRIORITY, x, i;
 	
 	uint32_t* message, mem_ptr;
 	
@@ -123,20 +127,23 @@ static void prvDataTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
-		x = send_can_command(low, high, ID, PRIORITY);			//This is the CAN API function I have written for us to use.
-		xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
+		//xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
+		x = send_can_command(low, high, ID, PRIORITY);				//This is the CAN API function I have written for us to use.
+		//xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
 		
-		xLastWakeTime = xTaskGetTickCount();					// Delay for 15 clock cycles.
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 15 clock cycles.
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 
-		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
-		if(drf)		// data reception flag;
+		//xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
+		if(glob_drf)		// data reception flag;
 		{
-			read_can_message(0);								// API function for reading can messages.
-			drf = 0;
+			for (i = 0; i < 8; i++)
+			{
+				glob_stored_data[i] = can_glob_data_reg[i];			// Store the newly acquired data in memory.
+			}
+			glob_drf = 0;
 		}
-		xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
+		//xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
 	}
 }
 /*-----------------------------------------------------------*/

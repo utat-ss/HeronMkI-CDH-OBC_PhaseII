@@ -62,7 +62,7 @@
 #include "task.h"
 #include "semphr.h"
 
-#include "global_var.h"
+#include "global_var.h"		// Contains convenient global variables.
 
 SemaphoreHandle_t	Can1_Mutex;
 
@@ -159,11 +159,6 @@ can_mb_conf_t can1_mailbox;
 can_temp_t temp_mailbox_C0;
 can_temp_t temp_mailbox_C1;
 
-/*	DATA RECEPTION FLAG			   */
-uint8_t	drf;
-
-//uint32_t data_reg[2];
-
 /* Function Prototypes */
 
 void CAN1_Handler(void);
@@ -176,5 +171,5 @@ void save_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void restore_can_object(can_mb_conf_t *original, can_temp_t *temp);
 uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);		// API Function.
 uint32_t request_housekeeping(uint32_t ID);													// API Function.
-void read_can_message(uint32_t mb_id);														// API Function.
+void read_can_data(uint32_t mb_id);															// API Function.
 

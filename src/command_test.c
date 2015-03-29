@@ -63,7 +63,7 @@
 #include "can_func.h"
 
 /* Priorities at which the tasks are created. */
-#define Command_TASK_PRIORITY		( tskIDLE_PRIORITY + 3 )		// Lower the # means lower the priority
+#define Command_TASK_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */

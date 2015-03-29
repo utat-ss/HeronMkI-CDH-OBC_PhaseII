@@ -63,6 +63,8 @@ void usart_clear(void);
 void usart_initialize(void);
 void check_command(void);
 uint8_t check_string(char* str_to_check);
+float convert_to_temp(float temp);
+uint8_t convert_to_bcd(uint8_t temp);
 
 /*-----------------------------------------------------------*/
 

@@ -156,6 +156,10 @@ void check_command(void)
 	uint8_t hk = 1;
 	uint8_t sad = 1;
 	
+	float temp = 295.0;
+	
+	uint8_t temp_int = 25, upper, lower;
+	
 	// Housekeeping requested. "hk" was sent.
 	check_array = "hk";
 	
@@ -178,11 +182,8 @@ void check_command(void)
 			message_array++;
 		}
 		
-		if(can_glob_data_reg[0] == 0x550003ff)
-		{
-			message_array = "\n\rSUBSYSTEM TEMPERATURE IS 22 C\n\r";			
-		}
-
+		message_array = "\n\rSUBSYSTEM TEMPERATURE IS ";
+		
 		while(*message_array)
 		{
 			character = *message_array;
@@ -190,6 +191,34 @@ void check_command(void)
 			
 			message_array++;
 		}
+		
+		temp = (float)(can_glob_data_reg[0] - (uint32_t)0x55000000);	// This is the ADC value retrieved from the subsystem.
+			
+		temp = convert_to_temp(temp);						// Temperature returned is in degrees celsius.
+
+		temp_int = (uint8_t)temp + 1;							// Convert the float to an integer.
+		
+		temp_int = convert_to_bcd(temp_int);				// Convert the temperature into a BCD.
+		
+		lower = temp_int << 4;
+		lower = lower >> 4;
+		upper = temp_int >> 4;
+		
+		lower += (uint8_t)0x30;								// Convert to ASCII form.
+		upper += (uint8_t)0x30;
+	
+		while(usart_write(BOARD_USART, upper));				// Send the upper digit.
+		while(usart_write(BOARD_USART, lower));				// Send the lower digit.			
+		
+		message_array = " C\n\r";							// Finish the sentence.
+
+		while(*message_array)
+		{
+			character = *message_array;
+			while(usart_write(BOARD_USART, character));	// Send the character.
+			
+			message_array++;
+		}	
 	}
 	
 	if (sad == 1)
@@ -241,6 +270,66 @@ uint8_t check_string(char* str_to_check)
 	
 	return ret_val;
 }
+
+float convert_to_temp(float temp)
+{
+	float r_ratio, log_result = 0.0, result = 0.0;
+	
+	int i, flag = 0;
+	
+	r_ratio = (temp) / 1023;	// Convert ADC value to the ratio (of resistances).
+	
+	r_ratio = 1 / (r_ratio);	// Take the inverse.
+	
+	r_ratio = 1 - r_ratio;		// Substract this from one in order to approximate logarithm.
+	
+	for (i = 1; i < 5; i++)		// Natural Logarithm approximation.
+	{
+		if(i > 1)
+		{
+			r_ratio = r_ratio * r_ratio;
+		}
+		
+		r_ratio = r_ratio / i;
+		
+		log_result += r_ratio;
+	}
+	
+	result = 1 / 293.15 + log_result / 3950;
+	
+	result = 1 / result;
+	
+	result = result - 273.15;		// Degrees Celsius.
+	
+	return result;
+}
+
+/************************************************************************/
+/*		CONVERT TO BCD                                                  */
+/*																		*/
+/*		The sole purpose of this helper function is to take an integer	*/
+/*		and convert it into BCD form (upper four bits = 'tens' & the	*/
+/*		lower four bits = 'ones'.										*/
+/************************************************************************/
+uint8_t convert_to_bcd(uint8_t temp)
+{
+	uint8_t upper = 0, lower = 0, ret_val = 0;
+	
+	if(temp > 9)
+	{
+		lower = temp % 10;
+		upper = temp / 10;
+		
+		upper = upper << 4;
+		
+		ret_val = upper | lower;
+			
+		return ret_val;
+	}
+	else
+		return temp;
+}
+
 
 /**
  * \brief Configure USART in normal (serial rs232) mode, asynchronous,

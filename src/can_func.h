@@ -40,6 +40,9 @@
 	*					I am removing the functions command_in() and command_out() because they are no
 	*					longer needed.
 	*
+	*	03/28/2015		I have added a global flag for when data has been received. In this way, the
+	*					data-collection task will be able to see when a new value has been loaded into the
+	*					CAN1_MB0 mailbox.
 */
 
 #include <asf/sam/components/can/sn65hvd234.h>
@@ -58,6 +61,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+
+#include "global_var.h"
 
 SemaphoreHandle_t	Can1_Mutex;
 
@@ -116,8 +121,14 @@ typedef struct {
 #define DATA_REQUEST				0x55555555
 #define DATA_RETURNED				0x00000000
 
-#define NODE0_ID				10
-#define NODE1_ID				9
+#define CAN1_MB0				10
+#define CAN1_MB1				11
+#define CAN1_MB2				12
+#define CAN1_MB3				13
+#define CAN1_MB4				14
+#define CAN1_MB5				15
+#define CAN1_MB6				16
+#define CAN1_MB7				17
 
 #define SUB0_ID0				20
 #define SUB0_ID1				21
@@ -148,6 +159,11 @@ can_mb_conf_t can1_mailbox;
 can_temp_t temp_mailbox_C0;
 can_temp_t temp_mailbox_C1;
 
+/*	DATA RECEPTION FLAG			   */
+uint8_t	drf;
+
+//uint32_t data_reg[2];
+
 /* Function Prototypes */
 
 void CAN1_Handler(void);
@@ -160,4 +176,5 @@ void save_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void restore_can_object(can_mb_conf_t *original, can_temp_t *temp);
 uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);		// API Function.
 uint32_t request_housekeeping(uint32_t ID);													// API Function.
+void read_can_message(uint32_t mb_id);														// API Function.
 

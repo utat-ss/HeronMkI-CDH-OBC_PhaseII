@@ -128,7 +128,7 @@ src/can_func.d src/can_func.o: ../src/can_func.c ../src/can_func.h \
  ../src/asf/thirdparty/FreeRTOS/include/task.h \
  ../src/asf/thirdparty/FreeRTOS/include/list.h \
  ../src/asf/thirdparty/FreeRTOS/include/semphr.h \
- ../src/asf/thirdparty/FreeRTOS/include/queue.h
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/global_var.h
 
 ../src/can_func.h:
 
@@ -399,3 +399,5 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/thirdparty/FreeRTOS/include/semphr.h:
 
 ../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
+../src/global_var.h:

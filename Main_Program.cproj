@@ -427,6 +427,9 @@
     <Compile Include="src\data_collect.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\global_var.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\housekeep.c">
       <SubType>compile</SubType>
     </Compile>

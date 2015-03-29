@@ -169,7 +169,20 @@ void check_command(void)
 	{	
 		
 		message_array = "\n\rSYSTEMS ARE NOMINAL, SIR.\n\r";
+				
+		while(*message_array)
+		{
+			character = *message_array;
+			while(usart_write(BOARD_USART, character));	// Send the character.
+			
+			message_array++;
+		}
 		
+		if(data_reg[0] == 0x550003ff)
+		{
+			message_array = "\n\rSUBSYSTEM TEMPERATURE IS 22 C\n\r";			
+		}
+
 		while(*message_array)
 		{
 			character = *message_array;

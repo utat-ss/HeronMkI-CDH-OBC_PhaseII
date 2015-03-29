@@ -32,6 +32,7 @@
 #include <asf/common/utils/stdio/stdio_serial/stdio_serial.h>
 #include "conf_board.h"
 #include "conf_clock.h"
+#include "global_var.h"
 
 /** Size of the receive buffer used by the PDC, in bytes. */
 #define USART_BUFFER_SIZE         100

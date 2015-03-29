@@ -123,6 +123,8 @@ function. */
 
 #include "usart_func.h"
 
+uint32_t data_reg[2];
+
 /* MUTEXES and SEMAPHORES */
 
 /*

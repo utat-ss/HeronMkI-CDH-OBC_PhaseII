@@ -113,6 +113,8 @@ static void prvDataTask( void *pvParameters )
 	
 	uint32_t low, high, ID, PRIORITY, x;
 	
+	uint32_t* message, mem_ptr;
+	
 	low = DATA_REQUEST;
 	high = DATA_REQUEST;
 	ID = SUB0_ID0;
@@ -121,9 +123,20 @@ static void prvDataTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		x = send_can_command(low, high, ID, PRIORITY);	//This is the CAN API function I have written for us to use.
-		xLastWakeTime = xTaskGetTickCount();
+		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
+		x = send_can_command(low, high, ID, PRIORITY);			//This is the CAN API function I have written for us to use.
+		xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
+		
+		xLastWakeTime = xTaskGetTickCount();					// Delay for 15 clock cycles.
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+
+		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
+		if(drf)		// data reception flag;
+		{
+			read_can_message(0);								// API function for reading can messages.
+			drf = 0;
+		}
+		xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
 	}
 }
 /*-----------------------------------------------------------*/

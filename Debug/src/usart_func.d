@@ -126,7 +126,7 @@ src/usart_func.d src/usart_func.o: ../src/usart_func.c \
  ../src/asf/sam/drivers/usart/usart.h ../src/asf/sam/drivers/wdt/wdt.h \
  ../src/asf/sam/drivers/pio/pio_handler.h \
  ../src/asf/sam/drivers/rtt/rtt.h ../src/asf/sam/drivers/pdc/pdc.h \
- ../src/asf/sam/drivers/tc/tc.h \
+ ../src/asf/sam/drivers/tc/tc.h ../src/asf/sam/drivers/spi/spi.h \
  ../src/asf/common/utils/stdio/stdio_serial/stdio_serial.h \
  ../src/Common-Demo-Source/include/serial.h \
  ../src/asf/common/services/serial/portmacro.h \
@@ -401,6 +401,8 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/sam/drivers/pdc/pdc.h:
 
 ../src/asf/sam/drivers/tc/tc.h:
+
+../src/asf/sam/drivers/spi/spi.h:
 
 ../src/asf/common/utils/stdio/stdio_serial/stdio_serial.h:
 

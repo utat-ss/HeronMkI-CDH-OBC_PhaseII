@@ -271,6 +271,14 @@ uint8_t check_string(char* str_to_check)
 	return ret_val;
 }
 
+/************************************************************************/
+/*		CONVERT TO TEMPERATURE                                          */
+/*																		*/
+/*		This function takes in a floating point value correspondind to	*/
+/*		the ADC value acquired on the subsystem micro and converts it	*/
+/*		into a temperature in degrees centigrade. The function then		*/
+/*		returns this temperature as a float.							*/
+/************************************************************************/
 float convert_to_temp(float temp)
 {
 	float r_ratio, log_result = 0.0, result = 0.0;

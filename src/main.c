@@ -123,6 +123,8 @@ function. */
 
 #include "usart_func.h"
 
+#include "spi_func.h"
+
 uint32_t data_reg[2];
 
 /* MUTEXES and SEMAPHORES */
@@ -141,6 +143,7 @@ extern void my_blink(void);
 extern void command_loop(void);
 extern void housekeep(void);
 extern void data_test(void);
+extern void	spi_initialize(void);
 
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
 within this file. */
@@ -213,6 +216,8 @@ static void prvSetupHardware(void)
 	/* Initialize USART-related registers and functions. */
 	usart_initialize();
 	
+	/* Initilize SPI related registers and functions. */
+	spi_initialize();
 }
 /*-----------------------------------------------------------*/
 

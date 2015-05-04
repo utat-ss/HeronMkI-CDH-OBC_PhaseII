@@ -86,5 +86,8 @@ All rights reserved
 // From module: TC - Timer Counter
 #include <asf/sam/drivers/tc/tc.h>
 
+// From module: SPI - Serial Peripheral Interface
+#include <asf/sam/drivers/spi/spi.h>
+
 #endif // ASF_H
 

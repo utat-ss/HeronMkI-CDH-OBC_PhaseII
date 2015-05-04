@@ -4,6 +4,8 @@
 
 src\asf\sam\drivers\pdc\pdc.c
 
+src\asf\sam\drivers\spi\spi.c
+
 src\asf\sam\drivers\tc\tc.c
 
 src\asf\sam\drivers\uart\uart.c
@@ -13,6 +15,8 @@ src\command_test.c
 src\data_collect.c
 
 src\housekeep.c
+
+src\spi_func.c
 
 src\usart_func.c
 

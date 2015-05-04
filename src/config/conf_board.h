@@ -139,5 +139,19 @@ All rights reserved
 /* Configure Backlight control pin */
 //#define CONF_BOARD_AAT3194
 
+/** SPI0 MACRO definition */
+#define CONF_BOARD_SPI0
+
+/** SPI0 slave select0 MACRO definition */
+#define CONF_BOARD_SPI0_NPCS0
+
+/** Spi Hw ID . */
+#define SPI_ID          ID_SPI0
+
+/** SPI base address for SPI master mode*/
+#define SPI_MASTER_BASE      SPI0
+/** SPI base address for SPI slave mode, (on different board) */
+#define SPI_SLAVE_BASE       SPI0
+
 #endif /* CONF_BOARD_H_INCLUDED */
 

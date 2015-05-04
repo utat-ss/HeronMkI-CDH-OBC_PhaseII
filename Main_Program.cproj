@@ -403,6 +403,15 @@
     <Compile Include="src\asf\sam\drivers\pdc\pdc.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\asf\sam\drivers\spi\conf_spi.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\spi\spi.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\asf\sam\drivers\spi\spi.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\asf\sam\drivers\tc\tc.c">
       <SubType>compile</SubType>
     </Compile>
@@ -431,6 +440,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\housekeep.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\spi_func.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\spi_func.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\usart_func.c">
@@ -1114,6 +1129,7 @@
     <Folder Include="src\asf\sam\drivers\pio\" />
     <Folder Include="src\asf\sam\drivers\pmc\" />
     <Folder Include="src\asf\sam\drivers\rtt\" />
+    <Folder Include="src\asf\sam\drivers\spi\" />
     <Folder Include="src\asf\sam\drivers\tc\" />
     <Folder Include="src\asf\sam\drivers\tc\tc_capture_waveform_example\" />
     <Folder Include="src\asf\sam\drivers\uart\" />

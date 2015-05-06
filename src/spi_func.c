@@ -27,6 +27,11 @@
 	*
 	*	DESCRIPTION:
 	*
+	*			At the moment, the most important part of this file is the SPI interrupt handler.
+	*
+	*			In the future, this file will contain functions which allow the OBC to act
+	*			as the SPI bus master.
+	*
 */
 
 #include "spi_func.h"
@@ -148,7 +153,7 @@ void SPI_Handler(void)
 	uint8_t ret_val = 0;
 	uint32_t* reg_ptr = 0x4000800C;		// SPI_TDR (SPI0)
 	
-	pio_toggle_pin(LED1_GPIO);
+	//pio_toggle_pin(LED1_GPIO);
 
 	if (spi_read_status(SPI_SLAVE_BASE) & SPI_SR_RDRF) 
 	{

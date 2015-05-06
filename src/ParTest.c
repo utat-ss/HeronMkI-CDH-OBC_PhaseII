@@ -50,7 +50,7 @@ All rights reserved
 #include <board.h>
 #include <gpio.h>
 
-/* The number of LEDs available to the user on the evaluation kit. */
+/* The number of LEDs available to the user on the board. */
 #define partestNUM_LEDS			( 4UL )
 
 /* One of the LEDs is wired in the inverse to the others as it is also used as

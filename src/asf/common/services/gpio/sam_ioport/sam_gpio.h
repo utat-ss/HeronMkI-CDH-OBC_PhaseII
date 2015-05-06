@@ -5,7 +5,8 @@ All rights reserved
 *	FILE NAME:		sam_gpio.h
 *
 *	PURPOSE:
-*	Brief GPIO service for SAM.
+*	GPIO service for SAM. This file contains several definitions which 
+*	are pertinent to setting pins either high or low, toggling them etc.
 *
 *	FILE REFERENCES:	compiler.h, pio.h
 *

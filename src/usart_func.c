@@ -56,8 +56,6 @@
 	*   - No flow control
 	*	- Select the COM port (Can be found under control panel > devices and printers)
 	*
-	*	You will now be able to enter commands in the following form:
-	*
 */
 
 #include "usart_func.h"

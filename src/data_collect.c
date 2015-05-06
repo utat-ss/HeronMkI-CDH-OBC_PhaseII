@@ -5,7 +5,7 @@
 	*	FILE NAME:		data_collect.c
 	*
 	*	PURPOSE:		
-	*	This file is to be used to encapsulate all functions and taks related to data collection.
+	*	This file is to be used to encapsulate all functions and tasks related to data collection.
 	*
 	*	FILE REFERENCES:	stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
 	*

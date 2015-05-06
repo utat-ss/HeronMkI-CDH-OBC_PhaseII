@@ -80,9 +80,6 @@ All rights reserved
 // From module: RTT - Real-Time Timer
 #include <asf/sam/drivers/rtt/rtt.h>
 
-// From module: PDC - Peripheral DMA Controller
-#include <asf/sam/drivers/pdc/pdc.h>
-
 // From module: TC - Timer Counter
 #include <asf/sam/drivers/tc/tc.h>
 

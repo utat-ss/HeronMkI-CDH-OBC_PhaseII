@@ -6,7 +6,7 @@
 	*
 	*	PURPOSE:		
 	*	I wrote this file in order to make sure that multitasking is working correctly before 
-	*	I begin developing real applications.
+	*	I begin developing real applications. It serves to add concurrency in the OS.
 	*
 	*	FILE REFERENCES:	stdio.h, FreeRTOS.h, task.h, partest.h, asf.h
 	*

@@ -2,8 +2,6 @@
 # Automatically-generated file. Do not edit or delete the file
 ################################################################################
 
-src\asf\sam\drivers\pdc\pdc.c
-
 src\asf\sam\drivers\spi\spi.c
 
 src\asf\sam\drivers\tc\tc.c
@@ -15,6 +13,8 @@ src\command_test.c
 src\data_collect.c
 
 src\housekeep.c
+
+src\ParTest.c
 
 src\spi_func.c
 
@@ -93,6 +93,4 @@ src\Common-Demo-Source\semtest.c
 src\main.c
 
 src\my_blink.c
-
-src\ParTest.c
 

@@ -1,57 +1,37 @@
-/**
- * \file
- *
- * \brief CAN transceiver SN65HVD234 driver.
- *
- * Copyright (c) 2011 - 2013 Atmel Corporation. All rights reserved.
- *
- * \asf_license_start
- *
- * \page License
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. The name of Atmel may not be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * 4. This software may only be redistributed and used in connection with an
- *    Atmel microcontroller product.
- *
- * THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
- * EXPRESSLY AND SPECIFICALLY DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * \asf_license_stop
- *
- */
-
-/**
- * \defgroup sam_component_sn65hvd234_transceiver_group CAN - SN65HVD234
- *  Transceiver
- *
- * This driver provides access to the main features of the SN65HVD234
- * transceiver.
- *
- * Control the RS and EN pin level for SN65HVD234.
- *
- * \{
- */
+/*
+Copyright (c) 2011 - 2013 Atmel Corporation. All rights reserved.
+***********************************************************************
+*	FILE NAME:		sn65hvd234.c
+*
+*	PURPOSE:
+*	CAN transceiver sn65hvd234 driver.
+*
+*	FILE REFERENCES:	board.h, sn65hvd234.h, pio.h
+*
+*	EXTERNAL VARIABLES:		None that I'm aware of.
+*
+*	EXTERNAL REFERENCES:	Many, see dependencies diagram on dropbox.
+*
+*	ABORNOMAL TERMINATION CONDITIONS, ERROR AND WARNING MESSAGES: None yet.
+*
+*	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None.
+*
+*	NOTES:
+*
+*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
+*	None.
+*
+*	DESCRIPTION:
+*
+*	This driver provides access to the main features of the SN65HVD234
+*	transceiver.
+*
+*	Control the RS and EN pin level for SN65HVD234.
+*
+*	DEVELOPMENT HISTORY:
+*	11/29/2014			Header Changed.
+*
+*/
 
 #include "board.h"
 #include "sn65hvd234.h"
@@ -131,8 +111,4 @@ void sn65hvd234_disable_low_power(sn65hvd234_ctrl_t *p_component)
 	pio_set_pin_low(p_component->pio_rs_idx);
 	//ioport_set_pin_level(p_component->pio_rs_idx, CAN_RS_LOW);
 }
-
-/**
- * \}
- */
 

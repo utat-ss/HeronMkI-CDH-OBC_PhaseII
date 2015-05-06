@@ -8,7 +8,7 @@ Copyright (C) 2012 Atmel Corporation. All rights reserved.
 *	PURPOSE:
 *	Brief Universal Synchronous Asynchronous Receiver Transmitter (USART) driver for SAM.
 *
-*	FILE REFERENCES:	compiler.h
+*	FILE REFERENCES:		compiler.h
 *
 *	EXTERNAL VARIABLES:		None that I'm aware of.
 *

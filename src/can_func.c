@@ -93,6 +93,12 @@ void CAN1_Handler(void)
 					can_glob_data_reg[1] = can1_mailbox.ul_datah;
 				}
 				
+				if (i == 5)
+				{
+					can_glob_msg_reg[0] = can1_mailbox.ul_datal;
+					can_glob_msg_reg[1] = can1_mailbox.ul_datah;
+				}
+				
 				if (i == 6)
 				{
 					can_glob_hk_reg[0] = can1_mailbox.ul_datal;
@@ -179,6 +185,13 @@ void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 		pio_toggle_pin(LED2_GPIO);	// LED2 indicates the reception of data.
 		glob_drf = 1;
 	}
+	
+	if ((uh_data_incom == MESSAGE_RETURNED) & (controller == CAN1) & (glob_comf == 0))
+	{
+		pio_toggle_pin(LED2_GPIO);	// LED2 indicates the reception of a message
+		glob_comf = 1;
+	}
+
 	return;
 }
 
@@ -425,6 +438,9 @@ void can_initialize(void)
 	/* Initialize the data reception flag	*/
 	glob_drf = 0;
 	
+	/* Initialize the message reception flag */
+	glob_comf = 0;
+	
 	/* Initialize the global can regs		*/
 	for (i = 0; i < 8; i++)
 	{
@@ -432,6 +448,7 @@ void can_initialize(void)
 		can_glob_data_reg[i] = 0;
 		can_glob_hk_reg[i] = 0;
 		glob_stored_data[i] = 0;
+		glob_stored_message[i] = 0;
 	}
 	
 	}
@@ -458,6 +475,14 @@ uint32_t can_init_mailboxes(uint32_t x)
 	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
 	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
 	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB0);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
+	can_mailbox_init(CAN1, &can1_mailbox);
+	
+	/* Init CAN1 Mailbox 5 to Message Reception Mailbox. */
+	reset_mailbox_conf(&can1_mailbox);
+	can1_mailbox.ul_mb_idx = 5;				// Mailbox 5
+	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
+	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
+	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB5);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
 	can_mailbox_init(CAN1, &can1_mailbox);
 	
 	/* Init CAN1 Mailbox 6 to HK Reception Mailbox. */

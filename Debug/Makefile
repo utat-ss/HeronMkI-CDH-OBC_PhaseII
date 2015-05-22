@@ -42,6 +42,7 @@ SUBDIRS :=  \
 ../src/asf/common/services/clock/sam3x/ \
 ../src/asf/common/services/gpio/ \
 ../src/asf/common/services/gpio/sam_ioport/ \
+../src/asf/common/services/serial/ \
 ../src/asf/common/utils/ \
 ../src/asf/common/utils/interrupt/ \
 ../src/asf/common/utils/stdio/ \

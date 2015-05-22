@@ -143,6 +143,15 @@ static void prvDataTask( void *pvParameters )
 			}
 			glob_drf = 0;
 		}
+		
+		if(glob_comf)
+		{
+			for (i = 0; i < 8; i++)
+			{
+				glob_stored_message[i] = can_glob_msg_reg[i];		// Store the newly acquired message in memory.
+			}
+			glob_comf = 0;
+		}
 		//xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
 	}
 }

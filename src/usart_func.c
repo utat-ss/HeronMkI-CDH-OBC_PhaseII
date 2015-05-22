@@ -153,6 +153,7 @@ void check_command(void)
 	uint8_t i = 0;
 	uint8_t hk = 1;
 	uint8_t sad = 1;
+	uint8_t msg = 1;
 	
 	float temp = 295.0;
 	
@@ -166,6 +167,10 @@ void check_command(void)
 	check_array = "i am sad";
 	
 	sad = check_string(check_array);
+	
+	check_array = "msg";
+	
+	msg = check_string(check_array);
 	
 	if (hk == 1)
 	{	
@@ -224,6 +229,37 @@ void check_command(void)
 		
 		message_array = "\n\rDO YOU WANT A BISCUIT?\n\r";
 		
+		while(*message_array)
+		{
+			character = *message_array;
+			while(usart_write(BOARD_USART, character));	// Send the character.
+			
+			message_array++;
+		}
+	}
+	
+	if (msg == 1)
+	{
+		
+		message_array = "\n\rA MESSAGE WAS RECEIVED FROM COMS: ";
+		
+		while(*message_array)
+		{
+			character = *message_array;
+			while(usart_write(BOARD_USART, character));	// Send the character.
+			
+			message_array++;
+		}
+		
+		temp = (float)(can_glob_msg_reg[0] - (uint32_t)0x66000000);	// This is the ADC value retrieved from the subsystem.
+		
+		if (temp == 0x0A)
+		{
+			while(usart_write(BOARD_USART, (uint32_t)0x41 ));				// Send the ASCII character.		
+		}
+		
+		message_array = "\n\r";								// Finish the sentence.
+
 		while(*message_array)
 		{
 			character = *message_array;

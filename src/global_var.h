@@ -43,12 +43,15 @@
 
 /*	CAN GLOBAL REGS				   */
 uint32_t can_glob_data_reg[2];			// Initialized in can_initialize
+uint32_t can_glob_msg_reg[2];
 uint32_t can_glob_hk_reg[2];
 uint32_t can_glob_com_reg[2];
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize
+uint8_t glob_comf;
 
 /*	DATA STORAGE POITNER		   */
 uint32_t  glob_stored_data[2];			// Initialized in can_initialize
+uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 

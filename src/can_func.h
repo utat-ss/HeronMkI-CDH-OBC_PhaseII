@@ -121,6 +121,8 @@ typedef struct {
 #define DATA_REQUEST				0x55555555
 #define DATA_RETURNED				0x00000000
 
+#define MESSAGE_RETURNED			0X00000000
+
 #define CAN1_MB0				10
 #define CAN1_MB1				11
 #define CAN1_MB2				12

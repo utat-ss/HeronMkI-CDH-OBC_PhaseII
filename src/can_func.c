@@ -66,8 +66,6 @@
 	*					We shall have a different API call for each type of global CAN reg for the sake
 	*					of readability on the part of the user.
 	*
-	*					The names of these different functions are:
-	*
 	*					I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'stora_can_msg'
 	*
 	*					In the future we will get rid of the glob_drf and glob_comf flags as well as the 'stored'

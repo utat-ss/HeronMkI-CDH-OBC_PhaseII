@@ -57,6 +57,22 @@
 	*					I added the API function can_message_read in order to be able to easily read from
 	*					from can mailboxes when inside a task.
 	*
+	*	07/07/2015		A change which has been long time in coming is that instead of reading directly from
+	*					the physical CAN mailbox objects, there will several types of global CAN registers
+	*					which tasks will have access to through an API call.
+	*
+	*					Before accessing these registers, tasks will need to acquire the CAN mutex.
+	*
+	*					We shall have a different API call for each type of global CAN reg for the sake
+	*					of readability on the part of the user.
+	*
+	*					The names of these different functions are:
+	*
+	*					I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'stora_can_msg'
+	*
+	*					In the future we will get rid of the glob_drf and glob_comf flags as well as the 'stored'
+	*					version of the glob vaiables because they are redundant and only useful for debugging.
+	*
 	*	DESCRIPTION:	
 	*
 	*					This file is being used for all functions and API related to all things CAN.	
@@ -66,9 +82,9 @@
 
 volatile uint32_t g_ul_recv_status = 0;
 
-/**
- * \brief Default interrupt handler for CAN 1.
- */
+/************************************************************************/
+/* Default Interrupt Handler for CAN1								    */
+/************************************************************************/
 void CAN1_Handler(void)
 {
 	uint32_t ul_status;
@@ -85,37 +101,13 @@ void CAN1_Handler(void)
 				can1_mailbox.ul_status = ul_status;
 				can_mailbox_read(CAN1, &can1_mailbox);
 				
-				/* UPDATE THE GLOBAL CAN REGS		*/
-				
-				if (i == 0)
-				{
-					can_glob_data_reg[0] = can1_mailbox.ul_datal;
-					can_glob_data_reg[1] = can1_mailbox.ul_datah;
-				}
-				
-				if (i == 5)
-				{
-					can_glob_msg_reg[0] = can1_mailbox.ul_datal;
-					can_glob_msg_reg[1] = can1_mailbox.ul_datah;
-				}
-				
-				if (i == 6)
-				{
-					can_glob_hk_reg[0] = can1_mailbox.ul_datal;
-					can_glob_hk_reg[1] = can1_mailbox.ul_datah;
-				}
-				
-				if (i == 7)
-				{
-					can_glob_com_reg[0] = can1_mailbox.ul_datal;
-					can_glob_com_reg[1] = can1_mailbox.ul_datah;
-				}
+				store_can_msg(&can1_mailbox, i);			// Save CAN Message to the appropriate global register.
 				
 				/* Decode CAN Message */
-				decode_can_msg(&can1_mailbox, CAN1);
+				debug_can_msg(&can1_mailbox, CAN1);
 				/*assert(g_ul_recv_status); ***Implement assert here.*/
 				
-				/* Restore the can0 mailbox object */
+				/* Restore the can1 mailbox object */
 				restore_can_object(&can1_mailbox, &temp_mailbox_C1);
 				break;
 			}
@@ -125,10 +117,6 @@ void CAN1_Handler(void)
 /************************************************************************/
 /* Default Interrupt Handler for CAN0								    */
 /************************************************************************/
-
-/**
- * \brief Default interrupt handler for CAN0
- */
 void CAN0_Handler(void)
 {
 	uint32_t ul_status;
@@ -147,7 +135,7 @@ void CAN0_Handler(void)
 				g_ul_recv_status = 1;
 				
 				// Decode CAN Message
-				decode_can_msg(&can0_mailbox, CAN0);
+				debug_can_msg(&can0_mailbox, CAN0);
 				//assert(g_ul_recv_status); ***implement assert here.
 				
 				/* Restore the can0 mailbox object */
@@ -159,11 +147,14 @@ void CAN0_Handler(void)
 }
 
 /************************************************************************/
-/* Decode CAN Message													*/
-/* Performs a prescribed action depending on the message received       */
+/* DEBUG CAN MESSAGE													*/
+/* 																        */
+/* Only for the purposes of debugging, this function blinks an LED 		*/
+/* depending on the CAN message which was received.						*/
+/*																		*/
 /************************************************************************/
 
-void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
+void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 {
 	//assert(g_ul_recv_status);		// Only decode if a message was received.	***Asserts here.
 	//assert(controller);				// CAN0 or CAN1 are nonzero.
@@ -192,6 +183,45 @@ void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 		glob_comf = 1;
 	}
 
+	return;
+}
+
+/************************************************************************/
+/* STORE CAN MESSAGE 				                                    */
+/*																		*/
+/* This function is used to take the CAN message which was received		*/
+/* and store it in the appropriate global can register.					*/
+/* 																		*/
+/* These registers are then available to tasks through an API call.		*/
+/************************************************************************/
+
+void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
+{
+	uint32_t ul_data_incom = p_mailbox->ul_datal;
+	uint32_t uh_data_incom = p_mailbox->ul_datah;
+
+	/* UPDATE THE GLOBAL CAN REGS		*/
+	switch(mb)
+	{		
+	case 0 :
+		can_glob_data_reg[0] = ul_data_incom;		// Global CAN Data Registers.
+		can_glob_data_reg[1] = uh_data_incom;
+	
+	case 5 :
+		can_glob_msg_reg[0] = ul_data_incom;		// Global CAN Message Registers.
+		can_glob_msg_reg[1] = uh_data_incom;
+	
+	case 6 :
+		can_glob_hk_reg[0] = ul_data_incom;			// Global CAN Housekeeping Resgiters.
+		can_glob_hk_reg[1] = uh_data_incom;
+	
+	case 7 :
+		can_glob_com_reg[0] = ul_data_incom;		// Global CAN Communications Registers.
+		can_glob_com_reg[1] = uh_data_incom;
+
+	default :
+		return;
+	}
 	return;
 }
 
@@ -272,29 +302,112 @@ uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRI
 }
 
 /************************************************************************/
-/*		READ CAN MESSAGE	                                            */
+/*		READ CAN DATA 		                                            */
 /*																		*/
-/*		This function takes in a mailbox id as a parameter and alters	*/
-/*		a global array named can_glob_data_reg.									*/
+/*		This function returns the CAN message currently residing in     */
+/*		can_glob_data_reg.												*/
 /*																		*/
-/*		This function saves and restores the can1 mailbox object.		*/
+/*		It does this by changing the value that the given pointers		*/
+/* 		are pointing to.												*/
+/*																		*/
+/*		The function returns 1 is the operation was successful, 		*/
+/*		otherwise it returns 0.
 /************************************************************************/
 
-//void read_can_data(uint32_t mb_id)
-//{
-	//can_temp_t temp_mailbox;
-//
-	//save_can_object(&can1_mailbox, &temp_mailbox);				// Save the current state of the can object.
-	//can1_mailbox.ul_mb_idx = mb_id;								// Mailbox 0.
-	//can1_mailbox.ul_status = can_mailbox_get_status(CAN1, mb_id);
-				//
-	//can_mailbox_read(CAN1, &can1_mailbox);
-	//can_glob_data_reg[0] = can1_mailbox.ul_datal;						// Retrieve the data which was received
-	//can_glob_data_reg[1] = can1_mailbox.ul_datah;
-	//restore_can_object(&can1_mailbox, &temp_mailbox);			// Restore the state of the can object.
-	//
-	//return;
-//}
+uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
+{
+	// *** Implement an assert here on access_code.
+
+	if (access_code == 1234)
+	{
+		*message_high = can_glob_data_reg[1];
+		*message_low = can_glob_data_reg[0];
+		return 1;
+	}
+
+	return 0;
+}
+
+/************************************************************************/
+/*		READ CAN MESSAGE		                                           */
+/*																		*/
+/*		This function returns the CAN message currently residing in     */
+/*		can_glob_data_msg.												*/
+/*																		*/
+/*		It does this by changing the value that the given pointers		*/
+/* 		are pointing to.												*/
+/*																		*/
+/*		The function returns 1 is the operation was successful, 		*/
+/*		otherwise it returns 0.
+/************************************************************************/
+
+uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
+{
+	// *** Implement an assert here on access_code.
+
+	if (access_code == 1234)
+	{
+		*message_high = can_glob_msg_reg[1];
+		*message_low = can_glob_msg_reg[0];
+		return 1;
+	}
+
+	return 0;
+}
+
+/************************************************************************/
+/*		READ CAN HOUSEKEEPING 		                                    */
+/*																		*/
+/*		This function returns the CAN message currently residing in     */
+/*		can_glob_data_reg.												*/
+/*																		*/
+/*		It does this by changing the value that the given pointers		*/
+/* 		are pointing to.												*/
+/*																		*/
+/*		The function returns 1 is the operation was successful, 		*/
+/*		otherwise it returns 0.
+/************************************************************************/
+
+uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
+{
+	// *** Implement an assert here on access_code.
+
+	if (access_code == 1234)
+	{
+		*message_high = can_glob_hk_reg[1];
+		*message_low = can_glob_hk_reg[0];
+		return 1;
+	}
+
+	return 0;
+}
+
+/************************************************************************/
+/*		READ CAN COMMUNICATIONS PACKET	                                */
+/*																		*/
+/*		This function returns the CAN message currently residing in     */
+/*		can_glob_data_reg.												*/
+/*																		*/
+/*		It does this by changing the value that the given pointers		*/
+/* 		are pointing to.												*/
+/*																		*/
+/*		The function returns 1 is the operation was successful, 		*/
+/*		otherwise it returns 0.
+/************************************************************************/
+
+uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
+{
+	// *** Implement an assert here on access_code.
+
+	if (access_code == 1234)
+	{
+		*message_high = can_glob_com_reg[1];
+		*message_low = can_glob_com_reg[0];
+		return 1;
+	}
+
+	return 0;
+}
 
 /************************************************************************/
 /*                 REQUEST HOUSKEEPING TO BE SENT TO CAN0		        */
@@ -349,7 +462,6 @@ void save_can_object(can_mb_conf_t *original, can_temp_t *temp)
 {
 	/*This function takes in a mailbox object as the original pointer*/
 	
-	
 	temp->ul_mb_idx		= original->ul_mb_idx;
 	temp->uc_obj_type	= original->uc_obj_type;
 	temp->uc_id_ver		= original->uc_id_ver;
@@ -390,10 +502,12 @@ void restore_can_object(can_mb_conf_t *original, can_temp_t *temp)
 	return;
 }
 
-/**
- * \brief Initializes and enables CAN0 & CAN1 tranceivers and clocks. 
- * CAN0/CAN1 mailboxes are reset and interrupts disabled.
- */
+ /************************************************************************/
+/*					CAN INITIALIZE 			                             */
+/*	Initialzies and enables CAN0 & CAN1 transceivers and clocks.	     */
+/*	CAN0/CAN1 mailboxes are reset and interrupts are disabled.			 */
+/*																		 */
+/*************************************************************************/
 void can_initialize(void)
 {
 	uint32_t ul_sysclk;
@@ -419,41 +533,46 @@ void can_initialize(void)
 
 	ul_sysclk = sysclk_get_cpu_hz();
 	if (can_init(CAN0, ul_sysclk, CAN_BPS_250K) &&
-	can_init(CAN1, ul_sysclk, CAN_BPS_250K)) {
-
-	/* Disable all CAN0 & CAN1 interrupts. */
-	can_disable_interrupt(CAN0, CAN_DISABLE_ALL_INTERRUPT_MASK);
-	can_disable_interrupt(CAN1, CAN_DISABLE_ALL_INTERRUPT_MASK);
-		
-	NVIC_EnableIRQ(CAN0_IRQn);
-	NVIC_EnableIRQ(CAN1_IRQn);
-	
-	can_reset_all_mailbox(CAN0);
-	can_reset_all_mailbox(CAN1);
-	
-	/* Initialize the CAN0 & CAN1 mailboxes */
-	x = can_init_mailboxes(x); // Prevent Random PC jumps to this point.
-	//configASSERT(x);
-	
-	/* Initialize the data reception flag	*/
-	glob_drf = 0;
-	
-	/* Initialize the message reception flag */
-	glob_comf = 0;
-	
-	/* Initialize the global can regs		*/
-	for (i = 0; i < 8; i++)
+			can_init(CAN1, ul_sysclk, CAN_BPS_250K)) 
 	{
-		can_glob_com_reg[i] = 0;
-		can_glob_data_reg[i] = 0;
-		can_glob_hk_reg[i] = 0;
-		glob_stored_data[i] = 0;
-		glob_stored_message[i] = 0;
-	}
-	
+		/* Disable all CAN0 & CAN1 interrupts. */
+		can_disable_interrupt(CAN0, CAN_DISABLE_ALL_INTERRUPT_MASK);
+		can_disable_interrupt(CAN1, CAN_DISABLE_ALL_INTERRUPT_MASK);
+			
+		NVIC_EnableIRQ(CAN0_IRQn);
+		NVIC_EnableIRQ(CAN1_IRQn);
+		
+		can_reset_all_mailbox(CAN0);
+		can_reset_all_mailbox(CAN1);
+		
+		/* Initialize the CAN0 & CAN1 mailboxes */
+		x = can_init_mailboxes(x); // Prevent Random PC jumps to this point.
+		//configASSERT(x);
+		
+		/* Initialize the data reception flag	*/
+		glob_drf = 0;
+		
+		/* Initialize the message reception flag */
+		glob_comf = 0;
+		
+		/* Initialize the global can regs		*/
+		for (i = 0; i < 8; i++)
+		{
+			can_glob_com_reg[i] = 0;
+			can_glob_data_reg[i] = 0;
+			can_glob_hk_reg[i] = 0;
+			glob_stored_data[i] = 0;
+			glob_stored_message[i] = 0;
+		}
 	}
 	return;
 }
+
+/************************************************************************/
+/*					CAN INIT MAILBOXES                                  */
+/*	This function initializes the different CAN mailbboxes.			    */
+/* 																        */
+/************************************************************************/
 
 uint32_t can_init_mailboxes(uint32_t x)
 {

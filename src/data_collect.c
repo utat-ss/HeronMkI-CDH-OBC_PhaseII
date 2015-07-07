@@ -137,20 +137,26 @@ static void prvDataTask( void *pvParameters )
 		//xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
 		if(glob_drf)		// data reception flag;
 		{
-			for (i = 0; i < 8; i++)
+			x = read_can_data(&high, &low, 1234);
+
+			if(x)
 			{
-				glob_stored_data[i] = can_glob_data_reg[i];			// Store the newly acquired data in memory.
+				glob_stored_data[1] = *high;
+				glob_stored_data[0] = *low;
+				glob_drf = 0;
 			}
-			glob_drf = 0;
 		}
 		
 		if(glob_comf)
 		{
-			for (i = 0; i < 8; i++)
+			x = read_can_msg(&high, &low, 1234);
+
+			if(x)
 			{
-				glob_stored_message[i] = can_glob_msg_reg[i];		// Store the newly acquired message in memory.
+				glob_stored_message[1] = *high;
+				glob_stored_message[0] = *low;
+				glob_comf = 0;
 			}
-			glob_comf = 0;
 		}
 		//xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
 	}

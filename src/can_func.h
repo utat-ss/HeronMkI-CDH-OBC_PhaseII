@@ -8,7 +8,8 @@
 	*	
 	*
 	*	FILE REFERENCES:	sn65hvd234.h, can.h, stdio.h, string.h, board.h, sysclk.h, exceptions.h
-	*						pmc.h, conf_board.h, conf_clock.h, pio.h
+	*						pmc.h, conf_board.h, conf_clock.h, pio.h, FreeRTOS.h, task.h, semphr.h, 
+	*						global_var.h
 	*
 	*	EXTERNAL VARIABLES:	
 	*
@@ -43,6 +44,9 @@
 	*	03/28/2015		I have added a global flag for when data has been received. In this way, the
 	*					data-collection task will be able to see when a new value has been loaded into the
 	*					CAN1_MB0 mailbox.
+	*
+	*	07/07/2015		I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'stora_can_msg'
+	*
 */
 
 #include <asf/sam/components/can/sn65hvd234.h>
@@ -165,13 +169,16 @@ can_temp_t temp_mailbox_C1;
 
 void CAN1_Handler(void);
 void CAN0_Handler(void);
-void decode_can_msg(can_mb_conf_t *p_mailbox, Can* controller);
+void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller);
 void reset_mailbox_conf(can_mb_conf_t *p_mailbox);
 void can_initialize(void);
 uint32_t can_init_mailboxes(uint32_t x);
 void save_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void restore_can_object(can_mb_conf_t *original, can_temp_t *temp);
-uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);		// API Function.
-uint32_t request_housekeeping(uint32_t ID);													// API Function.
-void read_can_data(uint32_t mb_id);															// API Function.
+uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);			// API Function.
+uint32_t request_housekeeping(uint32_t ID);														// API Function.
+uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
+uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
+uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
+uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
 

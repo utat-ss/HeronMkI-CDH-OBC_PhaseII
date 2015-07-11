@@ -157,6 +157,8 @@ void check_command(void)
 	
 	float temp = 295.0;
 	
+	uint32_t temp1;
+	
 	uint8_t temp_int = 25, upper, lower;
 	
 	// Housekeeping requested. "hk" was sent.
@@ -195,7 +197,7 @@ void check_command(void)
 			message_array++;
 		}
 		
-		temp = (float)(can_glob_data_reg[0] - (uint32_t)0x55000000);	// This is the ADC value retrieved from the subsystem.
+		temp = (float)(can_glob_data_reg[0]);	// This is the ADC value retrieved from the subsystem.
 			
 		temp = convert_to_temp(temp);						// Temperature returned is in degrees celsius.
 
@@ -251,12 +253,53 @@ void check_command(void)
 			message_array++;
 		}
 		
-		temp = (float)(can_glob_msg_reg[0] - (uint32_t)0x66000000);	// This is the ADC value retrieved from the subsystem.
+		temp1 = (uint32_t)(can_glob_msg_reg[0]);	// This is the ADC value retrieved from the subsystem.
+		temp1 = temp1 & (uint32_t)0x000000FF;
 		
-		if (temp == 0x0A)
+		if ( (temp1 > 0x40) || (temp1 < 0x5B) )
 		{
-			while(usart_write(BOARD_USART, (uint32_t)0x41 ));				// Send the ASCII character.		
+			while(usart_write(BOARD_USART, temp1));				// Send the ASCII character.		
 		}
+//
+		//temp1 = (uint32_t)(can_glob_msg_reg[0]);	// This is the ADC value retrieved from the subsystem.
+		//temp1 = temp1 & (uint32_t)0x0000FF00;
+		//
+		//if ( (temp1 > 0x40) || (temp1 < 0x5B) )
+		//{
+			//while(usart_write(BOARD_USART, temp1));				// Send the ASCII character.
+		//}
+//
+		//temp1 = (uint32_t)(can_glob_msg_reg[0]);	// This is the ADC value retrieved from the subsystem.
+		//temp1 = temp1 & (uint32_t)0x00FF0000;
+		//
+		//if ( (temp1 > 0x40) || (temp1 < 0x5B) )
+		//{
+			//while(usart_write(BOARD_USART, temp1));				// Send the ASCII character.
+		//}
+		//
+		//temp1 = (uint32_t)(can_glob_msg_reg[0]);	// This is the ADC value retrieved from the subsystem.
+		//temp1 = temp1 & (uint32_t)0xFF000000;
+		//
+		//if ( (temp1 > 0x40) || (temp1 < 0x5B) )
+		//{
+			//while(usart_write(BOARD_USART, temp1));				// Send the ASCII character.
+		//}
+		//
+		//temp1 = (uint32_t)(can_glob_msg_reg[1]);	// This is the ADC value retrieved from the subsystem.
+		//temp1 = temp1 & (uint32_t)0x000000FF;
+		//
+		//if ( (temp1 > 0x40) || (temp1 < 0x5B) )
+		//{
+			//while(usart_write(BOARD_USART, temp1));				// Send the ASCII character.
+		//}
+		//
+		//temp1 = (uint32_t)(can_glob_msg_reg[1]);	// This is the ADC value retrieved from the subsystem.
+		//temp1 = temp1 & (uint32_t)0x0000FF00;
+		//
+		//if ( (temp1 > 0x20) || (temp1 < 0x5B) )
+		//{
+			//while(usart_write(BOARD_USART, temp1));				// Send the ASCII character.
+		//}
 		
 		message_array = "\n\r";								// Finish the sentence.
 

@@ -123,7 +123,7 @@ typedef struct {
 #define HK_REQUEST					0x0F0F0F0F
 
 #define DATA_REQUEST				0x55555555
-#define DATA_RETURNED				0x00000000
+#define DATA_RETURNED				0x00000055
 
 #define MESSAGE_RETURNED			0X00000000
 
@@ -175,10 +175,11 @@ void can_initialize(void);
 uint32_t can_init_mailboxes(uint32_t x);
 void save_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void restore_can_object(can_mb_conf_t *original, can_temp_t *temp);
-uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);			// API Function.
-uint32_t request_housekeeping(uint32_t ID);														// API Function.
+void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb);
+uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);				// API Function.
+uint32_t request_housekeeping(uint32_t ID);															// API Function.
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
-uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
-uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
+uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
+uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
 

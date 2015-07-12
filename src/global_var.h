@@ -55,3 +55,4 @@ uint8_t glob_comf;
 uint32_t  glob_stored_data[2];			// Initialized in can_initialize
 uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 
+uint32_t  SAFE_MODE;					// Condition which will initially hold the system in safe_mode.

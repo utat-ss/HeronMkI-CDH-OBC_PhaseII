@@ -246,6 +246,7 @@ extern "C" {
  * board hardware connected to the part.
  */
 extern void board_init(void);
+extern void safe_board_init(void);
 
 #endif  // #ifdef __AVR32_ABI_COMPILER__
 #else
@@ -255,8 +256,8 @@ extern void board_init(void);
  * board hardware connected to the part.
  */
 extern void board_init(void);
+extern void safe_board_init(void);
 #endif
-
 
 #ifdef __cplusplus
 }

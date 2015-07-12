@@ -629,6 +629,7 @@ uint32_t can_init_mailboxes(uint32_t x)
 	can_mailbox_init(CAN1, &can1_mailbox);
 	
 	can_enable_interrupt(CAN1, CAN_IER_MB0);
+	can_enable_interrupt(CAN1, CAN_IER_MB5);
 	can_enable_interrupt(CAN1, CAN_IER_MB6);
 	can_enable_interrupt(CAN1, CAN_IER_MB7);
 	

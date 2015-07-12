@@ -2,7 +2,6 @@
 FreeRTOS V8.1.2 - Copyright (C) 2014 Real Time Engineers Ltd.
 All rights reserved
 Copyright (C) 2012 Atmel Corporation. All rights reserved.
-
 Edited by: Keenan Burnett
 ***********************************************************************
 *	FILE NAME:		init.c
@@ -454,4 +453,3 @@ void board_init(void)
 	gpio_configure_pin(PIN_NF_RB_IDX, PIN_NF_RB_FLAGS);
 #endif
 }
-

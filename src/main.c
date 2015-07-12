@@ -1,7 +1,6 @@
 /*
 FreeRTOS V8.1.2 - Copyright (C) 2014 Real Time Engineers Ltd.
 All rights reserved
-
 Author: Keenan Burnett
 ***********************************************************************
 *	FILE NAME:		main.c
@@ -38,7 +37,6 @@ Author: Keenan Burnett
 *	New tasks should be written to use as much of CMSIS as possible. The ASF and
 *	FreeRTOS API libraries should also be used whenever possible to make the program
 *	more portable.
-
 *	DEVELOPMENT HISTORY:
 *	11/15/2014		Set maincreate_SIMPLE_BLINKY_DEMO_ONLY to 1.
 *

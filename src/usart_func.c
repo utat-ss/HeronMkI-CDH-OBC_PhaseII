@@ -33,6 +33,13 @@
 	*						Essentially we no longer have a software implemented buffer, however it's
 	*						not really that big of a deal considering this code is only for a demonstration.
 	*
+	*	07/12/2015			I changed convert_to_temp so that it takes raw data from the LM95071 and
+	*						converts it into a temperature. This data is transmitted by the SSM just as it
+	*						was before.
+	*
+	*						In addition, the temperature display on the USART terminal now includes the sign
+	*						so that in the future we will be able to register a newgative temperature.
+	*
 	*	DESCRIPTION:
 	*
 	*	Open a terminal which connects to the appropriate serial port
@@ -145,6 +152,7 @@ void USART_Handler(void)
 void check_command(void)
 {	
 	uint32_t character = 0;
+	uint32_t sign = 1;
 	
 	char* message_array;
 	
@@ -155,7 +163,7 @@ void check_command(void)
 	uint8_t sad = 1;
 	uint8_t msg = 1;
 	
-	float temp = 295.0;
+	uint32_t temp = 295.0;
 	
 	uint32_t temp1;
 	
@@ -197,11 +205,11 @@ void check_command(void)
 			message_array++;
 		}
 		
-		temp = (float)(can_glob_data_reg[0]);	// This is the ADC value retrieved from the subsystem.
+		temp = can_glob_data_reg[0];						// This is the ADC value retrieved from the subsystem.
 			
-		temp = convert_to_temp(temp);						// Temperature returned is in degrees celsius.
+		sign = convert_to_temp(&temp);						// Temperature returned is in degrees Celsius.
 
-		temp_int = (uint8_t)temp + 1;							// Convert the float to an integer.
+		temp_int = (uint8_t)temp;						// Convert the float to an 8-bit integer.
 		
 		temp_int = convert_to_bcd(temp_int);				// Convert the temperature into a BCD.
 		
@@ -211,6 +219,17 @@ void check_command(void)
 		
 		lower += (uint8_t)0x30;								// Convert to ASCII form.
 		upper += (uint8_t)0x30;
+		
+		if(sign)
+		{
+			character = 0x2B;
+			while(usart_write(BOARD_USART, character));				// Send "+"
+		}
+		else
+		{
+			character = 0x2D;
+			while(usart_write(BOARD_USART, character));				// Send "-"
+		}
 	
 		while(usart_write(BOARD_USART, upper));				// Send the upper digit.
 		while(usart_write(BOARD_USART, lower));				// Send the lower digit.			
@@ -351,42 +370,39 @@ uint8_t check_string(char* str_to_check)
 /************************************************************************/
 /*		CONVERT TO TEMPERATURE                                          */
 /*																		*/
-/*		This function takes in a floating point value correspondind to	*/
-/*		the ADC value acquired on the subsystem micro and converts it	*/
-/*		into a temperature in degrees centigrade. The function then		*/
-/*		returns this temperature as a float.							*/
+/*		This function takes in a reading from the SPI sensor LM95071.	*/
+/*		It then takes this raw reading and converts it into a positive	*/
+/*		temperature reading. The function will return a 1 if the temp	*/
+/*		was nonnegative, and 0 otherwise.								*/
 /************************************************************************/
-float convert_to_temp(float temp)
+uint32_t convert_to_temp(uint32_t* temp)
 {
-	float r_ratio, log_result = 0.0, result = 0.0;
+	uint32_t temperature, remainder;
+	float t = 0.0;
 	
-	int i, flag = 0;
+	temperature = *temp;
 	
-	r_ratio = (temp) / 1023;	// Convert ADC value to the ratio (of resistances).
+	temperature = temperature >> 2;
 	
-	r_ratio = 1 / (r_ratio);	// Take the inverse.
+	t = (float)temperature;
 	
-	r_ratio = 1 - r_ratio;		// Substract this from one in order to approximate logarithm.
+	t *= 0.03125;
 	
-	for (i = 1; i < 5; i++)		// Natural Logarithm approximation.
+	t = t / (float)1.0;
+	
+	if (t >= (float)0.0)
 	{
-		if(i > 1)
-		{
-			r_ratio = r_ratio * r_ratio;
-		}
-		
-		r_ratio = r_ratio / i;
-		
-		log_result += r_ratio;
+		temperature = (uint32_t)t;
+		*temp = temperature;
+		return 1;	
 	}
-	
-	result = 1 / 293.15 + log_result / 3950;
-	
-	result = 1 / result;
-	
-	result = result - 273.15;		// Degrees Celsius.
-	
-	return result;
+	else
+	{	
+		temperature *= (float)-1.0;
+		temperature = (uint32_t)t;
+		*temp = temperature;
+		return 0;
+	}
 }
 
 /************************************************************************/

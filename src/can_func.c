@@ -158,6 +158,7 @@ void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 	//assert(controller);				// CAN0 or CAN1 are nonzero.
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
+	float temp;
 	
 	if ((ul_data_incom == MSG_ACK) & (controller == CAN1))
 	{
@@ -172,6 +173,15 @@ void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 	if ((uh_data_incom == DATA_RETURNED) & (controller == CAN1) & (glob_drf == 0))
 	{
 		pio_toggle_pin(LED2_GPIO);	// LED2 indicates the reception of data.
+		
+		ul_data_incom = ul_data_incom >> 2;
+		
+		temp = (float)ul_data_incom;
+		
+		temp = temp * 0.03125;
+		
+		temp = temp;
+		
 		glob_drf = 1;
 	}
 	

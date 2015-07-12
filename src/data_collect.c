@@ -127,14 +127,18 @@ static void prvDataTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		xSemaphoreTake(Can1_Mutex, 100);							// Acquire CAN1 Mutex
+
+		low = DATA_REQUEST;
+		high = DATA_REQUEST;
+		
+		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
 		x = send_can_command(low, high, ID, PRIORITY);				//This is the CAN API function I have written for us to use.
 		xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
 		
 		xLastWakeTime = xTaskGetTickCount();						// Delay for 15 clock cycles.
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 
-		xSemaphoreTake(Can1_Mutex, 1000);							// Acquire CAN1 Mutex
+		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
 		if(glob_drf)		// data reception flag;
 		{
 			x = read_can_data(&high, &low, 1234);

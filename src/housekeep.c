@@ -120,7 +120,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		xSemaphoreTake(Can1_Mutex, 100);		// Acquire CAN1 Mutex
+		xSemaphoreTake(Can1_Mutex, 2);		// Acquire CAN1 Mutex
 		x = request_housekeeping(ID);		// This is the CAN API function I have written for us to use.
 		xSemaphoreGive(Can1_Mutex);			// Release CAN1 Mutex
 		

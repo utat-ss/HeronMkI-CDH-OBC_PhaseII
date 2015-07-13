@@ -71,6 +71,9 @@
 	*					In the future we will get rid of the glob_drf and glob_comf flags as well as the 'stored'
 	*					version of the glob vaiables because they are redundant and only useful for debugging.
 	*
+	*	07/12/2015		I have added an if statement in CAN1_Handler so that when the message: 0x0123456789ABCDEF
+	*					is received, we are then allowed to exit safe mode.
+	*
 	*	DESCRIPTION:	
 	*
 	*					This file is being used for all functions and API related to all things CAN.	
@@ -99,6 +102,10 @@ void CAN1_Handler(void)
 				can1_mailbox.ul_status = ul_status;
 				can_mailbox_read(CAN1, &can1_mailbox);
 				
+				if((can1_mailbox.ul_datah == 0x01234567) && (can1_mailbox.ul_datal == 0x89ABCDEF))
+				{
+					SAFE_MODE = 0;
+				}
 				store_can_msg(&can1_mailbox, i);			// Save CAN Message to the appropriate global register.
 				
 				/* Decode CAN Message */

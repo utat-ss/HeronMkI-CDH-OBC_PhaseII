@@ -1,6 +1,7 @@
 /*
 FreeRTOS V8.1.2 - Copyright (C) 2014 Real Time Engineers Ltd.
 All rights reserved
+
 Author: Keenan Burnett
 ***********************************************************************
 *	FILE NAME:		main.c
@@ -37,6 +38,7 @@ Author: Keenan Burnett
 *	New tasks should be written to use as much of CMSIS as possible. The ASF and
 *	FreeRTOS API libraries should also be used whenever possible to make the program
 *	more portable.
+
 *	DEVELOPMENT HISTORY:
 *	11/15/2014		Set maincreate_SIMPLE_BLINKY_DEMO_ONLY to 1.
 *
@@ -91,6 +93,11 @@ Author: Keenan Burnett
 *
 *					I am now removing several test programs from this repository.
 *
+*	07/12/2015		Instead of jumping right into normal operation, we will first enter into what we are calling 'safe mode'
+*					We start off by executing the least amount of code possible in order to get the OBC into a state where
+*					it is waiting for a CAN message that will allow it to enter into regular operation. In main(), the first
+*					function that will be executed is now safe_mode().
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
@@ -125,15 +132,18 @@ function. */
 
 uint32_t data_reg[2];
 
+#include "global_var.h"
+
 /* MUTEXES and SEMAPHORES */
 
-/*
-* Set up the hardware ready to run the program.
-*/
+/* Set up the hardware ready to run the program. */
 static void prvSetupHardware(void);
 
 /*	Initialize mutexes and semaphores to be used by the programs  */
 static void prvInitializeMutexes(void);
+
+/*	This is the initial state of operation. Here we wait for go-ahead from a groundstation.*/
+static void safe_mode(void);
 
 /* External functions used to create and encapsulate different tasks*/
 
@@ -163,6 +173,9 @@ full information - including hardware setup requirements. */
 
 int main(void)
 {
+	SAFE_MODE = 0;
+	safe_mode();
+	
 	/* Prepare the hardware */
 	prvSetupHardware();
 	
@@ -188,29 +201,38 @@ int main(void)
 }
 /*-----------------------------------------------------------*/
 
+static void safe_mode(void)
+{
+	extern void SystemCoreClockUpdate(void);
+	
+	/* ASF function to setup clocking. */
+	sysclk_init();
+	
+	/* Ensure all priority bits are assigned as preemption priority bits. */
+	NVIC_SetPriorityGrouping(0);
+	
+	/* Initializes WDT, CAN, and interrupts. */
+	safe_board_init();
+	
+	/* Initialize CAN-related registers and functions for tests and operation */
+	can_initialize();
+	
+	while(SAFE_MODE){}		// We should remain here until this variable is updated
+							// by the interrupt.
+}
+
+
 /**
  * \brief Initializes the hardware.	
  */
 static void prvSetupHardware(void)
 {
-	extern void SystemCoreClockUpdate(void);
-
-	/* ASF function to setup clocking. */
-	sysclk_init();
-
-	/* Ensure all priority bits are assigned as preemption priority bits. */
-	NVIC_SetPriorityGrouping(0);
-
-	/* Atmel library function to setup for the evaluation kit being used. */
+	/* Perform the remainder of board initialization functions. */
 	board_init();
 
-	/* Perform any configuration necessary to use the ParTest LED output
-	functions. */
+	/* Perform any configuration necessary to use the ParTest LED output functions. */
 	vParTestInitialise();
-	
-	/* Initialize CAN-related registers and functions for tests and operation */
-	can_initialize();
-	
+		
 	/* Initialize USART-related registers and functions. */
 	usart_initialize();
 	

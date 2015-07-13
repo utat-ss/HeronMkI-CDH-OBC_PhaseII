@@ -2,6 +2,7 @@
 FreeRTOS V8.1.2 - Copyright (C) 2014 Real Time Engineers Ltd.
 All rights reserved
 Copyright (C) 2012 Atmel Corporation. All rights reserved.
+
 Edited by: Keenan Burnett
 ***********************************************************************
 *	FILE NAME:		init.c
@@ -41,6 +42,11 @@ Edited by: Keenan Burnett
 *						The code that I got is from the atmel watchdog example, check to make sure wdt.h
 *						is included properly as the wdt was added to this project.
 *
+*	07/12/2015			I have now split up board_init() into two functions, the other being safe_board_init().
+*
+*						The purpose of this is that we want as little code as possible to be required in order 
+*						to start up the OBC. safe_board_init() initializes thhe WDT, CAN, and interrupts.
+*
 */
 
 #include "compiler.h"
@@ -49,25 +55,26 @@ Edited by: Keenan Burnett
 #include "gpio.h"
 #include "asf.h"
 
-/**
- * \brief Initialize board watchdog timer and pins.
- */
-void board_init(void)
-{
+/************************************************************************/
+/* SAFE BOARD INIT                                                      */
+/************************************************************************/
+
+void safe_board_init(void)
+{	
 	uint32_t wdt_mode, wdt_timer;	// Values used in initializing WDT.
 
-#ifndef CONF_BOARD_KEEP_WATCHDOG_AT_INIT
+	#ifndef CONF_BOARD_KEEP_WATCHDOG_AT_INIT
 	/* Disable the watchdog */
 	WDT->WDT_MR = WDT_MR_WDDIS;
 
-#endif
+	#endif
 
-#ifdef CONF_BOARD_KEEP_WATCHDOG_AT_INIT
+	#ifdef CONF_BOARD_KEEP_WATCHDOG_AT_INIT
 	/* Configure WDT to trigger an interrupt (or reset). */
 	wdt_mode = WDT_MR_WDFIEN |  /* Enable WDT fault interrupt. */
-		WDT_MR_WDRPROC |  /* WDT fault resets processor only. */
-		WDT_MR_WDIDLEHLT |
-		WDT_MR_WDRSTEN;   /* WDT stops in idle state. */
+	WDT_MR_WDRPROC |  /* WDT fault resets processor only. */
+	WDT_MR_WDIDLEHLT |
+	WDT_MR_WDRSTEN;   /* WDT stops in idle state. */
 
 	wdt_timer = 125;
 
@@ -81,28 +88,34 @@ void board_init(void)
 	NVIC_EnableIRQ(WDT_IRQn);
 
 	// Use 	wdt_restart(WDT) to reset the watchdog timer.
-#endif
+	#endif
 
 	/*Configure CAN related pins*/
-#ifdef CONF_BOARD_CAN0
+	#ifdef CONF_BOARD_CAN0
 	/* Configure the CAN0 TX and RX pins. */
 	gpio_configure_pin(PIN_CAN0_RX_IDX, PIN_CAN0_RX_FLAGS);
 	gpio_configure_pin(PIN_CAN0_TX_IDX, PIN_CAN0_TX_FLAGS);
 	/* Configure the transiver0 RS & EN pins. */
 	gpio_configure_pin(PIN_CAN0_TR_RS_IDX, PIN_CAN0_TR_RS_FLAGS);
 	gpio_configure_pin(PIN_CAN0_TR_EN_IDX, PIN_CAN0_TR_EN_FLAGS);
-#endif
+	#endif
 
-#ifdef CONF_BOARD_CAN1
+	#ifdef CONF_BOARD_CAN1
 	/* Configure the CAN1 TX and RX pin. */
 	gpio_configure_pin(PIN_CAN1_RX_IDX, PIN_CAN1_RX_FLAGS);
 	gpio_configure_pin(PIN_CAN1_TX_IDX, PIN_CAN1_TX_FLAGS);
 	/* Configure the transiver1 RS & EN pins. */
 	gpio_configure_pin(PIN_CAN1_TR_RS_IDX, PIN_CAN1_TR_RS_FLAGS);
 	gpio_configure_pin(PIN_CAN1_TR_EN_IDX, PIN_CAN1_TR_EN_FLAGS);
-#endif
+	#endif
+	return;
+}
 
-
+/**
+ * \brief Initialize board watchdog timer and pins.
+ */
+void board_init(void)
+{
 	/* Configure Power LED */
 	gpio_configure_pin(LED3_GPIO, LED3_FLAGS);
 	gpio_set_pin_high(LED3_GPIO); /* Turned on by default */
@@ -453,3 +466,4 @@ void board_init(void)
 	gpio_configure_pin(PIN_NF_RB_IDX, PIN_NF_RB_FLAGS);
 #endif
 }
+

@@ -74,6 +74,11 @@
 	*	07/12/2015		I have added an if statement in CAN1_Handler so that when the message: 0x0123456789ABCDEF
 	*					is received, we are then allowed to exit safe mode.
 	*
+	*	07/26/2015		store_can_data(...) now makes use of FIFOs as opposed to a single global can register,
+	*					the read functions also make use of the same FIFOs. In this way, we now have a software
+	*					FIFO which can buffer the incoming bytes of data from the CAN handlers. Note that
+	*					the FIFOs are really Queues implented with the use of FreeRTOS's API functions.
+	*
 	*	DESCRIPTION:	
 	*
 	*					This file is being used for all functions and API related to all things CAN.	
@@ -90,7 +95,7 @@ void CAN1_Handler(void)
 {
 	uint32_t ul_status;
 	/* Save the state of the can1_mailbox object */	
-	save_can_object(&can1_mailbox, &temp_mailbox_C1);	//Doesn't erase the CAN message.
+   	save_can_object(&can1_mailbox, &temp_mailbox_C1);	//Doesn't erase the CAN message.
 	
 	ul_status = can_get_status(CAN1);
 	if (ul_status & GLOBAL_MAILBOX_MASK) {
@@ -214,25 +219,26 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 {
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
+	BaseType_t wake_task;	// Not needed, we won't block on queue reads.
 
 	/* UPDATE THE GLOBAL CAN REGS		*/
 	switch(mb)
 	{		
 	case 0 :
-		can_glob_data_reg[0] = ul_data_incom;		// Global CAN Data Registers.
-		can_glob_data_reg[1] = uh_data_incom;
-	
+		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
+		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+		
 	case 5 :
-		can_glob_msg_reg[0] = ul_data_incom;		// Global CAN Message Registers.
-		can_glob_msg_reg[1] = uh_data_incom;
+		xQueueSendToBackFromISR(can_msg_fifo, &ul_data_incom, &wake_task);		// Global CAN Message FIFO
+		xQueueSendToBackFromISR(can_msg_fifo, &uh_data_incom, &wake_task);
 	
 	case 6 :
-		can_glob_hk_reg[0] = ul_data_incom;			// Global CAN Housekeeping Resgiters.
-		can_glob_hk_reg[1] = uh_data_incom;
+		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
+		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
 	
 	case 7 :
-		can_glob_com_reg[0] = ul_data_incom;		// Global CAN Communications Registers.
-		can_glob_com_reg[1] = uh_data_incom;
+		xQueueSendToBackFromISR(can_com_fifo, &ul_data_incom, &wake_task);
+		xQueueSendToBackFromISR(can_com_fifo, &uh_data_incom, &wake_task);
 
 	default :
 		return;
@@ -335,8 +341,8 @@ uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t a
 
 	if (access_code == 1234)
 	{
-		*message_high = can_glob_data_reg[1];
-		*message_low = can_glob_data_reg[0];
+		xQueueReceive(can_data_fifo, message_low, (TickType_t) 1);
+		xQueueReceive(can_data_fifo, message_high, (TickType_t) 1);
 		return 1;
 	}
 
@@ -362,8 +368,8 @@ uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t ac
 
 	if (access_code == 1234)
 	{
-		*message_high = can_glob_msg_reg[1];
-		*message_low = can_glob_msg_reg[0];
+		xQueueReceive(can_msg_fifo, message_low, (TickType_t) 1);
+		xQueueReceive(can_msg_fifo, message_high, (TickType_t) 1);
 		return 1;
 	}
 
@@ -389,8 +395,8 @@ uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t acc
 
 	if (access_code == 1234)
 	{
-		*message_high = can_glob_hk_reg[1];
-		*message_low = can_glob_hk_reg[0];
+		xQueueReceive(can_hk_fifo, message_low, (TickType_t) 1);
+		xQueueReceive(can_hk_fifo, message_high, (TickType_t) 1);
 		return 1;
 	}
 
@@ -416,8 +422,8 @@ uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t a
 
 	if (access_code == 1234)
 	{
-		*message_high = can_glob_com_reg[1];
-		*message_low = can_glob_com_reg[0];
+		xQueueReceive(can_com_fifo, message_low, (TickType_t) 1);
+		xQueueReceive(can_com_fifo, message_high, (TickType_t) 1);
 		return 1;
 	}
 
@@ -527,6 +533,7 @@ void can_initialize(void)
 {
 	uint32_t ul_sysclk;
 	uint32_t x = 1, i = 0;
+	UBaseType_t fifo_length, item_size;
 
 	/* Initialize CAN0 Transceiver. */
 	sn65hvd234_set_rs(&can0_transceiver, PIN_CAN0_TR_RS_IDX);
@@ -579,6 +586,17 @@ void can_initialize(void)
 			glob_stored_data[i] = 0;
 			glob_stored_message[i] = 0;
 		}
+		
+		/* Initialize global CAN FIFOs			*/
+		fifo_length = 100;		// Max number of items in the FIFO.
+		item_size = 4;			// Number of bytes in the items (4 bytes).
+		
+		/* This corresponds to 400 bytes, or 50 CAN messages */
+		can_data_fifo = xQueueCreate(fifo_length, item_size);
+		can_msg_fifo = xQueueCreate(fifo_length, item_size);
+		can_hk_fifo = xQueueCreate(fifo_length, item_size);
+		can_com_fifo = xQueueCreate(fifo_length, item_size);
+		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
 	}
 	return;
 }

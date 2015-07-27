@@ -138,7 +138,7 @@ static void prvDataTask( void *pvParameters )
 		xLastWakeTime = xTaskGetTickCount();						// Delay for 15 clock cycles.
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 
-		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
+		//xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
 		if(glob_drf)		// data reception flag;
 		{
 			x = read_can_data(&high, &low, 1234);
@@ -162,7 +162,7 @@ static void prvDataTask( void *pvParameters )
 				glob_comf = 0;
 			}
 		}
-		xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
+		//xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
 	}
 }
 /*-----------------------------------------------------------*/

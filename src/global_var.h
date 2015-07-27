@@ -40,12 +40,20 @@
 */
 
 #include <stdio.h>
+#include "FreeRTOS.h"
+#include "queue.h"
 
 /*	CAN GLOBAL REGS				   */
 uint32_t can_glob_data_reg[2];			// Initialized in can_initialize
 uint32_t can_glob_msg_reg[2];
 uint32_t can_glob_hk_reg[2];
 uint32_t can_glob_com_reg[2];
+
+/*  CAN GLOBAL FIFOS			   */
+QueueHandle_t can_data_fifo;			// Initialized in can_initialize
+QueueHandle_t can_msg_fifo;
+QueueHandle_t can_hk_fifo;
+QueueHandle_t can_com_fifo;
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize

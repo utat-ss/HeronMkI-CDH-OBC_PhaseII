@@ -142,6 +142,9 @@ static void prvSetupHardware(void);
 /*	Initialize mutexes and semaphores to be used by the programs  */
 static void prvInitializeMutexes(void);
 
+/*  Initialize the priorities of various interrupts on the Cortex-M3 System */
+static void prvInitializeInterruptPriorities(void);
+
 /*	This is the initial state of operation. Here we wait for go-ahead from a groundstation.*/
 static void safe_mode(void);
 
@@ -176,12 +179,15 @@ int main(void)
 	SAFE_MODE = 0;
 	safe_mode();
 	
+	/* Initialize Interrupt Priorities */
+	prvInitializeInterruptPriorities();
+	
 	/* Prepare the hardware */
 	prvSetupHardware();
 	
 	/* Initialize Mutexes */
 	prvInitializeMutexes();
-
+	
 	/* Create Tasks */
 	my_blink();
 	housekeep();
@@ -217,6 +223,14 @@ static void safe_mode(void)
 	/* Initialize CAN-related registers and functions for tests and operation */
 	can_initialize();
 	
+	//hash_mem();
+	
+	// if (has_result == stored_hash_result)
+		// We're good, SAFE_MODE = 0
+		
+	// else	
+		//send_can_command(result_of_hash, to_coms);
+	
 	while(SAFE_MODE){}		// We should remain here until this variable is updated
 							// by the interrupt.
 }
@@ -244,6 +258,22 @@ static void prvSetupHardware(void)
 static void prvInitializeMutexes(void)
 {	
 	Can1_Mutex = xSemaphoreCreateBinary();
+	return;
+}
+
+static void prvInitializeInterruptPriorities(void)
+{
+	uint32_t priority = 11;
+	IRQn_Type can1_int_num = (IRQn_Type)44;
+	IRQn_Type can0_int_num = (IRQn_Type)43;
+		
+	NVIC_SetPriority(can1_int_num, priority);
+	
+	priority = 12;	
+	NVIC_SetPriority(can0_int_num, priority);
+	
+	priority = NVIC_GetPriority(can1_int_num);
+	
 	return;
 }
 

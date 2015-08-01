@@ -121,7 +121,7 @@ static void prvDataTask( void *pvParameters )
 	
 	low = DATA_REQUEST;
 	high = DATA_REQUEST;
-	ID = SUB0_ID0;
+	ID = SUB0_MB0;
 	PRIORITY = DATA_PRIO;
 	
 	/* @non-terminating@ */	
@@ -153,7 +153,7 @@ static void prvDataTask( void *pvParameters )
 		
 		if(glob_comf)
 		{
-			x = read_can_msg(&high, &low, 1234);
+			x = read_can_tc(&high, &low, 1234);
 
 			if(x)
 			{

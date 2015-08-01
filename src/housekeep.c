@@ -115,7 +115,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	
 	uint32_t ID, x;
 	
-	ID = SUB0_ID5;
+	ID = SUB0_MB5;
 	
 	/* @non-terminating@ */	
 	for( ;; )

@@ -35,6 +35,8 @@
 	*	02/17/2015		I made some changes to send_command() in can_func.c with regards to
 	*					how the ID of the mailboxes is being set.
 	*
+	*	08/02/2015		Added the high_comman_generator in accordance with the new CAN communication structure.
+	*
 	*	DESCRIPTION:	
 	*
 	*	This file is being used to test our CAN commands API. This file is used to encapsulate a 
@@ -116,14 +118,14 @@ static void prvCommandTask( void *pvParameters )
 	uint32_t low, high, ID, PRIORITY, x;
 	
 	low = DUMMY_COMMAND;
-	high = CAN_MSG_DUMMY_DATA;
-	ID = SUB0_MB0;
+	ID = SUB0_ID0;		// SSM Command reception mailbox.
 	PRIORITY = COMMAND_PRIO;
+	
+	high = high_command_generator(OBC_ID, MT_COM, REQ_RESPONSE);	// THIS FUNCTION MUST BE USED TO GENERATE IDENTIFIERS.
 	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		
 		xSemaphoreTake(Can1_Mutex, 2);		// Acquire CAN1 Mutex
 		x = send_can_command(low, high, ID, PRIORITY);	//This is the CAN API function I have written for us to use.
 		xSemaphoreGive(Can1_Mutex);			// Release CAN1 Mutex

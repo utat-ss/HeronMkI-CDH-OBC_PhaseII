@@ -79,6 +79,20 @@
 	*					FIFO which can buffer the incoming bytes of data from the CAN handlers. Note that
 	*					the FIFOs are really Queues implemented with the use of FreeRTOS's API functions.
 	*
+	*	08/01/2015		We're changing the format with which we do CAN communication in order to make it
+	*					more organized. The new system makes the higher 4 bytes of a CAN message the identifiers for it.
+	*					The identifier includes a "FROM-WHO" byte, a BIG-TYPE byte (whether it's data, housekeeping, COMS, or 
+	*					a time-check), a SMALL-TYPE (so that we can be more specific), and a time-stamp (just the current minute).
+	*					The lower four bytes are then what remain for CAN communication.
+	*
+	*					I changed request_housekeeping in order to reflect the aforementioned change as well as the new
+	*					structure for SSM mailboxes which is stated here for convenience:
+	*					MB0: Receives data requests.
+	*					MB1: Receives commands.
+	*					MB2: Receives housekeeping requests.
+	*					MB3: Receives Time Checks
+	*					MB4,5: Used for sending messages.
+	*
 	*	DESCRIPTION:	
 	*
 	*					This file is being used for all functions and API related to all things CAN.	
@@ -299,7 +313,7 @@ uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRI
 	/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
 	/* CAN0 MB7 == COMMAND/MSG MB				*/
 	reset_mailbox_conf(&canT_MB);
-	canT_MB.ul_mb_idx = OBC_0_MB7;			//Can transmitting mailbox 7
+	canT_MB.ul_mb_idx = CAN0_MB7;			//Can transmitting mailbox 7
 	canT_MB.uc_obj_type = CAN_MB_TX_MODE;
 	canT_MB.uc_tx_prio = PRIORITY;		//Transmission Priority (Can be Changed dynamically)
 	canT_MB.uc_id_ver = 0;
@@ -446,21 +460,25 @@ uint32_t request_housekeeping(uint32_t ID)
 {
 	/* Save current can0_mailbox object */
 	can_temp_t temp_mailbox;
+	uint32_t high;
 	save_can_object(&canT_MB, &temp_mailbox);
 	
 	/* Init CAN0 Mailbox 6 to Housekeeping Request Mailbox. */	
 	reset_mailbox_conf(&canT_MB);
-	canT_MB.ul_mb_idx = OBC_0_MB6;			//Mailbox Number 6
+	canT_MB.ul_mb_idx = CAN0_MB6;			//Mailbox Number 6
 	canT_MB.uc_obj_type = CAN_MB_TX_MODE;
 	canT_MB.uc_tx_prio = HK_REQUEST_PRIO;		//Transmission Priority (Can be Changed dynamically)
 	canT_MB.uc_id_ver = 0;
 	canT_MB.ul_id_msk = 0;
 	can_mailbox_init(CAN0, &canT_MB);
+	
+	/* Generate the high command for requesting housekeeping. */
+	high = high_command_generator(OBC_ID, MT_HK, SMALLTYPE_DEFAULT);
 
 	/* Write transmit information into mailbox. */
 	canT_MB.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
-	canT_MB.ul_datal = HK_REQUEST;				// shifted over to the standard frame position.
-	canT_MB.ul_datah = HK_REQUEST;
+	canT_MB.ul_datal = 0x00;					// shifted over to the standard frame position.
+	canT_MB.ul_datah = high;
 	canT_MB.uc_length = MAX_CAN_FRAME_DATA_LEN;
 	can_mailbox_write(CAN0, &canT_MB);
 
@@ -576,17 +594,7 @@ void can_initialize(void)
 		
 		/* Initialize the message reception flag */
 		glob_comf = 0;
-		
-		/* Initialize the global can regs		*/
-		for (i = 0; i < 8; i++)
-		{
-			can_glob_com_reg[i] = 0;
-			can_glob_data_reg[i] = 0;
-			can_glob_hk_reg[i] = 0;
-			glob_stored_data[i] = 0;
-			glob_stored_message[i] = 0;
-		}
-		
+				
 		/* Initialize global CAN FIFOs			*/
 		fifo_length = 100;		// Max number of items in the FIFO.
 		item_size = 4;			// Number of bytes in the items (4 bytes).
@@ -614,7 +622,7 @@ uint32_t can_init_mailboxes(uint32_t x)
 	//configASSERT(x);	//Check if this function was called naturally.
 	
 	reset_mailbox_conf(&canT_MB);
-	canT_MB.ul_mb_idx = OBC_0_MB7;			//Can transmitting mailbox 7
+	canT_MB.ul_mb_idx = CAN0_MB7;			//Can transmitting mailbox 7
 	canT_MB.uc_obj_type = CAN_MB_TX_MODE;
 	canT_MB.uc_tx_prio = 5;		//Transmission Priority (Can be Changed dynamically)
 	canT_MB.uc_id_ver = 0;
@@ -623,34 +631,34 @@ uint32_t can_init_mailboxes(uint32_t x)
 	
 	/* Init CAN Receive Mailbox 0 to Data Reception Mailbox. */
 	reset_mailbox_conf(&canR_MB);
-	canR_MB.ul_mb_idx = OBC_1_MB0;				// Can receiving mailbox 0
+	canR_MB.ul_mb_idx = CAN1_MB0;				// Can receiving mailbox 0
 	canR_MB.uc_obj_type = CAN_MB_RX_MODE;
 	canR_MB.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
-	canR_MB.ul_id = CAN_MID_MIDvA(OBC_1_MB0);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
+	canR_MB.ul_id = CAN_MID_MIDvA(CAN1_MB0);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
 	can_mailbox_init(CAN1, &canR_MB);
 	
 	/* Init CAN Receive Mailbox 5 to Message Reception Mailbox. */
 	reset_mailbox_conf(&canR_MB);
-	canR_MB.ul_mb_idx = OBC_1_MB5;				// Can receiving mailbox 5
+	canR_MB.ul_mb_idx = CAN1_MB5;				// Can receiving mailbox 5
 	canR_MB.uc_obj_type = CAN_MB_RX_MODE;
 	canR_MB.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
-	canR_MB.ul_id = CAN_MID_MIDvA(OBC_1_MB5);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
+	canR_MB.ul_id = CAN_MID_MIDvA(CAN1_MB5);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
 	can_mailbox_init(CAN1, &canR_MB);
 	
 	/* Init CAN Receive Mailbox 6 to HK Reception Mailbox. */
 	reset_mailbox_conf(&canR_MB);
-	canR_MB.ul_mb_idx = OBC_1_MB6;				// Can receiving mailbox 6
+	canR_MB.ul_mb_idx = CAN1_MB6;				// Can receiving mailbox 6
 	canR_MB.uc_obj_type = CAN_MB_RX_MODE;
 	canR_MB.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
-	canR_MB.ul_id = CAN_MID_MIDvA(OBC_1_MB6);					  // The ID of CAN1 MB6 is currently CAN1_MB6 (standard).
+	canR_MB.ul_id = CAN_MID_MIDvA(CAN1_MB6);					  // The ID of CAN1 MB6 is currently CAN1_MB6 (standard).
 	can_mailbox_init(CAN1, &canR_MB);
 		
 	/* Init CAN Receive Mailbox 7 to Command Reception Mailbox. */
 	reset_mailbox_conf(&canR_MB);
-	canR_MB.ul_mb_idx = OBC_1_MB7;				// Can receiving mailbox 7
+	canR_MB.ul_mb_idx = CAN1_MB7;				// Can receiving mailbox 7
 	canR_MB.uc_obj_type = CAN_MB_RX_MODE;
 	canR_MB.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
-	canR_MB.ul_id = CAN_MID_MIDvA(OBC_1_MB7);					  // The ID of CAN1 MB7 is currently CAN1_MB7 (standard).
+	canR_MB.ul_id = CAN_MID_MIDvA(CAN1_MB7);					  // The ID of CAN1 MB7 is currently CAN1_MB7 (standard).
 	can_mailbox_init(CAN1, &canR_MB);
 	
 	can_enable_interrupt(CAN1, CAN_IER_MB0);
@@ -660,7 +668,7 @@ uint32_t can_init_mailboxes(uint32_t x)
 	
 	/* Init CAN Transmit  Mailbox 6 to Housekeeping Request Mailbox. */	
 	reset_mailbox_conf(&canT_MB);
-	canT_MB.ul_mb_idx = OBC_0_MB6;			// Can transmitting mailbox 6
+	canT_MB.ul_mb_idx = CAN0_MB6;			// Can transmitting mailbox 6
 	canT_MB.uc_obj_type = CAN_MB_TX_MODE;
 	canT_MB.uc_tx_prio = HK_REQUEST_PRIO;		//Transmission Priority (Can be Changed dynamically)
 	canT_MB.uc_id_ver = 0;
@@ -679,9 +687,19 @@ uint32_t can_init_mailboxes(uint32_t x)
 /*																		*/
 /************************************************************************/
 	
-uint32_t high_command_generator(uint8_t SSM_ID, uint8_t MessageType, uint8_t smalltype)
+uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t smalltype)
 {
 	uint8_t dummy_time=0x00; //Should be replaced once RTC is ready.
+	uint32_t sender, m_type, s_type;
 	
-	return (uint32_t)SSM_ID<<24+((uint32_t)MessageType<<16)+((uint32_t)smalltype<<8)+((uint32_t)dummy_time);
+	sender = (uint32_t)SENDER_ID;
+	sender = sender << 24;
+	
+	m_type = (uint32_t)MessageType;
+	m_type = m_type << 16;
+	
+	s_type = (uint32_t)smalltype;
+	s_type = s_type << 8;
+	
+	return sender + m_type + s_type + dummy_time;
 }

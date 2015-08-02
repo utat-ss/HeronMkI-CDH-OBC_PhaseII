@@ -45,7 +45,7 @@
 	*					data-collection task will be able to see when a new value has been loaded into the
 	*					CAN1_MB0 mailbox.
 	*
-	*	07/07/2015		I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'stora_can_msg'
+	*	07/07/2015		I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'store_can_msg'.
 	*
 */
 
@@ -126,32 +126,39 @@ typedef struct {
 #define MESSAGE_RETURNED			0X00000000
 
 /* IDs for receiving OBC mailboxes */
-#define OBC_1_MB0				0x00
-#define OBC_1_MB1				0x01
-#define OBC_1_MB2				0x02
-#define OBC_1_MB3				0x03
-#define OBC_1_MB4				0x04
-#define OBC_1_MB5				0x05
-#define OBC_1_MB6				0x06
-#define OBC_1_MB7				0x07
+#define CAN1_MB0				0x00
+#define CAN1_MB1				0x01
+#define CAN1_MB2				0x02
+#define CAN1_MB3				0x03
+#define CAN1_MB4				0x04
+#define CAN1_MB5				0x05
+#define CAN1_MB6				0x06
+#define CAN1_MB7				0x07
 
 /* IDs for transmitting OBC mailboxes */
-#define OBC_0_MB0				0x08
-#define OBC_0_MB1				0x09
-#define OBC_0_MB2				0x0A
-#define OBC_0_MB3				0x0B
-#define OBC_0_MB4				0x0C
-#define OBC_0_MB5				0x0D
-#define OBC_0_MB6				0x0E
-#define OBC_0_MB7				0x0F
+#define CAN0_MB0				0x08
+#define CAN0_MB1				0x09
+#define CAN0_MB2				0x0A
+#define CAN0_MB3				0x0B
+#define CAN0_MB4				0x0C
+#define CAN0_MB5				0x0D
+#define CAN0_MB6				0x0E
+#define CAN0_MB7				0x0F
 
-/* IDs for COMS/SUB0 mailboxes */
-#define SUB0_MB0				0x10
-#define SUB0_MB1				0x11
-#define SUB0_MB2				0x12
-#define SUB0_MB3				0x13
-#define SUB0_MB4				0x14
-#define SUB0_MB5				0x15
+#define SUB0_ID0				20
+#define SUB0_ID1				21
+#define SUB0_ID2				22
+#define SUB0_ID3				23
+#define SUB0_ID4				24
+#define SUB0_ID5				25
+
+///* IDs for COMS/SUB0 mailboxes */
+//#define SUB0_ID0				0x10
+//#define SUB0_ID1				0x11
+//#define SUB0_ID2				0x12
+//#define SUB0_ID3				0x13
+//#define SUB0_ID4				0x14
+//#define SUB0_ID5				0x15
 
 /* IDs for EPS/SUB1 mailboxes */
 #define SUB1_MB0				0x16
@@ -172,13 +179,18 @@ typedef struct {
 /* MessageType_ID  */
 #define MT_DATA					0x00
 #define MT_HK					0x01
-#define MT_COMS					0x02
+#define MT_COM					0x02
 #define MT_TC					0x03
 
-/* SSM_ID */
-#define SSM_COMS				0x00
-#define SSM_EPS					0x01
-#define SSM_PAYL				0x02
+/* SENDER_ID */
+#define COMS_ID					0x00
+#define EPS_ID					0x01
+#define PAYL_ID					0x02
+#define OBC_ID					0xFF
+
+/* COMMAND SMALL-TYPE: */
+#define REQ_RESPONSE			0x01
+#define REQ_DATA				0x02
 
 #define SMALLTYPE_DEFAULT		0x00
 
@@ -221,4 +233,5 @@ uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t a
 uint32_t read_can_tc(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
+uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t smalltype);			// API Function.
 

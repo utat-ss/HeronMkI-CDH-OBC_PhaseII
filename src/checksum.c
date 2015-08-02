@@ -23,35 +23,37 @@
 	*
 	*
 	*	DEVELOPMENT HISTORY:		
-	*	02/0/2015		Created
+	*	02/08/2015		Created
 	*
 	*	DESCRIPTION: 
 	*	An optimized version of Fletcher32 checksum to be used to verify data consistency
 	*	after deployment. To be run during the initial boot process in kernel mode. 
  */
 
-
 /* Standard includes */
-# include <stdio.h>
+#include <stdio.h>
+
 uint32_t fletcher32( uint16_t const *data, size_t words )
 {
 	/* sum1 and sum2 should never be 0 */
-	uint32_t sum1 = 0xffff, sum2 = 0xffff;
+	uint32_t sum1 = 0xffff;
+	uint32_t sum2 = 0xffff;
+	
 	
 	while (words)
 	{
 		/* 359 is the largest n such that ( n(n+1) / 2 ) will not cause an overflow in sum2 */
-		unsigned tlen = words > 359 ? 359 : words;
-		words -= tlen;
+		unsigned len = words > 359 ? 359 : words;
+		words -= len;
 
 		do {
 			sum2 += sum1 += *data++;
-		} while (--tlen);
+		} while (--len);
 		
 		sum1 = (sum1 & 0xffff) + (sum1 >> 16);
 		sum2 = (sum2 & 0xffff) + (sum2 >> 16);
 	}
-	/* Second reduction step to reduce sums to 16 bits */
+	/* Second reduction step to reduce sums to 16 bits to yield a final uint32_t */
 	sum1 = (sum1 & 0xffff) + (sum1 >> 16);
 	sum2 = (sum2 & 0xffff) + (sum2 >> 16);
 	

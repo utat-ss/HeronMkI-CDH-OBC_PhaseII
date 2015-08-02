@@ -132,7 +132,13 @@ src/usart_func.d src/usart_func.o: ../src/usart_func.c \
  ../src/asf/common/services/serial/portmacro.h \
  ../src/asf/common/services/serial/sam_uart/uart_serial.h \
  ../src/asf/sam/drivers/uart/uart.h ../src/config/conf_uart_serial.h \
- ../src/config/conf_board.h ../src/global_var.h
+ ../src/config/conf_board.h ../src/global_var.h \
+ ../src/asf/thirdparty/FreeRTOS/include/FreeRTOS.h \
+ ../src/FreeRTOSConfig.h \
+ ../src/asf/thirdparty/FreeRTOS/include/projdefs.h \
+ ../src/asf/thirdparty/FreeRTOS/include/portable.h \
+ ../src/asf/thirdparty/FreeRTOS/include/mpu_wrappers.h \
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h
 
 ../src/usart_func.h:
 
@@ -417,3 +423,15 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/config/conf_board.h:
 
 ../src/global_var.h:
+
+../src/asf/thirdparty/FreeRTOS/include/FreeRTOS.h:
+
+../src/FreeRTOSConfig.h:
+
+../src/asf/thirdparty/FreeRTOS/include/projdefs.h:
+
+../src/asf/thirdparty/FreeRTOS/include/portable.h:
+
+../src/asf/thirdparty/FreeRTOS/include/mpu_wrappers.h:
+
+../src/asf/thirdparty/FreeRTOS/include/queue.h:

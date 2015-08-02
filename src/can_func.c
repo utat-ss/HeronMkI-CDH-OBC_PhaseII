@@ -77,7 +77,7 @@
 	*	07/26/2015		store_can_data(...) now makes use of FIFOs as opposed to a single global can register,
 	*					the read functions also make use of the same FIFOs. In this way, we now have a software
 	*					FIFO which can buffer the incoming bytes of data from the CAN handlers. Note that
-	*					the FIFOs are really Queues implented with the use of FreeRTOS's API functions.
+	*					the FIFOs are really Queues implemented with the use of FreeRTOS's API functions.
 	*
 	*	DESCRIPTION:	
 	*

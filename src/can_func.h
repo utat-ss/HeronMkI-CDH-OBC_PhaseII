@@ -111,9 +111,6 @@ typedef struct {
 		LED TOGGLE (LOWEST + 1) =	11
 */
 
-#define COMMAND_OUT					0X01010101
-#define COMMAND_IN					0x11111111
-
 #define HK_TRANSMIT					0x12345678
 #define CAN_MSG_DUMMY_DATA          0xFFFFFFFF
 
@@ -128,21 +125,62 @@ typedef struct {
 
 #define MESSAGE_RETURNED			0X00000000
 
-#define CAN1_MB0				10
-#define CAN1_MB1				11
-#define CAN1_MB2				12
-#define CAN1_MB3				13
-#define CAN1_MB4				14
-#define CAN1_MB5				15
-#define CAN1_MB6				16
-#define CAN1_MB7				17
+/* IDs for receiving OBC mailboxes */
+#define OBC_1_MB0				0x00
+#define OBC_1_MB1				0x01
+#define OBC_1_MB2				0x02
+#define OBC_1_MB3				0x03
+#define OBC_1_MB4				0x04
+#define OBC_1_MB5				0x05
+#define OBC_1_MB6				0x06
+#define OBC_1_MB7				0x07
 
-#define SUB0_ID0				20
-#define SUB0_ID1				21
-#define SUB0_ID2				22
-#define SUB0_ID3				23
-#define SUB0_ID4				24
-#define SUB0_ID5				25
+/* IDs for transmitting OBC mailboxes */
+#define OBC_0_MB0				0x08
+#define OBC_0_MB1				0x09
+#define OBC_0_MB2				0x0A
+#define OBC_0_MB3				0x0B
+#define OBC_0_MB4				0x0C
+#define OBC_0_MB5				0x0D
+#define OBC_0_MB6				0x0E
+#define OBC_0_MB7				0x0F
+
+/* IDs for COMS/SUB0 mailboxes */
+#define SUB0_MB0				0x10
+#define SUB0_MB1				0x11
+#define SUB0_MB2				0x12
+#define SUB0_MB3				0x13
+#define SUB0_MB4				0x14
+#define SUB0_MB5				0x15
+
+/* IDs for EPS/SUB1 mailboxes */
+#define SUB1_MB0				0x16
+#define SUB1_MB1				0x17
+#define SUB1_MB2				0x18
+#define SUB1_MB3				0x19
+#define SUB1_MB4				0x1A
+#define SUB1_MB5				0x1B
+
+/* IDs for PAYLOAD/SUB2 mailboxes */
+#define SUB2_MB0				0x1C
+#define SUB2_MB1				0x1D
+#define SUB2_MB2				0x1E
+#define SUB2_MB3				0x1F
+#define SUB2_MB4				0x20
+#define SUB2_MB5				0x21
+
+/* MessageType_ID  */
+#define MT_DATA					0x00
+#define MT_HK					0x01
+#define MT_COMS					0x02
+#define MT_TC					0x03
+
+/* SSM_ID */
+#define SSM_COMS				0x00
+#define SSM_EPS					0x01
+#define SSM_PAYL				0x02
+
+#define SMALLTYPE_DEFAULT		0x00
 
 #define COMMAND_PRIO			10
 #define HK_REQUEST_PRIO			20
@@ -158,10 +196,10 @@ sn65hvd234_ctrl_t can0_transceiver;
 sn65hvd234_ctrl_t can1_transceiver;
 
 /* CAN0 Transfer mailbox structure */
-can_mb_conf_t can0_mailbox;
+can_mb_conf_t canT_MB;
 
 /* CAN1 Transfer mailbox structure */
-can_mb_conf_t can1_mailbox;
+can_mb_conf_t canR_MB;
 
 can_temp_t temp_mailbox_C0;
 can_temp_t temp_mailbox_C1;
@@ -180,7 +218,7 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb);
 uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);				// API Function.
 uint32_t request_housekeeping(uint32_t ID);															// API Function.
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
-uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
+uint32_t read_can_tc(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
 

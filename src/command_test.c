@@ -117,7 +117,7 @@ static void prvCommandTask( void *pvParameters )
 	
 	low = DUMMY_COMMAND;
 	high = CAN_MSG_DUMMY_DATA;
-	ID = SUB0_ID0;
+	ID = SUB0_MB0;
 	PRIORITY = COMMAND_PRIO;
 	
 	/* @non-terminating@ */	

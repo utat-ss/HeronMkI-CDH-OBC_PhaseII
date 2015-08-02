@@ -51,7 +51,7 @@ uint32_t can_glob_com_reg[2];
 
 /*  CAN GLOBAL FIFOS			   */
 QueueHandle_t can_data_fifo;			// Initialized in can_initialize
-QueueHandle_t can_msg_fifo;
+QueueHandle_t can_tc_fifo;
 QueueHandle_t can_hk_fifo;
 QueueHandle_t can_com_fifo;
 

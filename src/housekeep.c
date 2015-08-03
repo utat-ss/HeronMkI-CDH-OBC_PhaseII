@@ -115,7 +115,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	
 	uint32_t ID, x;
 	
-	ID = SUB0_ID0;							// Mailbox 2 on the SSMs is used for housekeeping requests.
+	ID = SUB0_ID5;
 	
 	/* @non-terminating@ */	
 	for( ;; )

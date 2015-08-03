@@ -30,8 +30,6 @@
 	*	DEVELOPMENT HISTORY:		
 	*	03/03/2015		Created.
 	*
-	*	08/02/2015		Added the high_comman_generator in accordance with the new CAN communication structure.
-	*
 	*	DESCRIPTION:	
 	*
 	*	This file is being used to collect data from subsystem microcontrollers by sending out those
@@ -121,14 +119,15 @@ static void prvDataTask( void *pvParameters )
 	
 	uint32_t* message, mem_ptr;
 	
-	ID = SUB0_ID0;			// SSM command reception mailbox.
+	ID = SUB0_ID0;
 	PRIORITY = DATA_PRIO;
-
+	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
+
 		low = DATA_REQUEST;
-		high = high_command_generator(OBC_ID, MT_COM, REQ_DATA);	// THIS FUNCTION MUST BE USED TO GENERATE IDENTIFIERS.
+		high = high_command_generator(OBC_ID, MT_COM, REQ_DATA);
 		
 		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
 		x = send_can_command(low, high, ID, PRIORITY);				//This is the CAN API function I have written for us to use.
@@ -152,7 +151,7 @@ static void prvDataTask( void *pvParameters )
 		
 		if(glob_comf)
 		{
-			x = read_can_tc(&high, &low, 1234);
+			x = read_can_msg(&high, &low, 1234);
 
 			if(x)
 			{

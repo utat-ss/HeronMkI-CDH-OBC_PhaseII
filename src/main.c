@@ -190,8 +190,8 @@ int main(void)
 	
 	/* Create Tasks */
 	my_blink();
-	//housekeep();
-	//command_loop();
+	housekeep();
+	command_loop();
 	data_test();
 	
 	/* Start Scheduler */

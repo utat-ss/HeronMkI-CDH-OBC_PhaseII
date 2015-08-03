@@ -45,7 +45,7 @@
 	*					data-collection task will be able to see when a new value has been loaded into the
 	*					CAN1_MB0 mailbox.
 	*
-	*	07/07/2015		I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'store_can_msg'.
+	*	07/07/2015		I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'stora_can_msg'
 	*
 */
 
@@ -111,6 +111,9 @@ typedef struct {
 		LED TOGGLE (LOWEST + 1) =	11
 */
 
+#define COMMAND_OUT					0X01010101
+#define COMMAND_IN					0x11111111
+
 #define HK_TRANSMIT					0x12345678
 #define CAN_MSG_DUMMY_DATA          0xFFFFFFFF
 
@@ -125,26 +128,25 @@ typedef struct {
 
 #define MESSAGE_RETURNED			0X00000000
 
-/* IDs for receiving OBC mailboxes */
-#define CAN1_MB0				0x00
-#define CAN1_MB1				0x01
-#define CAN1_MB2				0x02
-#define CAN1_MB3				0x03
-#define CAN1_MB4				0x04
-#define CAN1_MB5				0x05
-#define CAN1_MB6				0x06
-#define CAN1_MB7				0x07
+#define CAN0_MB0				1
+#define CAN0_MB1				2
+#define CAN0_MB2				3
+#define CAN0_MB3				4
+#define CAN0_MB4				5
+#define CAN0_MB5				6
+#define CAN0_MB6				7
+#define CAN0_MB7				8
 
-/* IDs for transmitting OBC mailboxes */
-#define CAN0_MB0				0x08
-#define CAN0_MB1				0x09
-#define CAN0_MB2				0x0A
-#define CAN0_MB3				0x0B
-#define CAN0_MB4				0x0C
-#define CAN0_MB5				0x0D
-#define CAN0_MB6				0x0E
-#define CAN0_MB7				0x0F
+#define CAN1_MB0				10
+#define CAN1_MB1				11
+#define CAN1_MB2				12
+#define CAN1_MB3				13
+#define CAN1_MB4				14
+#define CAN1_MB5				15
+#define CAN1_MB6				16
+#define CAN1_MB7				17
 
+/* IDs for COMS/SUB0 mailboxes */
 #define SUB0_ID0				20
 #define SUB0_ID1				21
 #define SUB0_ID2				22
@@ -152,29 +154,21 @@ typedef struct {
 #define SUB0_ID4				24
 #define SUB0_ID5				25
 
-///* IDs for COMS/SUB0 mailboxes */
-//#define SUB0_ID0				0x10
-//#define SUB0_ID1				0x11
-//#define SUB0_ID2				0x12
-//#define SUB0_ID3				0x13
-//#define SUB0_ID4				0x14
-//#define SUB0_ID5				0x15
-
 /* IDs for EPS/SUB1 mailboxes */
-#define SUB1_MB0				0x16
-#define SUB1_MB1				0x17
-#define SUB1_MB2				0x18
-#define SUB1_MB3				0x19
-#define SUB1_MB4				0x1A
-#define SUB1_MB5				0x1B
+#define SUB1_ID0				26
+#define SUB1_ID1				27
+#define SUB1_ID2				28
+#define SUB1_ID3				29
+#define SUB1_ID4				30
+#define SUB1_ID5				31
 
 /* IDs for PAYLOAD/SUB2 mailboxes */
-#define SUB2_MB0				0x1C
-#define SUB2_MB1				0x1D
-#define SUB2_MB2				0x1E
-#define SUB2_MB3				0x1F
-#define SUB2_MB4				0x20
-#define SUB2_MB5				0x21
+#define SUB2_ID0				32
+#define SUB2_ID1				33
+#define SUB2_ID2				34
+#define SUB2_ID3				35
+#define SUB2_ID4				36
+#define SUB2_ID5				37
 
 /* MessageType_ID  */
 #define MT_DATA					0x00
@@ -191,12 +185,13 @@ typedef struct {
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01
 #define REQ_DATA				0x02
+#define REQ_HK					0x03
 
 #define SMALLTYPE_DEFAULT		0x00
 
-#define COMMAND_PRIO			10
+#define COMMAND_PRIO			25
 #define HK_REQUEST_PRIO			20
-#define DATA_PRIO				25
+#define DATA_PRIO				10
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8
@@ -208,10 +203,10 @@ sn65hvd234_ctrl_t can0_transceiver;
 sn65hvd234_ctrl_t can1_transceiver;
 
 /* CAN0 Transfer mailbox structure */
-can_mb_conf_t canT_MB;
+can_mb_conf_t can0_mailbox;
 
 /* CAN1 Transfer mailbox structure */
-can_mb_conf_t canR_MB;
+can_mb_conf_t can1_mailbox;
 
 can_temp_t temp_mailbox_C0;
 can_temp_t temp_mailbox_C1;
@@ -230,7 +225,7 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb);
 uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);				// API Function.
 uint32_t request_housekeeping(uint32_t ID);															// API Function.
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
-uint32_t read_can_tc(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
+uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
 uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t smalltype);			// API Function.

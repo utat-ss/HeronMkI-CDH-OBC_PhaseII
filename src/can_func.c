@@ -102,7 +102,7 @@
 volatile uint32_t g_ul_recv_status = 0;
 
 /************************************************************************/
-/* Default Interrupt Handler for CAN1								    */
+/* Interrupt Handler for CAN1								    		*/
 /************************************************************************/
 void CAN1_Handler(void)
 {
@@ -126,8 +126,14 @@ void CAN1_Handler(void)
 				}
 				store_can_msg(&can1_mailbox, i);			// Save CAN Message to the appropriate global register.
 				
-				/* Decode CAN Message */
+				/* Debug CAN Message 	*/
 				debug_can_msg(&can1_mailbox, CAN1);
+				/* Decode CAN Message 	*/
+				if (i == 7)
+					decode_can_command(&can1_mailbox, CAN1);
+
+				if (i == 0)
+					alert_can_data(&can1_mailbox, CAN1);
 				/*assert(g_ul_recv_status); ***Implement assert here.*/
 				
 				/* Restore the can1 mailbox object */
@@ -138,7 +144,7 @@ void CAN1_Handler(void)
 	}
 }
 /************************************************************************/
-/* Default Interrupt Handler for CAN0								    */
+/* Interrupt Handler for CAN0										    */
 /************************************************************************/
 void CAN0_Handler(void)
 {
@@ -179,41 +185,71 @@ void CAN0_Handler(void)
 
 void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 {
+	uint32_t ul_data_incom = p_mailbox->ul_datal;
+	uint32_t uh_data_incom = p_mailbox->ul_datah;
+
+	big_type = (uint8_t)((uh_data_incom & 0x00FF0000)>>16);
+	small_type = (uint8_t)((uh_data_incom & 0x0000FF00)>>8);
+
+	if ((big_type == MT_COM) && (small_type == RESPONSE))
+		pio_toggle_pin(LED3_GPIO);	// LED2 indicates a command response.
+
+	if (big_type == MT_HK)
+		pio_toggle_pin(LED1_GPIO);	// LED1 indicates the reception of housekeeping.
+	
+	if (big_type == MT_DATA)
+		pio_toggle_pin(LED2_GPIO);	// LED2 indicates the reception of data.
+
+	return;
+}
+
+
+void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
+{
 	//assert(g_ul_recv_status);		// Only decode if a message was received.	***Asserts here.
 	//assert(controller);				// CAN0 or CAN1 are nonzero.
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
-	float temp;
+	uint8_t from_who, big_type, small_type;
+
+	from_who = (uint8_t)(uh_data_incom >> 24);
+	big_type = (uint8_t)((uh_data_incom & 0x00FF0000)>>16);
+	small_type = (uint8_t)((uh_data_incom & 0x0000FF00)>>8);
+
+	if(big_type != MT_COM)
+		return;
 	
-	if ((ul_data_incom == MSG_ACK) & (controller == CAN1))
+	switch(from_who)	// FROM WHO
 	{
-		pio_toggle_pin(LED3_GPIO);	// LED3 indicates the reception of a return message.
+		case EPS_ID :
+			break;
+		case COMS_ID :
+			break;
+		case PAYL_ID :
+			break;
 	}
-	
-	if ((ul_data_incom == HK_RETURNED) & (controller == CAN1))
+	return;
+}
+
+void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
+{
+	//assert(g_ul_recv_status);		// Only decode if a message was received.	***Asserts here.
+	//assert(controller);				// CAN0 or CAN1 are nonzero.
+	uint32_t uh_data_incom = p_mailbox->ul_datah;
+	uint8_t big_type, small_type;
+
+	big_type = (uint8_t)((uh_data_incom & 0x00FF0000)>>16);
+	small_type = (uint8_t)((uh_data_incom & 0x0000FF00)>>8);
+
+	if(big_type != MT_DATA)
+		return;
+
+	switch(small_type)
 	{
-		pio_toggle_pin(LED1_GPIO);	// LED1 indicates the reception of housekeeping.
-	}
-	
-	if ((uh_data_incom == DATA_RETURNED) & (controller == CAN1) & (glob_drf == 0))
-	{
-		pio_toggle_pin(LED2_GPIO);	// LED2 indicates the reception of data.
-		
-		ul_data_incom = ul_data_incom >> 2;
-		
-		temp = (float)ul_data_incom;
-		
-		temp = temp * 0.03125;
-		
-		temp = temp;
-		
-		glob_drf = 1;
-	}
-	
-	if ((uh_data_incom == MESSAGE_RETURNED) & (controller == CAN1) & (glob_comf == 0))
-	{
-		pio_toggle_pin(LED2_GPIO);	// LED2 indicates the reception of a message
-		glob_comf = 1;
+		case SPI_TEMP1:
+			glob_drf = 1;
+		case COMS_PACKET:
+			glob_comsf = 1;
 	}
 
 	return;
@@ -250,8 +286,13 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
 	
 	case 7 :
-		xQueueSendToBackFromISR(can_com_fifo, &ul_data_incom, &wake_task);
+		xQueueSendToBackFromISR(can_com_fifo, &ul_data_incom, &wake_task);		// Global CAN Command FIFO
 		xQueueSendToBackFromISR(can_com_fifo, &uh_data_incom, &wake_task);
+		// Note that the above line is not going to be necessary in the future
+		// as we shall use decode_can_msg() to set flags which processes will then
+		// be able to use without reading CAN messages.
+		// Of course, CAN messages and FIFOs will still be used to transmit info
+		// to the requesting process.
 
 	default :
 		return;
@@ -590,7 +631,7 @@ void can_initialize(void)
 		glob_drf = 0;
 		
 		/* Initialize the message reception flag */
-		glob_comf = 0;
+		glob_comsf = 0;
 		
 		/* Initialize the global can regs		*/
 		for (i = 0; i < 8; i++)

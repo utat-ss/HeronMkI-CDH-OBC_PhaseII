@@ -37,6 +37,8 @@
 	*	DEVELOPMENT HISTORY:
 	*	03/29/2015			Created.
 	*
+	*	08/07/2015			Changed glob_comf to glob_comsf as that's less confusing.
+	*
 */
 
 #include <stdio.h>
@@ -57,7 +59,7 @@ QueueHandle_t can_com_fifo;
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize
-uint8_t glob_comf;
+uint8_t glob_comsf;
 
 /*	DATA STORAGE POITNER		   */
 uint32_t  glob_stored_data[2];			// Initialized in can_initialize

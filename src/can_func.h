@@ -186,8 +186,13 @@ typedef struct {
 #define REQ_RESPONSE			0x01
 #define REQ_DATA				0x02
 #define REQ_HK					0x03
+#define RESPONSE 				0x04
 
 #define SMALLTYPE_DEFAULT		0x00
+
+/* DATA SMALL-TYPE	   */
+#define SPI_TEMP1				0x01
+#define COMS_PACKET				0x02
 
 #define COMMAND_PRIO			25
 #define HK_REQUEST_PRIO			20
@@ -229,4 +234,6 @@ uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t ac
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
 uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t smalltype);			// API Function.
+void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller);
+void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller);
 

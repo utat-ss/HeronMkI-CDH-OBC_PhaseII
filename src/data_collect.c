@@ -149,7 +149,7 @@ static void prvDataTask( void *pvParameters )
 			}
 		}
 		
-		if(glob_comf)
+		if(glob_comsf)
 		{
 			x = read_can_msg(&high, &low, 1234);
 
@@ -157,7 +157,7 @@ static void prvDataTask( void *pvParameters )
 			{
 				glob_stored_message[1] = high;
 				glob_stored_message[0] = low;
-				glob_comf = 0;
+				glob_comsf = 0;
 			}
 		}
 		//xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex

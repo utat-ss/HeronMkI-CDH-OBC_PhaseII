@@ -24,13 +24,18 @@
 	*
 	*	DEVELOPMENT HISTORY:
 	*	04/30/2015			Created.
+	*	
+	*	08/08/2015			SPI Master mode on the OBC is now functional at a clock rate of 4MHz. The
+	*						default chip select pin is pin 10 on the Arduino Due. CS is pulled low during
+	*						master transfer, and each master transfer transmits 16 bits.	
+	*						
 	*
 	*	DESCRIPTION:
 	*
 	*			At the moment, the most important part of this file is the SPI interrupt handler.
 	*
-	*			In the future, this file will contain functions which allow the OBC to act
-	*			as the SPI bus master.
+	*			The OBC is able to function as both an SPI Master and Slave. Currently, the defualt initialization
+	*			sets up the OBC as Master.
 	*
 */
 
@@ -152,8 +157,6 @@ void SPI_Handler(void)
 	uint8_t uc_pcs;
 	uint8_t ret_val = 0;
 	uint32_t* reg_ptr = 0x4000800C;		// SPI_TDR (SPI0)
-	
-	//pio_toggle_pin(LED1_GPIO);
 
 	if (spi_read_status(SPI_SLAVE_BASE) & SPI_SR_RDRF) 
 	{
@@ -179,6 +182,7 @@ static void spi_slave_initialize(void)
 	for (i = 0; i < NB_STATUS_CMD; i++) {
 		gs_spi_status.ul_cmd_list[i] = 0;
 	}
+	
 	gs_ul_spi_state = SLAVE_STATE_DATA;
 	gs_ul_spi_cmd = RC_SYN;
 
@@ -207,20 +211,23 @@ static void spi_master_initialize(void)
 
 	/* Configure an SPI peripheral. */
 	spi_enable_clock(SPI_MASTER_BASE);
-	spi_disable(SPI_MASTER_BASE);
 	spi_reset(SPI_MASTER_BASE);
-	spi_set_lastxfer(SPI_MASTER_BASE);
 	spi_set_master_mode(SPI_MASTER_BASE);
 	spi_disable_mode_fault_detect(SPI_MASTER_BASE);
+	spi_disable_loopback(SPI_MASTER_BASE);
+
 	spi_set_peripheral_chip_select_value(SPI_MASTER_BASE, SPI_CHIP_PCS);
-	spi_set_clock_polarity(SPI_MASTER_BASE, SPI_CHIP_SEL, SPI_CLK_POLARITY);
-	spi_set_clock_phase(SPI_MASTER_BASE, SPI_CHIP_SEL, SPI_CLK_PHASE);
-	spi_set_bits_per_transfer(SPI_MASTER_BASE, SPI_CHIP_SEL,
-			SPI_CSR_BITS_8_BIT);
-	spi_set_baudrate_div(SPI_MASTER_BASE, SPI_CHIP_SEL,
-			(sysclk_get_cpu_hz() / gs_ul_spi_clock));
+	spi_set_fixed_peripheral_select(SPI_MASTER_BASE);
+	spi_disable_peripheral_select_decode(SPI_MASTER_BASE);
+	spi_set_delay_between_chip_select(SPI_MASTER_BASE, SPI_DLYBCS);
+
 	spi_set_transfer_delay(SPI_MASTER_BASE, SPI_CHIP_SEL, SPI_DLYBS,
 			SPI_DLYBCT);
+	spi_set_bits_per_transfer(SPI_MASTER_BASE, SPI_CHIP_SEL, SPI_CSR_BITS_16_BIT);
+	spi_set_baudrate_div(SPI_MASTER_BASE, SPI_CHIP_SEL, spi_calc_baudrate_div(SPI_CLK_FREQ, sysclk_get_cpu_hz())); 
+	spi_configure_cs_behavior(SPI_MASTER_BASE, SPI_CHIP_SEL, SPI_CS_RISE_FORCED);
+	spi_set_clock_polarity(SPI_MASTER_BASE, SPI_CHIP_SEL, SPI_CLK_POLARITY);
+	spi_set_clock_phase(SPI_MASTER_BASE, SPI_CHIP_SEL, SPI_CLK_PHASE);
 	spi_enable(SPI_MASTER_BASE);
 }
 
@@ -241,17 +248,18 @@ static void spi_set_clock_configuration(uint8_t configuration)
  * \param pbuf Pointer to buffer to transfer.
  * \param size Size of the buffer.
  */
-static void spi_master_transfer(void *p_buf, uint32_t size)
+void spi_master_transfer(void *p_buf, uint32_t size)
 {
 	uint32_t i;
-	uint8_t uc_pcs;
+	uint8_t uc_pcs; // SPI Master operating in fixed CS mode so uc_pcs doesn't need to take on a value
 	static uint16_t data;
 
-	uint8_t *p_buffer;
+	uint16_t *p_buffer;
 
 	p_buffer = p_buf;
-
-	for (i = 0; i < size; i++) {
+	
+	for (i = 0; i < size; i++) 
+	{
 		spi_write(SPI_MASTER_BASE, p_buffer[i], 0, 0);
 		/* Wait transfer done. */
 		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
@@ -332,7 +340,7 @@ static void spi_master_go(void)
 }
 
 /**
- * \brief Application entry point for SPI example.
+ * \brief Initialize the ATSAM3X8E SPI driver in Master mode.
  *
  * \return Unused (ANSI-C compatibility).
  */
@@ -343,20 +351,17 @@ void spi_initialize(void)
 	uint32_t* reg_ptr = 0x4000800C;		// SPI_TDR (SPI0)
 	uint16_t data = 0;
 
-	///* Initialize the SAM system. */
-	//sysclk_init();
-	//board_init();
-
-	spi_slave_initialize();
+//	spi_slave_initialize();
 	
 	*reg_ptr |= 0x00BB;
 
 	/* Configure SPI interrupts for slave only. */
-	NVIC_DisableIRQ(SPI_IRQn);
-	NVIC_ClearPendingIRQ(SPI_IRQn);
-	//NVIC_SetPriority(SPI_IRQn, 0);
-	NVIC_EnableIRQ(SPI_IRQn);
+//	NVIC_DisableIRQ(SPI_IRQn);
+//	NVIC_ClearPendingIRQ(SPI_IRQn);
+//	NVIC_SetPriority(SPI_IRQn, 0);
+//	NVIC_EnableIRQ(SPI_IRQn);
 
+	spi_master_initialize();
 	//while (1) {
 		//
 		//*reg_ptr |= 0x00BB;

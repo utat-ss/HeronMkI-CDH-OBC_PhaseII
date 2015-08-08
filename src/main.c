@@ -130,6 +130,8 @@ function. */
 
 #include "spi_func.h"
 
+#include "rtc.h"
+
 uint32_t data_reg[2];
 
 #include "global_var.h"
@@ -252,6 +254,9 @@ static void prvSetupHardware(void)
 	
 	/* Initilize SPI related registers and functions. */
 	spi_initialize();
+	
+	/* Initialize RTC registers and set the default initial time. */
+	rtc_init(DS3234_INTCN);
 }
 /*-----------------------------------------------------------*/
 

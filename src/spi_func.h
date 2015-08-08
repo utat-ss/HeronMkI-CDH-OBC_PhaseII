@@ -25,7 +25,9 @@
 	*	DEVELOPMENT HISTORY:
 	*	04/30/2015			Created.
 	*
-	*	DESCRIPTION:
+	*   08/08/2015			Modified SPI clock phase for compatibility with the DS3234 RTC.
+	*	
+	* 	DESCRIPTION:
 	*
 */
 
@@ -37,22 +39,28 @@
 //#include "conf_spi.h"
 #include "pio.h"
 
+/* SPI clock frequency (Hz) */
+#define SPI_CLK_FREQ 4000000
 
 /* Chip select. */
 #define SPI_CHIP_SEL 0
 #define SPI_CHIP_PCS spi_get_pcs(SPI_CHIP_SEL)
 
 /* Clock polarity. */
-#define SPI_CLK_POLARITY 1
+#define SPI_CLK_POLARITY 0
 
 /* Clock phase. */
-#define SPI_CLK_PHASE 0
+#define SPI_CLK_PHASE 1
 
 /* Delay before SPCK. */
-#define SPI_DLYBS 0x00	// was 0x40
+#define SPI_DLYBS 0x45	// was 0x40
 
 /* Delay between consecutive transfers. */
-#define SPI_DLYBCT 0x00	// was 0x10
+#define SPI_DLYBCT 0x02	// was 0x10
+
+/* Delay between consecutive chip selects */
+#define SPI_DLYBCS 0x00
+
 
 /* SPI slave states for this example. */
 #define SLAVE_STATE_IDLE           0
@@ -147,4 +155,4 @@ static const uint32_t gs_ul_clock_configurations[] =
 
 void SPI_Handler(void);
 void spi_initialize(void);
-
+void spi_master_transfer(void *p_buf, uint32_t size);

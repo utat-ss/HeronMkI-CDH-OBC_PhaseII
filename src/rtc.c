@@ -197,7 +197,7 @@ void rtc_set_addr(uint8_t addr, uint8_t val)
 uint8_t rtc_get_addr(uint8_t addr)
 {
 	uint8_t val;
-	uint16_t message = (uint16_t) addr) << 8;
+	uint16_t message = (uint16_t) addr << 8;
 	spi_master_transfer(&message, 1);
 	
 	val = (uint8_t) (message | 0x00FF);	

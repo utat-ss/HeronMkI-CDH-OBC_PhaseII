@@ -30,6 +30,9 @@
 	*	DEVELOPMENT HISTORY:		
 	*	03/03/2015		Created.
 	*
+	*	08/07/2015		Added the high_command_generator() function which generates the upper four
+	*					bytes which are required in our new CAN organizational structure.
+	*
 	*	DESCRIPTION:	
 	*
 	*	This file is being used to collect data from subsystem microcontrollers by sending out those

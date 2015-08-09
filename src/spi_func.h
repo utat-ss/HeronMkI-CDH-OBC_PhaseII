@@ -31,6 +31,9 @@
 	*
 */
 
+#ifndef SPI_FUNC_H
+#define SPI_FUNC_H
+
 #include "asf.h"
 //#include "stdio_serial.h"
 #include "conf_board.h"
@@ -156,3 +159,5 @@ static const uint32_t gs_ul_clock_configurations[] =
 void SPI_Handler(void);
 void spi_initialize(void);
 void spi_master_transfer(void *p_buf, uint32_t size);
+
+#endif

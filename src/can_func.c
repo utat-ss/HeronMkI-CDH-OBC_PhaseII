@@ -92,6 +92,28 @@
 	*					MB3: Receives Time Checks
 	*					MB4,5: Used for sending messages.
 	*
+	*	08/07/2015		I have been working to formalize the CAN messages that the SSM sends to the OBC and hence 
+	*					the reception and decoding structure that we use in can_func.c needed a bit of reworking. 
+	*					Flags used by data_collect.c are now set using the function alert_can_data(). Additionally, 
+	*					decode_can_command() has been implemented in order to anticipate commands that will be sent 
+	*					to the OBC and need to be acted upon. The most important ones will be responses to commands that
+	*					the OBC issues (the responses themselves are commands). This includes but is not limited to reprogramming 
+	*					the SSM via CAN which has yet to be implemented.
+	*
+	*	08/08/2015		I have decided that a slight modification needs to be made to the CAN structure which I've implemented up to this point.
+	*					The change that I'm proposing to make is to add a 'TO' or 'destination' tag at the beginning of CAN messages.
+	*					The reason this comes up is that a large portion of the commands are going to be responses to requests
+	*					made by the OBC and it would be convenient to know exactly which task on the OBC the response
+	*					is intended for.
+	*					
+	*					Added a field to high_command_generator().
+	*
+	*	08/09/2015		Finished adding API functions read_from_SSM() and write_from_SSM(), this functions will give a task
+	*					the ability to read or write from any address within the data section of an SSM's memory.
+	*					I modified decode_can_command() so that is sets the appropriate flags and global variables upon
+	*					reception of a response to these commands. 
+	*					NOTE: these new functions will wait a maximum of one second for the operation to be completed.
+	*
 	*	DESCRIPTION:	
 	*
 	*					This file is being used for all functions and API related to all things CAN.	
@@ -187,6 +209,7 @@ void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 {
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
+	uint8_t big_type, small_type;
 
 	big_type = (uint8_t)((uh_data_incom & 0x00FF0000)>>16);
 	small_type = (uint8_t)((uh_data_incom & 0x0000FF00)>>8);
@@ -210,22 +233,49 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 	//assert(controller);				// CAN0 or CAN1 are nonzero.
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
-	uint8_t from_who, big_type, small_type;
+	uint8_t sender, destination, big_type, small_type;
 
-	from_who = (uint8_t)(uh_data_incom >> 24);
+	sender = (uint8_t)(uh_data_incom >> 28);
+	destination = (uint8_t)((uh_data_incom & 0x0F000000)>>24);
 	big_type = (uint8_t)((uh_data_incom & 0x00FF0000)>>16);
 	small_type = (uint8_t)((uh_data_incom & 0x0000FF00)>>8);
 
 	if(big_type != MT_COM)
 		return;
 	
-	switch(from_who)	// FROM WHO
+	switch(small_type)	// FROM WHO
 	{
-		case EPS_ID :
+		case ACK_READ:
+			switch(destination)
+			{
+				case HK_TASK_ID :
+					if(hk_read_requestedf)
+					{
+						hk_read_receivedf = 1;
+						hk_read_receive[1] = uh_data_incom;
+						hk_read_receive[0] = ul_data_incom;
+					}
+					break;
+				default :
+					break;
+			}
 			break;
-		case COMS_ID :
+		case ACK_WRITE :
+			switch(destination)
+			{
+				case HK_TASK_ID :
+					if(hk_write_requestedf)
+					{
+						hk_write_receivedf = 1;
+						hk_write_receive[1] = uh_data_incom;
+						hk_write_receive[0] = ul_data_incom;
+					}
+					break;
+				default :
+					break;
+			}
 			break;
-		case PAYL_ID :
+		default :
 			break;
 	}
 	return;
@@ -500,6 +550,7 @@ uint32_t request_housekeeping(uint32_t ID)
 	/* Save current can0_mailbox object */
 	can_temp_t temp_mailbox;
 	uint32_t high;
+	uint8_t dest = (uint8_t)ID;
 	save_can_object(&can0_mailbox, &temp_mailbox);
 	
 	/* Init CAN0 Mailbox 6 to Housekeeping Request Mailbox. */	
@@ -511,7 +562,7 @@ uint32_t request_housekeeping(uint32_t ID)
 	can0_mailbox.ul_id_msk = 0;
 	can_mailbox_init(CAN0, &can0_mailbox);
 	
-	high = high_command_generator(OBC_ID, MT_COM, REQ_HK);
+	high = high_command_generator(HK_TASK_ID, MT_COM, REQ_HK);
 
 	/* Write transmit information into mailbox. */
 	can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
@@ -633,14 +684,19 @@ void can_initialize(void)
 		/* Initialize the message reception flag */
 		glob_comsf = 0;
 		
+		/* Initialize the HK Command Flags */
+		hk_read_requestedf = 0;
+		hk_read_receivedf = 0;
+		hk_write_requestedf = 0;
+		hk_write_receivedf = 0;
+		
 		/* Initialize the global can regs		*/
-		for (i = 0; i < 8; i++)
+		for (i = 0; i < 2; i++)
 		{
-			can_glob_com_reg[i] = 0;
-			can_glob_data_reg[i] = 0;
-			can_glob_hk_reg[i] = 0;
 			glob_stored_data[i] = 0;
 			glob_stored_message[i] = 0;
+			hk_read_receive[i] = 0;
+			hk_write_receive[i] = 0;
 		}
 		
 		/* Initialize global CAN FIFOs			*/
@@ -733,7 +789,7 @@ uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t 
 	
 	sender = (uint32_t)SENDER_ID;
 	sender = sender << 24;
-	
+		
 	m_type = (uint32_t)MessageType;
 	m_type = m_type << 16;
 	
@@ -741,6 +797,92 @@ uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t 
 	s_type = s_type << 8;
 	
 	return sender + m_type + s_type + dummy_time;
+}
+
+uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr)
+{
+	uint32_t high, low, timeout;
+	uint8_t pk, ret_val, p, a;
+	
+	timeout = 800000000;		// Maximum wait time of one second.
+	
+	high = high_command_generator(sender_id, MT_COM, REQ_READ);
+	p = (uint32_t)passkey;
+	p = p << 24;
+	a = (uint32_t)addr;
+	low = p + a;
+	
+	hk_read_requestedf = 1;
+	send_can_command(low, high, ssm_id, DEF_PRIO);
+	
+	while(!hk_read_receivedf)	// Wait for the response to come back.
+	{
+		if(!timeout--)
+		{
+			hk_read_requestedf = 0;
+			return passkey;		// The read operation failed.
+		}
+	}
+	hk_read_requestedf = 0;
+	
+	pk = (uint8_t)(hk_read_receive[0] >> 24);
+	
+	if ((pk != passkey))
+	{
+		hk_read_receivedf = 0;
+		return passkey;			// The read operation failed.
+	}
+		
+	ret_val = (uint8_t)(hk_read_receive[0] & 0x000000FF);
+	
+	hk_read_receivedf = 0;		// Zero this last to keep in sync.
+	
+	return ret_val;				// This is the result of a read operation.
+	
+}
+
+uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data)
+{
+	uint32_t high, low, timeout, p, a, d;
+	uint8_t pk, ret_val;
+	
+	timeout = 800000000;		// Maximum wait time of one second.
+	
+	high = high_command_generator(sender_id, MT_COM, REQ_WRITE);
+	p = (uint32_t)passkey;
+	p = p << 24;
+	a = (uint32_t)addr;
+	a = a << 8;
+	d = (uint32_t)data;
+	low = p + a + d;
+	
+	hk_write_requestedf = 1;
+	send_can_command(low, high, ssm_id, DEF_PRIO);
+	
+	while(!hk_write_receivedf)	// Wait for the response to come back.
+	{
+		if(!timeout--)
+		{
+			hk_write_requestedf = 0;
+			return passkey;		// The write operation failed.
+		}
+	}
+	hk_write_requestedf = 0;
+	
+	pk = (uint8_t)(hk_write_receive[0] >> 24);
+	
+	if ((pk != passkey))
+	{
+		hk_write_receivedf = 0;
+		return passkey;			// The write operation failed.
+	}
+	
+	ret_val = (uint8_t)(hk_read_receive[0] & 0x000000FF);
+	
+	if(ret_val >= 0)
+		return 0;				// The write operation succeeded.
+	else
+		return passkey;			// The write operation failed.
 }
 
 	

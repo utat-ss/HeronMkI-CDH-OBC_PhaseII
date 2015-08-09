@@ -35,6 +35,9 @@
 	*	02/17/2015		I made some changes to send_command() in can_func.c with regards to
 	*					how the ID of the mailboxes is being set.
 	*
+	*	08/07/2015		Added the high_command_generator() function which generates the upper four
+	*					bytes which are required in our new CAN organizational structure.
+	*
 	*	DESCRIPTION:	
 	*
 	*	This file is being used to test our CAN commands API. This file is used to encapsulate a 

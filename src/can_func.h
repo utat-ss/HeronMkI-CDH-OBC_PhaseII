@@ -180,13 +180,23 @@ typedef struct {
 #define COMS_ID					0x00
 #define EPS_ID					0x01
 #define PAYL_ID					0x02
-#define OBC_ID					0xFF
+#define OBC_ID					0x03
+#define HK_TASK_ID				0x04
+#define DATA_TASK_ID			0x05
+#define TC_TASK_ID				0x06
+#define COMS_TASK_ID			0x07
+#define EPS_TASK_ID				0x08
+#define PAYL_TASK_ID			0x09
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01
 #define REQ_DATA				0x02
 #define REQ_HK					0x03
 #define RESPONSE 				0x04
+#define REQ_READ				0x05
+#define ACK_READ				0x06
+#define REQ_WRITE				0x07
+#define ACK_WRITE				0x08
 
 #define SMALLTYPE_DEFAULT		0x00
 
@@ -197,6 +207,7 @@ typedef struct {
 #define COMMAND_PRIO			25
 #define HK_REQUEST_PRIO			20
 #define DATA_PRIO				10
+#define DEF_PRIO				10
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8
@@ -236,4 +247,6 @@ uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t a
 uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t smalltype);			// API Function.
 void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller);
 void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller);
+uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr);			// API Function.
+uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data);	// API Function.
 

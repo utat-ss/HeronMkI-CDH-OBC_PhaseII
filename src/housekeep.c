@@ -31,6 +31,9 @@
 	*	DEVELOPMENT HISTORY:		
 	*	02/18/2015		Created.
 	*
+	*	08/09/2015		Added the function read_from_SSM() to this tasks's duties as a demonstration
+	*					of our reprogramming capabilities.
+	*
 	*	DESCRIPTION:	
 	*
 	*	This file is being used to test Housekeeping Commands between the OBC and a subsystem micro. 
@@ -114,6 +117,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t ID, x;
+	uint8_t ret_val, passkey = 0, addr = 0x80;
 	
 	ID = SUB0_ID5;
 	
@@ -122,10 +126,13 @@ static void prvHouseKeepTask(void *pvParameters )
 	{
 		xSemaphoreTake(Can1_Mutex, 2);		// Acquire CAN1 Mutex
 		x = request_housekeeping(ID);		// This is the CAN API function I have written for us to use.
-		xSemaphoreGive(Can1_Mutex);			// Release CAN1 Mutex
+		//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
+		xSemaphoreGive(Can1_Mutex);
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		
+		passkey ++;
 	}
 }
 /*-----------------------------------------------------------*/

@@ -205,7 +205,7 @@ void check_command(void)
 			message_array++;
 		}
 		
-		temp = can_glob_data_reg[0];						// This is the ADC value retrieved from the subsystem.
+		temp = glob_stored_data[0];						// This is the ADC value retrieved from the subsystem.
 			
 		sign = convert_to_temp(&temp);						// Temperature returned is in degrees Celsius.
 
@@ -272,7 +272,7 @@ void check_command(void)
 			message_array++;
 		}
 		
-		temp1 = (uint32_t)(can_glob_msg_reg[0]);	// This is the ADC value retrieved from the subsystem.
+		temp1 = (uint32_t)(glob_stored_message[0]);	// This is the ADC value retrieved from the subsystem.
 		temp1 = temp1 & (uint32_t)0x000000FF;
 		
 		if ( (temp1 > 0x40) || (temp1 < 0x5B) )

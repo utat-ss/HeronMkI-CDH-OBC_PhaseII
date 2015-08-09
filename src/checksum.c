@@ -32,6 +32,7 @@
 
 /* Standard includes */
 #include <stdio.h>
+#include <stdint.h>
 
 uint32_t fletcher32( uint16_t const *data, size_t words )
 {

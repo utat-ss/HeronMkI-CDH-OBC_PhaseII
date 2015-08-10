@@ -198,6 +198,9 @@ typedef struct {
 #define REQ_WRITE				0x07
 #define ACK_WRITE				0x08
 
+/* Checksum only */
+#define SAFE_MODE_VAR			0x09
+
 #define SMALLTYPE_DEFAULT		0x00
 
 /* DATA SMALL-TYPE	   */

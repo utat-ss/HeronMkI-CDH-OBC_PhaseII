@@ -143,7 +143,7 @@ static void prvDataTask( void *pvParameters )
 		if(glob_drf)		// data reception flag;
 		{
 			x = read_can_data(&high, &low, 1234);
-
+			// ** Modify this code so that it checks the small types first.
 			if(x)
 			{
 				glob_stored_data[1] = high;

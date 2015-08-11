@@ -286,6 +286,7 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 	//assert(g_ul_recv_status);		// Only decode if a message was received.	***Asserts here.
 	//assert(controller);				// CAN0 or CAN1 are nonzero.
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
+	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint8_t big_type, small_type;
 
 	big_type = (uint8_t)((uh_data_incom & 0x00FF0000)>>16);
@@ -300,6 +301,16 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 			glob_drf = 1;
 		case COMS_PACKET:
 			glob_comsf = 1;
+		case BATT_TOP :
+			eps_data_receivedf = 1;
+			eps_data_receive[1] = uh_data_incom;
+			eps_data_receive[0] = ul_data_incom;
+		case BATT_BOTTOM :
+			eps_data_receivedf = 1;
+			eps_data_receive[1] = uh_data_incom;
+			eps_data_receive[0] = ul_data_incom;
+		default :
+			break;
 	}
 
 	return;
@@ -804,7 +815,7 @@ uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_
 	uint32_t high, low, timeout;
 	uint8_t pk, ret_val, p, a;
 	
-	timeout = 800000000;		// Maximum wait time of one second.
+	timeout = 80000000;		// Maximum wait time of one second.
 	
 	high = high_command_generator(sender_id, MT_COM, REQ_READ);
 	p = (uint32_t)passkey;
@@ -846,7 +857,7 @@ uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t
 	uint32_t high, low, timeout, p, a, d;
 	uint8_t pk, ret_val;
 	
-	timeout = 800000000;		// Maximum wait time of one second.
+	timeout = 80000000;		// Maximum wait time of one second.
 	
 	high = high_command_generator(sender_id, MT_COM, REQ_WRITE);
 	p = (uint32_t)passkey;
@@ -883,6 +894,55 @@ uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t
 		return 0;				// The write operation succeeded.
 	else
 		return passkey;			// The write operation failed.
+}
+
+/************************************************************************/
+/* REQUEST SENSOR DATA                                                  */
+/*																		*/
+/* This function takes in sender_id, ssm_id, sensor_name and *status	*/
+/* as parameters in order to grab the value of a particular sensor from	*/
+/* an SSM. The 32-bit value returned is the value of the sensor.		*/
+/* If *status is -1 upon completion, operation failed, 1 is success.	*/
+/* NOTE: This is for use with tasks and their corresponding SSMs only.	*/
+/* NOTE: This function will wait for a maximum of 1 second for the		*/
+/* operation to complete.												*/
+/************************************************************************/
+
+uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status)
+{
+	uint32_t high, low, timeout, s, ret_val;
+	
+	timeout = 80000000;		// Maximum wait time of one second.
+	
+	high = high_command_generator(sender_id, MT_COM, REQ_DATA);
+	low = (uint32_t)sensor_name;
+	low = low << 24;
+	
+	send_can_command(low, high, ssm_id, DEF_PRIO);
+	
+	while(!eps_data_receivedf)	// Wait for the response to come back.
+	{
+		if(!timeout--)
+		{
+			*status = -1;
+			return 0;			// The operation failed.
+		}
+	}
+	
+	s = (uint8_t)((eps_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+	
+	if (s != sensor_name)
+	{
+		eps_data_receivedf = 0;
+		*status = -1;
+		return 0;			// The operation failed.
+	}
+	
+	ret_val = eps_data_receive[0];	// 32-bit return value.
+	
+	eps_data_receivedf = 0;		// Zero this last to keep in sync.
+	*status = 1;				// The operation succeeded.
+	return ret_val;				// This is the requested data.
 }
 
 	

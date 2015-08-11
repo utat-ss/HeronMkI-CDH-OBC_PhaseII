@@ -61,9 +61,15 @@ uint8_t hk_read_receivedf;
 uint8_t hk_write_requestedf;
 uint8_t hk_write_receivedf;
 
+/* EPS COMMAND FLAG				   */
+uint8_t eps_data_receivedf;
+
 /* HOUSEKEEPING COMMAND RESPONSE REGS */
 uint32_t hk_read_receive[2];
 uint32_t hk_write_receive[2];
+
+/* EPS COMMAND RESPONSE REGS		  */
+uint32_t eps_data_receive[2];
 
 /*	DATA STORAGE POITNER		   */
 uint32_t  glob_stored_data[2];			// Initialized in can_initialize

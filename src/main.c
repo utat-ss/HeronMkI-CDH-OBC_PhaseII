@@ -158,6 +158,8 @@ extern void housekeep(void);
 extern void data_test(void);
 extern void	spi_initialize(void);
 
+extern uint32_t fletcher32( uint16_t const *data, size_t words );
+
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
 within this file. */
 void vApplicationMallocFailedHook(void);
@@ -222,19 +224,34 @@ static void safe_mode(void)
 	/* Initializes WDT, CAN, and interrupts. */
 	safe_board_init();
 	
+	uint32_t timeOut, low, high;
+	
+	timeOut = 80000000;
+	
+	
+	
 	/* Initialize CAN-related registers and functions for tests and operation */
 	can_initialize();
-	
-	//hash_mem();
-	
-	// if (has_result == stored_hash_result)
-		// We're good, SAFE_MODE = 0
 		
-	// else	
-		//send_can_command(result_of_hash, to_coms);
+		
+	//Debugging Stuff
+	uint16_t MEM_LOCATION = 0x00080000;
+	size_t SIZE = 10;
 	
-	while(SAFE_MODE){}		// We should remain here until this variable is updated
-							// by the interrupt.
+	uint32_t a;
+	a = fletcher32(MEM_LOCATION, SIZE);
+	
+	
+	while(SAFE_MODE)
+	{
+		if(timeOut--)
+		{
+			high = high_command_generator(OBC_ID, MT_COM, SAFE_MODE_VAR);
+			low = a;
+			send_can_command(low, high, SUB0_ID0, DEF_PRIO);
+			timeOut = 80000000;
+		}
+	}
 }
 
 

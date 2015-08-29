@@ -103,6 +103,7 @@ C_SRCS +=  \
 ../src/data_collect.c \
 ../src/housekeep.c \
 ../src/ParTest.c \
+../src/rtc.c \
 ../src/spi_func.c \
 ../src/usart_func.c \
 ../src/asf/common/services/clock/sam3x/sysclk.c \
@@ -158,6 +159,7 @@ src/command_test.o \
 src/data_collect.o \
 src/housekeep.o \
 src/ParTest.o \
+src/rtc.o \
 src/spi_func.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
@@ -206,6 +208,7 @@ src/command_test.o \
 src/data_collect.o \
 src/housekeep.o \
 src/ParTest.o \
+src/rtc.o \
 src/spi_func.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
@@ -254,6 +257,7 @@ src/command_test.d \
 src/data_collect.d \
 src/housekeep.d \
 src/ParTest.d \
+src/rtc.d \
 src/spi_func.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
@@ -302,6 +306,7 @@ src/command_test.d \
 src/data_collect.d \
 src/housekeep.d \
 src/ParTest.d \
+src/rtc.d \
 src/spi_func.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
@@ -357,6 +362,8 @@ LINKER_SCRIPT_DEP+=  \
 
 
 # AVR32/GNU C Compiler
+
+
 
 
 

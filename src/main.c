@@ -238,12 +238,13 @@ static void safe_mode(void)
 	uint16_t MEM_LOCATION = 0x00080000;
 	size_t SIZE = 10;
 	
-	uint32_t a;
-	a = fletcher32(MEM_LOCATION, SIZE);
+	//uint32_t a;
+	//a = fletcher32(MEM_LOCATION, SIZE);
 	
 	
 	while(SAFE_MODE)
 	{
+		/*
 		if(timeOut--)
 		{
 			high = high_command_generator(OBC_ID, MT_COM, SAFE_MODE_VAR);
@@ -251,6 +252,7 @@ static void safe_mode(void)
 			send_can_command(low, high, SUB0_ID0, DEF_PRIO);
 			timeOut = 80000000;
 		}
+		*/
 	}
 }
 

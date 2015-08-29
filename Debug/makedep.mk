@@ -16,6 +16,8 @@ src\housekeep.c
 
 src\ParTest.c
 
+src\rtc.c
+
 src\spi_func.c
 
 src\usart_func.c

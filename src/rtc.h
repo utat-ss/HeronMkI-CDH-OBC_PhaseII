@@ -38,27 +38,24 @@
 struct timestamp
 {
 	uint8_t sec;         /* seconds */
-	uint8_t min;         /* minutes */
+	uint8_t minute;      /* minutes */
 	uint8_t hour;        /* hours */
+	uint8_t wday;        /* day of the week */
 	uint8_t mday;        /* day of the month */
 	uint8_t mon;         /* month */
-	int year;            /* year */
-	uint8_t wday;        /* day of the week */
-	uint8_t yday;        /* day in the year */
-	uint8_t isdst;       /* daylight saving time */
-	uint8_t year_s;      /* year in short notation*/
+	uint16_t year;       /* year */
 };
 
 /*		Control/Status Registers	*/
-#define DS3234_CREG_READ		0x0E
-#define DS3234_CREG_WRITE		0x8E
-#define DS3234_SREG_READ		0x0F
-#define DS3234_SREG_WRITE		0x8F
+#define DS3234_CREG_READ		0x000E
+#define DS3234_CREG_WRITE		0x008E
+#define DS3234_SREG_READ		0x000F
+#define DS3234_SREG_WRITE		0x008F
 
 /*		Control Register Bits		*/
-#define DS3234_A1IE     0x1
-#define DS3234_A2IE     0x2
-#define DS3234_INTCN    0x4
+#define DS3234_A1IE     0x0001
+#define DS3234_A2IE     0x0002
+#define DS3234_INTCN    0x0004
 
 /*		Status Register Bits		*/
 #define DS3234_A1F      0x1
@@ -66,15 +63,15 @@ struct timestamp
 #define DS3234_OSF      0x80
 
 /*			RTC API Functions		*/
-void rtc_init(const uint8_t creg);
+void rtc_init(uint16_t creg);
 void rtc_set(struct timestamp t);
 void rtc_get(struct timestamp *t);
 
 /*	Control/Status Register	Modifiers	*/
-void rtc_set_creg(const uint8_t val);
-void rtc_set_sreg(const uint8_t mask);
+void rtc_set_creg(uint16_t val);
+void rtc_set_sreg(uint16_t mask);
 uint8_t rtc_get_sreg(void);
 
 /*					Support Functions					 */
-void rtc_set_addr(const uint8_t addr, const uint8_t val);
-uint8_t rtc_get_addr(const uint8_t addr);
+void rtc_set_addr(uint16_t addr, uint16_t val);
+uint8_t rtc_get_addr(uint16_t addr);

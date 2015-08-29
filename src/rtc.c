@@ -28,6 +28,9 @@
 	*
 	*	08/08/2015		Setting and reading time from the RTC is now functional.
 	*	
+	*   08/29/2015      Removed the added century bit from month (unnecessary) and simplified the
+	*					timestamp structure to contain only the essential information.
+	*
 	*	DESCRIPTION:	
 	*			
 	*					Provides the functionality to use the DS3234 as an external RTC using SPI. 
@@ -61,24 +64,21 @@ static uint8_t bcdtodec(uint8_t val)
  *
  * \param ctrl_reg_val The byte to set the control register to
  */
-void rtc_init(uint8_t ctrl_reg_val)
+void rtc_init(uint16_t ctrl_reg_val)
 {			
     rtc_set_creg(ctrl_reg_val);
 	
 	struct timestamp initial_time;
 
-	initial_time.sec = 0;
-	initial_time.min = 0;
-	initial_time.hour = 0;
-	initial_time.yday = 1;
-	initial_time.mday = 1;
-	initial_time.wday = 1;
-	initial_time.mon = 1;
-	initial_time.year = 0;
-	initial_time.year_s = 0;
-	initial_time.isdst = 0;
+	initial_time.sec = 0x00;
+	initial_time.minute = 0x00;
+	initial_time.hour = 0x00;
+	initial_time.mday = 0x01;
+	initial_time.wday = 0x01;
+	initial_time.mon = 0x01;
+	initial_time.year = 0x00;
 	
-	rtc_set(initial_time);	
+	rtc_set(initial_time);
 }
 
 /**
@@ -88,39 +88,18 @@ void rtc_init(uint8_t ctrl_reg_val)
  */
 void rtc_set(struct timestamp t)
 {
-	uint8_t time_date[7] = { t.sec, t.min, t.hour, t.wday, t.mday, t.mon, t.year_s };
-    uint8_t i, century, buffer_0, buffer_1, buffer_2;
-	uint16_t message;
-	
-    if (t.year > 2000) 
-	{
-        century = 0x80;
-        t.year_s = t.year - 2000;
-    } 
-	else 
-	{
-        century = 0;
-        t.year_s = t.year - 1900;
-    }
-	
-	buffer_1 = dectobcd(time_date[5]) + century;
+	uint8_t time_date[7] = { t.sec, t.minute, t.hour, t.wday, t.mday, t.mon, t.year };
+    uint8_t i, century;
+	uint16_t message, buffer_0, buffer_1, buffer_2;
 
     for (i = 0; i < 7; i++) 
 	{
 		// Convert data and prepare message to send
 		buffer_0 = i + 0x80;
 		buffer_2 = dectobcd(time_date[i]);
-			
-		if (i == 5)
-		{
-			message = (((uint16_t) buffer_0) << 8) | buffer_1;
-			spi_master_transfer(&message, 1);
-		}
-		else
-		{
-			message = (((uint16_t) buffer_0) << 8) | buffer_2;
-			spi_master_transfer(&message, 1);
-		}
+		
+		message = (buffer_0 << 8) | buffer_2;
+		spi_master_transfer(&message, 1);
     }
 }
 
@@ -128,11 +107,11 @@ void rtc_set(struct timestamp t)
  * \brief Retrieves the current time and date from the RTC.
  *
  * \param t Pointer to an empty timestamp struct that will contain
- * the values retrieved from the RTC. 
+ *  the values retrieved from the RTC. 
  */
 void rtc_get(struct timestamp *t)
 {	
-    uint8_t time_date[7];        // second, minute, hour,day of week, day, month, year
+    uint8_t time_date[7];        // second, minute, hour, day of week, day of month, month, year
     uint8_t i, ret_val, century = 0;
     uint16_t year_full, message;
 	
@@ -145,34 +124,18 @@ void rtc_get(struct timestamp *t)
 		spi_master_transfer(&message, 1);
 		
 		// Get the value flushed out of the register
-		ret_val = (uint8_t) (message | 0x00FF);
-		        
-		if (i == 5) 
-		{           
-			// month address also contains the century on bit7
-            time_date[5] = bcdtodec(ret_val & 0x1F);
-            century = (ret_val & 0x80) >> 7;
-        } 
-		else 
-		{
-            time_date[i] = bcdtodec(ret_val);
-        }		
+		ret_val = (uint8_t) message;
+		time_date[i] = bcdtodec(ret_val);	
     }
-	
-    if (century == 1)
-        year_full = 2000 + time_date[6];
-    else
-        year_full = 1900 + time_date[6];
 
 	// Store values into timestamp provided
     t->sec = time_date[0];
-    t->min = time_date[1];
+    t->minute = time_date[1];
     t->hour = time_date[2];
+	t->wday = time_date[3];
     t->mday = time_date[4];
     t->mon = time_date[5];
-    t->year = year_full;
-    t->wday = time_date[3];
-    t->year_s = time_date[6]; 
+    t->year = time_date[6]; 
 }
 
 /** 
@@ -181,9 +144,9 @@ void rtc_get(struct timestamp *t)
  * \param addr RTC register address
  * \param val  New register value
  */
-void rtc_set_addr(uint8_t addr, uint8_t val)
+void rtc_set_addr(uint16_t addr, uint16_t val)
 {
-	uint16_t message = (((uint16_t) addr) << 8) | val;
+	uint16_t message = (addr << 8) | val;
 	spi_master_transfer(&message, 1);
 }
 
@@ -194,7 +157,7 @@ void rtc_set_addr(uint8_t addr, uint8_t val)
  *
  * \return val Value stored in specified register
  */
-uint8_t rtc_get_addr(uint8_t addr)
+uint8_t rtc_get_addr(uint16_t addr)
 {
 	uint8_t val;
 	uint16_t message = (uint16_t) addr << 8;
@@ -218,7 +181,7 @@ uint8_t rtc_get_addr(uint8_t addr)
  * bit1 A2IE   Alarm1 interrupt enable (1 to enable)
  * bit0 A1IE   Alarm0 interrupt enable (1 to enable)
  */
-void rtc_set_creg(uint8_t val)
+void rtc_set_creg(uint16_t val)
 {
     rtc_set_addr(DS3234_CREG_WRITE, val);
 }
@@ -236,7 +199,7 @@ void rtc_set_creg(uint8_t val)
  * bit1 A2F      Alarm 1 Flag - (1 if alarm2 was triggered)
  * bit0 A1F      Alarm 0 Flag - (1 if alarm1 was triggered)
  */
-void rtc_set_sreg(uint8_t val)
+void rtc_set_sreg(uint16_t val)
 {
     rtc_set_addr(DS3234_SREG_WRITE, val);
 }

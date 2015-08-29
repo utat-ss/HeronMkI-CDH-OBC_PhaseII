@@ -156,6 +156,7 @@ extern void my_blink(void);
 extern void command_loop(void);
 extern void housekeep(void);
 extern void data_test(void);
+extern void time_update(void);
 extern void	spi_initialize(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
@@ -197,6 +198,7 @@ int main(void)
 	housekeep();
 	command_loop();
 	data_test();
+	time_update();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

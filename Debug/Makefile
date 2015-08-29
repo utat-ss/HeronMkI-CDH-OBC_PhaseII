@@ -105,6 +105,7 @@ C_SRCS +=  \
 ../src/ParTest.c \
 ../src/rtc.c \
 ../src/spi_func.c \
+../src/time_update.c \
 ../src/usart_func.c \
 ../src/asf/common/services/clock/sam3x/sysclk.c \
 ../src/asf/common/utils/interrupt/interrupt_sam_nvic.c \
@@ -161,6 +162,7 @@ src/housekeep.o \
 src/ParTest.o \
 src/rtc.o \
 src/spi_func.o \
+src/time_update.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.o \
@@ -210,6 +212,7 @@ src/housekeep.o \
 src/ParTest.o \
 src/rtc.o \
 src/spi_func.o \
+src/time_update.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.o \
@@ -259,6 +262,7 @@ src/housekeep.d \
 src/ParTest.d \
 src/rtc.d \
 src/spi_func.d \
+src/time_update.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.d \
@@ -308,6 +312,7 @@ src/housekeep.d \
 src/ParTest.d \
 src/rtc.d \
 src/spi_func.d \
+src/time_update.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
 src/asf/common/utils/interrupt/interrupt_sam_nvic.d \
@@ -362,6 +367,8 @@ LINKER_SCRIPT_DEP+=  \
 
 
 # AVR32/GNU C Compiler
+
+
 
 
 

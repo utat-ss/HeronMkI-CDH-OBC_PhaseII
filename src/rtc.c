@@ -31,14 +31,18 @@
 	*   08/29/2015      Removed the added century bit from month (unnecessary) and simplified the
 	*					timestamp structure to contain only the essential information.
 	*
+	*					Added support for one of the two alarms on the DS3234. Alarm 2 is configured
+	*					to trigger every minute to support the time_update task.
+	*
 	*	DESCRIPTION:	
 	*			
 	*					Provides the functionality to use the DS3234 as an external RTC using SPI. 
 	*					
     *					Retrieving and setting the time/date are currently supported.
 	*					
-	*					Alarms (1 & 2), SRAM, square wave generator and watchdog timer functionality of the chip
+	*					Alarm 1 , SRAM, square wave generator and watchdog timer functionality of the chip
 	*					are disabled.
+	
  */
 #include "rtc.h"
 
@@ -79,6 +83,9 @@ void rtc_init(uint16_t ctrl_reg_val)
 	initial_time.year = 0x00;
 	
 	rtc_set(initial_time);
+	
+	rtc_set_a2();
+	rtc_clear_a2_flag();
 }
 
 /**
@@ -89,16 +96,16 @@ void rtc_init(uint16_t ctrl_reg_val)
 void rtc_set(struct timestamp t)
 {
 	uint8_t time_date[7] = { t.sec, t.minute, t.hour, t.wday, t.mday, t.mon, t.year };
-    uint8_t i, century;
-	uint16_t message, buffer_0, buffer_1, buffer_2;
+    uint8_t i;
+	uint16_t message, addr, data;
 
     for (i = 0; i < 7; i++) 
 	{
 		// Convert data and prepare message to send
-		buffer_0 = i + 0x80;
-		buffer_2 = dectobcd(time_date[i]);
+		addr = i + 0x80;
+		data = dectobcd(time_date[i]);
 		
-		message = (buffer_0 << 8) | buffer_2;
+		message = (addr << 8) | data;
 		spi_master_transfer(&message, 1);
     }
 }
@@ -112,7 +119,7 @@ void rtc_set(struct timestamp t)
 void rtc_get(struct timestamp *t)
 {	
     uint8_t time_date[7];        // second, minute, hour, day of week, day of month, month, year
-    uint8_t i, ret_val, century = 0;
+    uint8_t i, ret_val;
     uint16_t year_full, message;
 	
     for (i = 0; i < 7; i++) 
@@ -161,9 +168,10 @@ uint8_t rtc_get_addr(uint16_t addr)
 {
 	uint8_t val;
 	uint16_t message = (uint16_t) addr << 8;
+	
 	spi_master_transfer(&message, 1);
 	
-	val = (uint8_t) (message | 0x00FF);	
+	val = (uint8_t) message;	
 	return val;
 }
 
@@ -214,4 +222,51 @@ uint8_t rtc_get_sreg(void)
 	uint8_t ret_val;
 	ret_val = rtc_get_addr(DS3234_SREG_READ);
 	return ret_val;
+}
+
+/** 
+ * \brief Sets the RTC Alarm 2 to trigger every minute.
+ */
+void rtc_set_a2(void)
+{
+	uint8_t i;
+	uint16_t buffer, message;
+	
+	for (i = 0; i <= 2; i++) 
+	{
+		buffer = i + 0x8B;
+
+		message = (buffer << 8) | 0x80;
+		spi_master_transfer(&message, 1);
+	}
+}
+
+/** 
+ * \brief Clears and resets the RTC Alarm 2 to trigger every minute.
+ */
+void rtc_reset_a2(void)
+{
+	rtc_set_creg(DS3234_INTCN | DS3234_A2IE);
+	rtc_clear_a2_flag();	
+}
+
+/** 
+ * \brief Clears the RTC Alarm 2 Flag
+ */
+void rtc_clear_a2_flag(void)
+{
+	uint8_t reg_val;
+	reg_val = rtc_get_sreg() & ~DS3234_A2F;
+	
+	rtc_set_sreg(reg_val);
+}
+
+/** 
+ * \brief Checks the RTC Alarm 2 flag to see if the alarm has triggered.
+ *
+ * \return 1 if the alarm is triggered, 0 otherwise.
+ */
+uint8_t rtc_triggered_a2(void)
+{
+	return  rtc_get_sreg() & DS3234_A2F;
 }

@@ -20,6 +20,8 @@ src\rtc.c
 
 src\spi_func.c
 
+src\time_update.c
+
 src\usart_func.c
 
 src\asf\common\services\clock\sam3x\sysclk.c

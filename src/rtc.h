@@ -31,7 +31,6 @@
 	*
 	*	
  */
-
 #include "spi_func.h"
 
 /*		Timestamp Struct			*/
@@ -58,9 +57,9 @@ struct timestamp
 #define DS3234_INTCN    0x0004
 
 /*		Status Register Bits		*/
-#define DS3234_A1F      0x1
-#define DS3234_A2F      0x2
-#define DS3234_OSF      0x80
+#define DS3234_A1F      0x0001
+#define DS3234_A2F      0x0002
+#define DS3234_OSF      0x0080
 
 /*			RTC API Functions		*/
 void rtc_init(uint16_t creg);
@@ -72,6 +71,12 @@ void rtc_set_creg(uint16_t val);
 void rtc_set_sreg(uint16_t mask);
 uint8_t rtc_get_sreg(void);
 
-/*					Support Functions					 */
+/*			RTC Alarm 2 Functions		*/
+void rtc_set_a2(void);
+void rtc_reset_a2(void);
+void rtc_clear_a2_flag(void);
+uint8_t rtc_triggered_a2(void);
+
+/*			Support Functions				 */
 void rtc_set_addr(uint16_t addr, uint16_t val);
 uint8_t rtc_get_addr(uint16_t addr);

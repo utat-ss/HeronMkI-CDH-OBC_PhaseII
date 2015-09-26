@@ -50,10 +50,10 @@
 #define SPI_CHIP_PCS spi_get_pcs(SPI_CHIP_SEL)
 
 /* Clock polarity. */
-#define SPI_CLK_POLARITY 0
+#define SPI_CLK_POLARITY 1
 
 /* Clock phase. */
-#define SPI_CLK_PHASE 1
+#define SPI_CLK_PHASE 0
 
 /* Delay before SPCK. */
 #define SPI_DLYBS 0x45	// was 0x40
@@ -157,7 +157,6 @@ static const uint32_t gs_ul_clock_configurations[] =
 { 500000, 1000000, 2000000, 5000000 };
 
 void SPI_Handler(void);
-void spi_initialize(void);
 void spi_master_transfer(void *p_buf, uint32_t size);
 
 #endif

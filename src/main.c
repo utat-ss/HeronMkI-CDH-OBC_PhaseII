@@ -156,6 +156,7 @@ extern void my_blink(void);
 extern void command_loop(void);
 extern void housekeep(void);
 extern void data_test(void);
+extern void time_update(void);
 extern void	spi_initialize(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
@@ -197,6 +198,7 @@ int main(void)
 	command_loop();
 	housekeep();
 	data_test();
+	time_update();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();
@@ -238,12 +240,13 @@ static void safe_mode(void)
 	uint16_t MEM_LOCATION = 0x00080000;
 	size_t SIZE = 10;
 	
-	uint32_t a;
-	a = fletcher32(MEM_LOCATION, SIZE);
+	//uint32_t a;
+	//a = fletcher32(MEM_LOCATION, SIZE);
 	
 	
 	while(SAFE_MODE)
 	{
+		/*
 		if(timeOut--)
 		{
 			high = high_command_generator(OBC_ID, MT_COM, SAFE_MODE_VAR);
@@ -251,6 +254,7 @@ static void safe_mode(void)
 			send_can_command(low, high, SUB0_ID0, DEF_PRIO);
 			timeOut = 80000000;
 		}
+		*/
 	}
 }
 

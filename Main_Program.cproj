@@ -457,6 +457,9 @@
     <Compile Include="src\spi_func.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\time_update.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\usart_func.c">
       <SubType>compile</SubType>
     </Compile>

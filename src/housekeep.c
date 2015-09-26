@@ -113,21 +113,34 @@ static void prvHouseKeepTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 15;	// Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 100;	// Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t ID, x;
 	uint8_t ret_val, passkey = 0, addr = 0x80;
-	
-	ID = SUB0_ID5;
-	
+		
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		xSemaphoreTake(Can1_Mutex, 2);		// Acquire CAN1 Mutex
-		x = request_housekeeping(ID);		// This is the CAN API function I have written for us to use.
-		//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
-		xSemaphoreGive(Can1_Mutex);
+		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+		{
+			ID = SUB1_ID5;
+			x = request_housekeeping(ID);								// Request housekeeping from COMS.
+			
+			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+			
+			ID = SUB0_ID5;
+			x = request_housekeeping(ID);								// Request housekeeping from EPS.
+			
+			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+			
+			ID = SUB2_ID5;
+			x = request_housekeeping(ID);								// Request housekeeping from PAY.
+			//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
+			xSemaphoreGive(Can1_Mutex);
+		}
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);

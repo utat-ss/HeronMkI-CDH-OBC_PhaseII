@@ -254,5 +254,5 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller);
 void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller);
 uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr);			// API Function.
 uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data);	// API Function.
-uint8_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status);	// API Function.
+uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status);	// API Function.
 

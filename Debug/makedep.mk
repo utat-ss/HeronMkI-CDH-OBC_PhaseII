@@ -8,6 +8,8 @@ src\asf\sam\drivers\tc\tc.c
 
 src\asf\sam\drivers\uart\uart.c
 
+src\checksum.c
+
 src\command_test.c
 
 src\data_collect.c
@@ -15,6 +17,8 @@ src\data_collect.c
 src\housekeep.c
 
 src\ParTest.c
+
+src\rtc.c
 
 src\spi_func.c
 

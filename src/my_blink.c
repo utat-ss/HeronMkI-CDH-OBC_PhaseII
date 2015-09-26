@@ -107,6 +107,10 @@ void my_blink( void )
  */
 static void prvTurnOnTask( void *pvParameters )
 {
+	TickType_t	xLastWakeTime;
+	const TickType_t xTimeToWait = 475;	//Number entered here corresponds to the number of ticks we should wait.
+	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
+	
 	// Check the task parameter is as expected. 
 	configASSERT( ( ( unsigned long ) pvParameters ) == TurnOn_PARAMETER );
 
@@ -114,6 +118,9 @@ static void prvTurnOnTask( void *pvParameters )
 	for( ;; )
 	{
 		gpio_set_pin_high(LED0_GPIO);
+		
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -124,6 +131,10 @@ static void prvTurnOnTask( void *pvParameters )
  */
 static void prvTurnOffTask( void *pvParameters )
 {
+	TickType_t	xLastWakeTime;
+	const TickType_t xTimeToWait = 500;	//Number entered here corresponds to the number of ticks we should wait.
+	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
+	
 	// Check the task parameter is as expected. 
 	configASSERT( ( ( unsigned long ) pvParameters ) == TurnOff_PARAMETER );
 
@@ -131,6 +142,8 @@ static void prvTurnOffTask( void *pvParameters )
 	for( ;; )
 	{
 		gpio_set_pin_low(LED0_GPIO);
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/

@@ -401,14 +401,14 @@ uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRI
 	*  mutex locks.
 	*
 	*  Another thing! Don't place this function in a for loop if you plan on using it to
-	*  send from the same mailbox over and over again, make sure to yield in between calls
+	*  send from the same mailbox over and over again, make sure to delay/yield in between calls
 	*  if that is what you're trying to do. Also, be sure to release and acquire mutex locks
 	*  in between each use of the CAN resource.
 	*/
 	
 	/* Save current can0_mailbox object */
 	can_temp_t temp_mailbox;
-	save_can_object(&can0_mailbox, &temp_mailbox);
+	//save_can_object(&can0_mailbox, &temp_mailbox);
 	
 	/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
 	/* CAN0 MB7 == COMMAND/MSG MB				*/
@@ -431,7 +431,7 @@ uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRI
 	can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
 	
 	/* Restore the can0_mailbox object */
-	restore_can_object(&can0_mailbox, &temp_mailbox);
+	//restore_can_object(&can0_mailbox, &temp_mailbox);
 	
 	return 1;
 }
@@ -732,14 +732,14 @@ void can_initialize(void)
 
 uint32_t can_init_mailboxes(uint32_t x)
 {
-	/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
-	/* CAN0 MB7 == COMMAND/MSG MB				*/
 	//configASSERT(x);	//Check if this function was called naturally.
-	
+
+	/* Init CAN0 Mailbox 7 to Transmit Mailbox. */
+	/* CAN0 MB7 == COMMAND/MSG MB				*/	
 	reset_mailbox_conf(&can0_mailbox);
 	can0_mailbox.ul_mb_idx = 7;			//Mailbox Number 7
 	can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
-	can0_mailbox.uc_tx_prio = 5;		//Transmission Priority (Can be Changed dynamically)
+	can0_mailbox.uc_tx_prio = 10;		//Transmission Priority (Can be Changed dynamically)
 	can0_mailbox.uc_id_ver = 0;
 	can0_mailbox.ul_id_msk = 0;
 	can_mailbox_init(CAN0, &can0_mailbox);

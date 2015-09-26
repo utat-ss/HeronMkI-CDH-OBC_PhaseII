@@ -113,23 +113,36 @@ static void prvCommandTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == COMMAND_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 15;	//Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 91;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t low, high, ID, PRIORITY, x;
 	
 	low = DUMMY_COMMAND;
 	high = high_command_generator(OBC_ID, MT_COM, REQ_RESPONSE);
-	ID = SUB0_ID0;
 	PRIORITY = COMMAND_PRIO;
 	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		
-		xSemaphoreTake(Can1_Mutex, 2);		// Acquire CAN1 Mutex
-		x = send_can_command(low, high, ID, PRIORITY);	//This is the CAN API function I have written for us to use.
-		xSemaphoreGive(Can1_Mutex);			// Release CAN1 Mutex
+		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+		{
+			ID = SUB1_ID0;
+			x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
+			
+			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+			
+			ID = SUB0_ID0;
+			x = send_can_command(low, high, ID, PRIORITY);				// Request response from EPS.
+			
+			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+			
+			ID = SUB2_ID0;
+			x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.
+			xSemaphoreGive(Can1_Mutex);									// Release CAN1 Mutex
+		}
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);

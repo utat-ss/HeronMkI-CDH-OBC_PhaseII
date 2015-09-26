@@ -193,9 +193,9 @@ int main(void)
 	prvInitializeMutexes();
 	
 	/* Create Tasks */
-	my_blink();
-	housekeep();
+	//my_blink();
 	command_loop();
+	housekeep();
 	data_test();
 	
 	/* Start Scheduler */
@@ -280,6 +280,7 @@ static void prvSetupHardware(void)
 static void prvInitializeMutexes(void)
 {	
 	Can1_Mutex = xSemaphoreCreateBinary();
+	xSemaphoreGive(Can1_Mutex);
 	return;
 }
 

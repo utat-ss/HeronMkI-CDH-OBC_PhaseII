@@ -68,7 +68,7 @@
 
 
 /* Priorities at which the tasks are created. */
-#define Data_TASK_PRIORITY		( tskIDLE_PRIORITY + 2 )		// Lower the # means lower the priority
+#define Data_TASK_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -115,7 +115,7 @@ static void prvDataTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == DATA_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 15;	//Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 100;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t low, high, ID, PRIORITY, x, i;
@@ -128,15 +128,30 @@ static void prvDataTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-
 		low = DATA_REQUEST;
 		high = high_command_generator(OBC_ID, MT_COM, REQ_DATA);
 		
-		xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
-		x = send_can_command(low, high, ID, PRIORITY);				//This is the CAN API function I have written for us to use.
-		xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
+		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+		{
+			ID = SUB1_ID0;
+			x = send_can_command(low, high, ID, PRIORITY);				// Request data from COMS.
+			
+			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+			
+			ID = SUB0_ID0;
+			x = send_can_command(low, high, ID, PRIORITY);				// Request data from EPS.
+			
+			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+			
+			ID = SUB2_ID0;
+			x = send_can_command(low, high, ID, PRIORITY);				// Request data from PAY.
+			xSemaphoreGive(Can1_Mutex);									// Release CAN1 Mutex
+		}
+							
 		
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 15 clock cycles.
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 100 ticks.
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 
 		//xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex

@@ -198,7 +198,7 @@ int main(void)
 	command_loop();
 	housekeep();
 	data_test();
-	time_update();
+	//time_update();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

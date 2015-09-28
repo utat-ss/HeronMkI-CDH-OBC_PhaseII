@@ -197,6 +197,9 @@ typedef struct {
 #define ACK_READ				0x06
 #define REQ_WRITE				0x07
 #define ACK_WRITE				0x08
+#define SET_SENSOR_HIGH			0x09	// Remember to put SENSOR_NAME into Byte 3.
+#define SET_SENSOR_LOW			0x0A
+#define SET_VAR					0x0B	// Remember to put VAR_NAME into Byte 3.
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09
@@ -209,10 +212,34 @@ typedef struct {
 #define BATT_TOP				0x03
 #define BATT_BOTTOM				0x04
 
+/* MESSAGE PRIORITIES	*/
 #define COMMAND_PRIO			25
 #define HK_REQUEST_PRIO			20
 #define DATA_PRIO				10
 #define DEF_PRIO				10
+
+/* SENSOR NAMES			*/
+#define PANELX_V				0x01
+#define PANELX_I				0x02
+#define PANELY_V				0x03
+#define PANELY_I				0x04
+#define BATTM_V					0x05
+#define BATT_V					0x06
+#define BATTIN_I				0x07
+#define BATTOUT_I				0x08
+#define BATT_TEMP				0x09
+#define EPS_TEMP				0x0A
+#define COMS_V					0x0B
+#define COMS_I					0x0C
+#define PAY_V					0x0D
+#define PAY_I					0x0E
+#define OBC_V					0x0F
+#define OBC_I					0x10
+#define BATT_I					0x11
+
+/* VARIABLE NAMES		*/
+#define MPPTA					0x01
+#define MPPTB					0x02	
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8
@@ -255,4 +282,7 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller);
 uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr);			// API Function.
 uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data);	// API Function.
 uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status);	// API Function.
+uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);	// API Function.
+uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);		// API Function.
+uint32_t set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value);				// API Function.
 

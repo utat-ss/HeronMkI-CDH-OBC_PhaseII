@@ -522,6 +522,12 @@ Edited by: Keenan Burnett
 #define SPI0_NPCS3_PB23_GPIO       (PIO_PB23_IDX)
 #define SPI0_NPCS3_PB23_FLAGS      (PIO_PERIPH_B | PIO_DEFAULT)
 
+/*		Write-Protect and Hold Pins	Definition		*/
+#define SPI0_MEM2_WP				(PIO_PA28_IDX)
+#define SPI0_MEM2_WP_FLAGS			(PIO_PERIPH_A| PIO_DEFAULT)
+#define SPI0_MEM2_HOLD				(PIO_PB0_IDX)
+#define SPI0_MEM2_HOLD_FLAGS		(PIO_PERIPH_B| PIO_DEFAULT)
+
 /*! SPI1 MISO pin definition. */
 #define PIN_SPI1_MISO\
 	{PIO_PE28A_SPI1_MISO, PIOE, ID_PIOE, PIO_PERIPH_A, PIO_DEFAULT}

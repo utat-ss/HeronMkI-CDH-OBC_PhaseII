@@ -1,6 +1,5 @@
 /*
-	Copyright (c) 2011-2014 Atmel Corporation. All rights reserved.
-	Edited by Keenan Burnett
+	Author: Keenan Burnett, Omar Abdeldayem
 
 	***********************************************************************
 	*	FILE NAME:		spi_func.h
@@ -26,6 +25,11 @@
 	*	04/30/2015			Created.
 	*
 	*   08/08/2015			Modified SPI clock phase for compatibility with the DS3234 RTC.
+	*
+	*	09/27/2015			SPI Clock phase, pol, freq, etc is specific to each Chip Select, see
+	*						spi_master_initialize to change these values in the future.
+	*						NOTE: RTC and MEM1 are currently connected to CS1, and MEM2 is
+	*						connected to CS2. (In the future, we'll fix this so that RTC is on CS0).
 	*	
 	* 	DESCRIPTION:
 	*
@@ -41,12 +45,13 @@
 #include <asf/sam/drivers/spi/conf_spi.h>
 //#include "conf_spi.h"
 #include "pio.h"
+#include "gpio.h"
 
 /* SPI clock frequency (Hz) */
 #define SPI_CLK_FREQ 4000000
 
 /* Chip select. */
-#define SPI_CHIP_SEL 0
+#define SPI_CHIP_SEL 2	// At the moment CS2 is connected to MEM2.
 #define SPI_CHIP_PCS spi_get_pcs(SPI_CHIP_SEL)
 
 /* Clock polarity. */
@@ -157,6 +162,7 @@ static const uint32_t gs_ul_clock_configurations[] =
 { 500000, 1000000, 2000000, 5000000 };
 
 void SPI_Handler(void);
-void spi_master_transfer(void *p_buf, uint32_t size);
+void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel);
+void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel);
 
 #endif

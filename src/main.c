@@ -278,6 +278,10 @@ static void prvSetupHardware(void)
 	
 	/* Initialize RTC registers and set the default initial time. */
 	rtc_init(DS3234_INTCN);
+	
+	/* Initialize SPI Memory Chips								  */
+	
+	
 }
 /*-----------------------------------------------------------*/
 

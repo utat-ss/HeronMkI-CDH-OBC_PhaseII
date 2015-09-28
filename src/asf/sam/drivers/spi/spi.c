@@ -1,45 +1,31 @@
-/**
- * \file
- *
- * \brief Serial Peripheral Interface (SPI) driver for SAM.
- *
- * Copyright (c) 2011-2014 Atmel Corporation. All rights reserved.
- *
- * \asf_license_start
- *
- * \page License
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. The name of Atmel may not be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * 4. This software may only be redistributed and used in connection with an
- *    Atmel microcontroller product.
- *
- * THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
- * EXPRESSLY AND SPECIFICALLY DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * \asf_license_stop
- *
- */
+/*
+	Copyright (c) 2011-2014 Atmel Corporation. All rights reserved.
+	Edited by: Keenan Burnett
+	***********************************************************************
+	*	FILE NAME:		spi.c
+	*
+	*	PURPOSE:		Serial peripheral interface (SPI) driver for SAM.
+	*	
+	*
+	*	FILE REFERENCES:		spi.h, sysclk.h, pio.h
+	*
+	*	EXTERNAL VARIABLES:	
+	*
+	*	EXTERNAL REFERENCES:	Same a File References.
+	*
+	*	ABORNOMAL TERMINATION CONDITIONS, ERROR AND WARNING MESSAGES: None yet.
+	*
+	*	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None
+	*
+	*	NOTES:	
+	*
+	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
+	*
+	*	DEVELOPMENT HISTORY:
+	*	04/30/2015			Created.
+	*
+	*
+*/
 
 #include "spi.h"
 #include "sysclk.h"
@@ -139,6 +125,7 @@ void spi_set_delay_between_chip_select(Spi *p_spi, uint32_t ul_delay)
 	p_spi->SPI_MR |= SPI_MR_DLYBCS(ul_delay);
 }
 
+
 /**
  * \brief Read the received data and it's peripheral chip select value.
  * While SPI works in fixed peripheral select mode, the peripheral chip select
@@ -196,18 +183,22 @@ spi_status_t spi_write(Spi *p_spi, uint16_t us_data,
 		}
 	}
 
-	if (spi_get_peripheral_select_mode(p_spi)) {
+	if (spi_get_peripheral_select_mode(p_spi)) 
+		{
 		value = SPI_TDR_TD(us_data) | SPI_TDR_PCS(uc_pcs);
-		if (uc_last) {
+		if (uc_last) 
+		{
 			value |= SPI_TDR_LASTXFER;
 		}
-	} else {
+	}	
+	else 
+	{
 		value = SPI_TDR_TD(us_data);
 	}
 
 	p_spi->SPI_TDR = value;
 	
-	pio_toggle_pin(LED0_GPIO);
+	//pio_toggle_pin(LED0_GPIO);
 
 	return SPI_OK;
 }

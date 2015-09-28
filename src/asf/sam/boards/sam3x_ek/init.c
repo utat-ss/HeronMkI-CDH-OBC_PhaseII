@@ -213,6 +213,13 @@ void board_init(void)
 					SPI0_NPCS3_PA31_FLAGS);
 #       endif
 #   endif
+
+#	ifdef CONF_SPI_MEM2
+		gpio_configure_pin(SPI0_MEM2_HOLD, SPI0_MEM2_HOLD_FLAGS);
+		gpio_configure_pin(SPI0_MEM2_WP, SPI0_MEM2_WP_FLAGS);
+#	endif
+
+
 #endif // #ifdef CONF_BOARD_SPI0
 
 	/* Configure SPI1 pins */

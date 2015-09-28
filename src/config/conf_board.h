@@ -144,6 +144,8 @@ All rights reserved
 
 /** SPI0 slave select0 MACRO definition */
 #define CONF_BOARD_SPI0_NPCS0
+#define CONF_BOARD_SPI0_NPCS1
+#define CONF_BOARD_SPI0_NPCS2
 
 /** Spi Hw ID . */
 #define SPI_ID          ID_SPI0
@@ -152,6 +154,17 @@ All rights reserved
 #define SPI_MASTER_BASE      SPI0
 /** SPI base address for SPI slave mode, (on different board) */
 #define SPI_SLAVE_BASE       SPI0
+
+/*	Slave Select CS1 Configuration		*/
+#define CONF_BOARD_SPI0_NPCS1_GPIO SPI0_NPCS1_PB20_GPIO
+#define CONF_BOARD_SPI0_NPCS1_FLAGS SPI0_NPCS1_PB20_FLAGS
+
+/*	Slave Select CS2 Configuration		*/
+#define CONF_BOARD_SPI0_NPCS2_GPIO SPI0_NPCS2_PB21_GPIO
+#define CONF_BOARD_SPI0_NPCS2_FLAGS SPI0_NPCS2_PB21_FLAGS
+
+/*  SPI Memory 2						*/
+#define CONF_SPI_MEM2
 
 #endif /* CONF_BOARD_H_INCLUDED */
 

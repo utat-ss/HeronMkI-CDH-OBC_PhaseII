@@ -9,7 +9,7 @@
 	*
 	*	PURPOSE:	This file contains includes and definitions for rtc.c		
 	*
-	*	FILE REFERENCES:	
+	*	FILE REFERENCES:	spi_func.h
 	*
 	*	EXTERNAL VARIABLES:
 	*

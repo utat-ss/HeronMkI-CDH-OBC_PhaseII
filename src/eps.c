@@ -92,7 +92,7 @@ return;
 /************************************************************************/
 static void prvEpsTask(void *pvParameters )
 {
-configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER );
+configASSERT( ( ( unsigned long ) pvParameters ) == EPS_PARAMETER );
 TickType_t xLastWakeTime;
 const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
 /* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/

@@ -904,15 +904,14 @@ uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t
 /* an SSM. The 32-bit value returned is the value of the sensor.		*/
 /* If *status is -1 upon completion, operation failed, 1 is success.	*/
 /* NOTE: This is for use with tasks and their corresponding SSMs only.	*/
-/* NOTE: This function will wait for a maximum of 1 second for the		*/
+/* NOTE: This function will wait for a maximum of 250ms. for the		*/
 /* operation to complete.												*/
 /************************************************************************/
 
 uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status)
 {
 	uint32_t high, low, timeout, s, ret_val;
-	
-	timeout = 80000000;		// Maximum wait time of one second.
+	timeout = 20000000;		// Maximum wait time of 250ms.
 	
 	high = high_command_generator(sender_id, MT_COM, REQ_DATA);
 	low = (uint32_t)sensor_name;
@@ -943,6 +942,86 @@ uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_n
 	eps_data_receivedf = 0;		// Zero this last to keep in sync.
 	*status = 1;				// The operation succeeded.
 	return ret_val;				// This is the requested data.
+}
+
+/************************************************************************/
+/* SET SENSOR DATA HIGH/LOW                                             */
+/*																		*/
+/* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
+/* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
+/* @param: sensor_name: Name of the sensor at hand. ex: PANELX_V		*/
+/* @param: boundary: The value which you would like to set as the high	*/
+/*			or low value.
+/* @return: returns 1 upon success, -1 upon failure.					*/
+/* @NOTE: This function checks to make sure that the request succeeded	*/
+/*			(this has a timeout of 250 ms)								*/
+/* @NOTE: This is for use with tasks and their corresponding SSMs only.	*/
+/************************************************************************/
+uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary)
+{
+	uint32_t high, low, ret_val, check;
+	
+	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_HIGH);
+	low = (uint32_t)sensor_name;
+	low = low << 24;
+	low |= boundary;
+	
+	send_can_command(low, high, ssm_id, DEF_PRIO);
+	
+	check = request_sensor_data(sender_id, ssm_id, sensor_name, &ret_val);
+	
+	if ((ret_val > 0) || (check != boundary))
+		return -1;
+	else
+		return 1;
+}
+
+uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary)
+{
+	uint32_t high, low, ret_val, check;
+	
+	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_LOW);
+	low = (uint32_t)sensor_name;
+	low = low << 24;
+	low |= boundary;
+	
+	send_can_command(low, high, ssm_id, DEF_PRIO);
+	check = request_sensor_data(sender_id, ssm_id, sensor_name, &ret_val);
+	
+	if ((ret_val > 0) || (check != boundary))
+		return -1;
+	else
+		return 1;
+}
+
+/************************************************************************/
+/* SET VARIABLE				                                            */
+/*																		*/
+/* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
+/* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
+/* @param: sensor_name: Name of the variable at hand. ex: MPPTA			*/
+/* @param: value: variable = value on SMM is the desired action.		*/
+/* @return: returns 1 upon success, -1 upon failure.					*/
+/* @NOTE: This function checks to make sure that the request succeeded	*/
+/*			(this has a timeout of 250 ms)								*/
+/* @NOTE: This is for use with tasks and their corresponding SSMs only.	*/
+/************************************************************************/
+uint32_t set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value)
+{
+	uint32_t high, low, ret_val, check;
+	
+	high = high_command_generator(sender_id, MT_COM, SET_VAR);
+	low = (uint32_t)var_name;
+	low = low << 24;
+	low |= value;
+	
+	send_can_command(low, high, ssm_id, DEF_PRIO);
+	check = request_sensor_data(sender_id, ssm_id, var_name, &ret_val);
+	
+	if ((ret_val > 0) || (check != value))
+		return -1;
+	else
+		return 1;
 }
 
 	

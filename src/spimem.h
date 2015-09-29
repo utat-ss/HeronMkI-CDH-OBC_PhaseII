@@ -54,3 +54,14 @@
 /*		Global Variable Definitions		*/
 uint32_t spi_bit_map[128];		// Bit-Map to pages (256B) within SPI Memory.
 uint8_t	spi_mem_buff[4096];		// Buffer required when erasing a sector 
+
+/*		Fuction Prototypes				*/
+void spimem_initialize(void);
+uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint32_t size);
+uint32_t spimem_read(uint32_t spi_chip, uint32_t addr, uint16_t* read_buff, uint32_t size);
+uint32_t check_page(uint32_t page_num);
+uint32_t get_page(uint32_t addr);
+uint8_t get_spimem_status(uint32_t spi_chip);
+uint32_t set_page_dirty(uint32_t page_num);
+uint32_t set_sector_clean_in_bitmap(uint32_t sect_num);
+

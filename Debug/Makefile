@@ -99,12 +99,18 @@ C_SRCS +=  \
 ../src/asf/sam/drivers/spi/spi.c \
 ../src/asf/sam/drivers/tc/tc.c \
 ../src/asf/sam/drivers/uart/uart.c \
+../src/checksum.c \
 ../src/command_test.c \
+../src/coms.c \
 ../src/data_collect.c \
+../src/eps.c \
 ../src/housekeep.c \
 ../src/ParTest.c \
+../src/payload.c \
 ../src/rtc.c \
+../src/spimem.c \
 ../src/spi_func.c \
+../src/time.c \
 ../src/time_update.c \
 ../src/usart_func.c \
 ../src/asf/common/services/clock/sam3x/sysclk.c \
@@ -156,12 +162,18 @@ OBJS +=  \
 src/asf/sam/drivers/spi/spi.o \
 src/asf/sam/drivers/tc/tc.o \
 src/asf/sam/drivers/uart/uart.o \
+src/checksum.o \
 src/command_test.o \
+src/coms.o \
 src/data_collect.o \
+src/eps.o \
 src/housekeep.o \
 src/ParTest.o \
+src/payload.o \
 src/rtc.o \
+src/spimem.o \
 src/spi_func.o \
+src/time.o \
 src/time_update.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
@@ -206,12 +218,18 @@ OBJS_AS_ARGS +=  \
 src/asf/sam/drivers/spi/spi.o \
 src/asf/sam/drivers/tc/tc.o \
 src/asf/sam/drivers/uart/uart.o \
+src/checksum.o \
 src/command_test.o \
+src/coms.o \
 src/data_collect.o \
+src/eps.o \
 src/housekeep.o \
 src/ParTest.o \
+src/payload.o \
 src/rtc.o \
+src/spimem.o \
 src/spi_func.o \
+src/time.o \
 src/time_update.o \
 src/usart_func.o \
 src/asf/common/services/clock/sam3x/sysclk.o \
@@ -256,12 +274,18 @@ C_DEPS +=  \
 src/asf/sam/drivers/spi/spi.d \
 src/asf/sam/drivers/tc/tc.d \
 src/asf/sam/drivers/uart/uart.d \
+src/checksum.d \
 src/command_test.d \
+src/coms.d \
 src/data_collect.d \
+src/eps.d \
 src/housekeep.d \
 src/ParTest.d \
+src/payload.d \
 src/rtc.d \
+src/spimem.d \
 src/spi_func.d \
+src/time.d \
 src/time_update.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
@@ -306,12 +330,18 @@ C_DEPS_AS_ARGS +=  \
 src/asf/sam/drivers/spi/spi.d \
 src/asf/sam/drivers/tc/tc.d \
 src/asf/sam/drivers/uart/uart.d \
+src/checksum.d \
 src/command_test.d \
+src/coms.d \
 src/data_collect.d \
+src/eps.d \
 src/housekeep.d \
 src/ParTest.d \
+src/payload.d \
 src/rtc.d \
+src/spimem.d \
 src/spi_func.d \
+src/time.d \
 src/time_update.d \
 src/usart_func.d \
 src/asf/common/services/clock/sam3x/sysclk.d \
@@ -367,6 +397,18 @@ LINKER_SCRIPT_DEP+=  \
 
 
 # AVR32/GNU C Compiler
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

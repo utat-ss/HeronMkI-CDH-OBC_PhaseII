@@ -8,17 +8,29 @@ src\asf\sam\drivers\tc\tc.c
 
 src\asf\sam\drivers\uart\uart.c
 
+src\checksum.c
+
 src\command_test.c
 
+src\coms.c
+
 src\data_collect.c
+
+src\eps.c
 
 src\housekeep.c
 
 src\ParTest.c
 
+src\payload.c
+
 src\rtc.c
 
+src\spimem.c
+
 src\spi_func.c
+
+src\time.c
 
 src\time_update.c
 

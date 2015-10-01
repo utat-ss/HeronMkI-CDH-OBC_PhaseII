@@ -430,10 +430,16 @@
     <Compile Include="src\command_test.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\coms.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\config\conf_uart_serial.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\data_collect.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\eps.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\global_var.h">
@@ -445,16 +451,31 @@
     <Compile Include="src\ParTest.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\payload.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\rtc.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\rtc.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\spimem.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\spimem.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\spi_func.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\spi_func.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\time.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\time.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\time_update.c">

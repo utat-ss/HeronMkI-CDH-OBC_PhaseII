@@ -134,6 +134,10 @@ uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint
 		size2 = 0;
 	}
 
+	if(check_if_wip(spi_chip) != 1)		// SPI chip is either tied up or dead, return FAILURE.
+		return -1;
+	}
+
 	page = get_page(addr);
 	dirty = check_page(page);
 	if(dirty)
@@ -143,7 +147,6 @@ uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint
 		check = update_spibuffer_with_new_page(addr, data_buff, size1);	// if check != size1, FAILURE_RECOVERY.
 		check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
 		check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
-
 	}
 	else
 	{
@@ -477,6 +480,8 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 		{
 			msg_buff[j] = spi_mem_buff[256 * i + j];
 		}
+
+		spi_master_transfer(&msg_buff, 271, spi_chip);
 
 		if(check_if_wip(spi_chip) != 1)
 			return i * 256;							// Write operation took too long, return number of bytes transferred.

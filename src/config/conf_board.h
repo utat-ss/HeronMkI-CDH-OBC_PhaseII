@@ -164,6 +164,7 @@ All rights reserved
 #define CONF_BOARD_SPI0_NPCS2_FLAGS SPI0_NPCS2_PB21_FLAGS
 
 /*  SPI Memory 2						*/
+#define CONF_SPI_MEM1
 #define CONF_SPI_MEM2
 
 #endif /* CONF_BOARD_H_INCLUDED */

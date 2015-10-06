@@ -98,6 +98,8 @@ Author: Keenan Burnett
 *					it is waiting for a CAN message that will allow it to enter into regular operation. In main(), the first
 *					function that will be executed is now safe_mode().
 *
+*	10/03/2015		I am adding spimem_initialize to the list of initialization procedures in prvSetupHardware().
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
@@ -135,6 +137,8 @@ function. */
 uint32_t data_reg[2];
 
 #include "global_var.h"
+
+#include "spimem.h"
 
 /* MUTEXES and SEMAPHORES */
 
@@ -195,13 +199,13 @@ int main(void)
 	
 	/* Create Tasks */
 	//my_blink();
-	command_loop();
-	housekeep();
-	data_test();
+	//command_loop();
+	//housekeep();
+	//data_test();
 	//time_update();
 	
 	/* Start Scheduler */
-	vTaskStartScheduler();
+	//vTaskStartScheduler();
 	
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached.  If the following line does execute, then
@@ -277,7 +281,10 @@ static void prvSetupHardware(void)
 	spi_initialize();
 	
 	/* Initialize RTC registers and set the default initial time. */
-	rtc_init(DS3234_INTCN);
+	//rtc_init(DS3234_INTCN);
+	
+	/* Initialize the SPI memory chips	*/
+	spimem_initialize();
 	
 	/* Initialize SPI Memory Chips								  */
 	

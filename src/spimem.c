@@ -63,22 +63,39 @@
 // NOTE: The initialization procedure needs to be repeated for each SPi Mem Chip.
 void spimem_initialize(void)
 {
-	uint16_t dumbuf[2], i;
+	uint16_t dumbuf[1], i;
 	uint8_t check;
 	
+	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off.
+	gpio_set_pin_low(SPI0_MEM1_WP);	// Turn write protection off.
 	gpio_set_pin_high(SPI0_MEM2_HOLD);	// Turn "holding" off.
 	gpio_set_pin_high(SPI0_MEM2_WP);	// Turn write protection off.
 	
-	dumbuf[0] = WREN;						// Write-Enable Command.
-	spi_master_transfer(dumbuf, 1, 2);
-
-	check = get_spimem_status(2);		// Get the status of the SPI Mem Chip.
-
-	check = check & 0x03;
-
-	if (check != 0x02)
-		i = 0;							// FAILURE_RECOVERY required here.
-
+	
+	//dumbuf = CE;							// Chip-Erase (this operation can take up to 7s.
+	//spi_master_transfer(&dumbuf, 1, 2);
+	//delay_s(7);								// delay 7 seconds.
+	
+	//if(check_if_wip(1) != 1)				// Wait for the erase to finish (10 more ms allowed).
+	//	return;								// FAILURE_RECOVERY required here.
+	
+	//check = get_spimem_status(2);
+	//check = check & 0x03;
+	
+//	if(check != 0x02)
+//		return;								// FAILURE_RECOVERY required here.
+		
+//	pio_toggle_pin(LED3_GPIO);
+	
+	while(1)
+	{
+		dumbuf[0] = WREN;						// Write-Enable Command.
+		spi_master_transfer(dumbuf, 1, 2);
+		check = get_spimem_status(2);
+		if(check != 0x00)
+			pio_toggle_pin(LED3_GPIO);
+	}
+	
 	for (i = 0; i < 128; i++)
 	{
 		spi_bit_map[i] = 0;				// Initialize the bitmap
@@ -128,7 +145,7 @@ uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint
 		size1 = size;
 		size2 = 0;
 	}
-	if (addr + (size - 1) > 0xFFFFF)	// Address too high, can't write all requested bytes.
+	if ((addr + (size - 1)) > 0xFFFFF)	// Address too high, can't write all requested bytes.
 	{
 		size1 = 256 - low;
 		size2 = 0;
@@ -136,7 +153,6 @@ uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint
 
 	if(check_if_wip(spi_chip) != 1)		// SPI chip is either tied up or dead, return FAILURE.
 		return -1;
-	}
 
 	page = get_page(addr);
 	dirty = check_page(page);
@@ -216,10 +232,9 @@ uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint
 /* were read into the buffer.											*/
 /* @purpose: Read from the SPI memory chip.								*/
 /************************************************************************/
-uint32_t spimem_read(uint32_t spi_chip, uint32_t addr, uint16_t* read_buff, uint32_t size)
+uint32_t spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
 	uint16_t dumbuf[4];
-	uint32_t i;
 
 	if (addr > 0xFFFFF)			// Invalid address to write to.
 		return -1;
@@ -270,7 +285,7 @@ uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num)
 /* UPDATE_SPIBUFFER_WITH_NEW_PAGE                                       */
 /* 																		*/
 /* @param: addr: Exactly the same as the address that we intend to write*/
-/* to the SPI memory chip.
+/* to the SPI memory chip.												*/
 /* @param: *data_buff: Contains the data to be written to memory.		*/
 /* @param: size: How many bytes to write to memory.						*/
 /* @return: -1 == Failure, 1 == Success.								*/
@@ -281,7 +296,7 @@ uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num)
 /* @NOTE: even though this is a 16-bit variable, we are only using the 	*/
 /* lower 8 bits.														*/
 /************************************************************************/
-uint32_t update_spibuffer_with_new_page(uint32_t addr, uint16_t* data_buff, uint32_t size)
+uint32_t update_spibuffer_with_new_page(uint32_t addr, uint32_t* data_buff, uint32_t size)
 {
 	uint32_t sect_num, page_num, index, i;
 
@@ -355,7 +370,7 @@ uint8_t get_spimem_status(uint32_t spi_chip)
 {
 	uint16_t dumbuf[2];
 	dumbuf[0] = RSR;						// Read Status Register.
-	dumbuf[1] = RSR;
+	dumbuf[1] = 0x00;
 	spi_master_transfer(dumbuf, 2, spi_chip);
 
 	return (uint8_t)dumbuf[1];				// Status of the Chip is returned.
@@ -426,16 +441,19 @@ uint32_t set_sector_clean_in_bitmap(uint32_t sect_num)
 /************************************************************************/
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 {
-	uint16_t msg_buff[5], addr;
+	uint16_t msg_buff[5];
+	uint8_t addr;
 
 	if(sect_num > 0xFF)							// Invalid Sector Number
 		return -1;
 
 	if(check_if_wip(spi_chip) != 1)
 		return -1;								// SPI_CHIP is currently tied up or dead, return FAILURE.
+		
+	addr = (uint8_t)(sect_num << 12);
 
 	msg_buff[0] = WREN;
-	msg_buff[1] = SE:
+	msg_buff[1] = SE;
 	msg_buff[2] = addr & 0x000F0000;
 	msg_buff[3] = addr & 0x0000FF00;
 	msg_buff[4] = addr & 0x000000FF;
@@ -459,9 +477,6 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 {
 	uint16_t msg_buff[271];
 	uint32_t addr, i, j;
-
-	if(sect_num > 0xFF)								// Invalid Sector Number
-		return -1;
 
 	if(check_if_wip(spi_chip) != 1)
 		return -1;									// SPI_CHIP is currently tied up or dead, return FAILURE.

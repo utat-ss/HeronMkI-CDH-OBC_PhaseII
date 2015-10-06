@@ -16,7 +16,8 @@
 *
 *	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None
 *
-*	NOTES:
+*	NOTES:	These functions are NOT implemented with internal timers,
+*			your process' execution will stop during the use of these functions.
 *
 *	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
 *
@@ -27,16 +28,24 @@
 */
 #include "time.h"
 
+void delay_s(uint32_t s)
+{
+	uint32_t timeout = s * 84000000;	// NUmber of clock cycles needed.
+	while(timeout--){ }
+	return;
+}
+
 void delay_ms(uint32_t ms)
 {
-	uint32_t timeout = ms * 80000;	// Number of clock cycles needed 
-	
+	uint32_t timeout = ms * 84000;	// Number of clock cycles needed 
 	while(timeout--){ }
+	return;
 }
 
 void delay_us(uint32_t us)
 {
-	uint32_t timeout = us * 80;	// Number of clock cycles needed
-	
+	uint32_t timeout = us * 84;	// Number of clock cycles needed
 	while(timeout--){ }
+	return;
 }
+

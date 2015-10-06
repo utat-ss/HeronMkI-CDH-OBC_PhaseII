@@ -58,13 +58,13 @@
 #define SPI_CLK_POLARITY 1
 
 /* Clock phase. */
-#define SPI_CLK_PHASE 0
+#define SPI_CLK_PHASE 1
 
 /* Delay before SPCK. */
-#define SPI_DLYBS 0x45	// was 0x40
+#define SPI_DLYBS 0x00	// was 0x45
 
 /* Delay between consecutive transfers. */
-#define SPI_DLYBCT 0x02	// was 0x10
+#define SPI_DLYBCT 0x02	// was 0x02
 
 /* Delay between consecutive chip selects */
 #define SPI_DLYBCS 0x00

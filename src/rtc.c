@@ -24,7 +24,7 @@
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*
 	*	DEVELOPMENT HISTORY:		
-	*	07/018/2015		Created.
+	*	07/18/2015		Created.
 	*
 	*	08/08/2015		Setting and reading time from the RTC is now functional.
 	*	
@@ -37,6 +37,10 @@
 	*	09/27/2015		K: I have added "chip_sel" to each of the spi_master_transfer calls. RTC is to be
 	*					used on CS0. Everything else should work just as it did before.
 	*					NOTE: We're using variable peripheral select now.
+	*
+	*	10/03/2015		K: The way in which the SPI devices were connected on the flatsat was a little weird.
+	*					Because of this, the RTC is currently connected to CS1, and I am currently using
+	*					SPIMEM2 on CS2 for my testing. I changed all the spi_master_transfer calls as such.
 	*
 	*	DESCRIPTION:	
 	*			
@@ -110,7 +114,7 @@ void rtc_set(struct timestamp t)
 		data = dectobcd(time_date[i]);
 		
 		message = (addr << 8) | data;
-		spi_master_transfer(&message, 1, 0);
+		spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
     }
 }
 
@@ -132,7 +136,7 @@ void rtc_get(struct timestamp *t)
 		message = i + 0x00;
 		message = message << 8;
 
-		spi_master_transfer(&message, 1, 0);
+		spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
 		
 		// Get the value flushed out of the register
 		ret_val = (uint8_t) message;
@@ -158,7 +162,7 @@ void rtc_get(struct timestamp *t)
 void rtc_set_addr(uint16_t addr, uint16_t val)
 {
 	uint16_t message = (addr << 8) | val;
-	spi_master_transfer(&message, 1, 0);
+	spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
 }
 
 /** 
@@ -173,7 +177,7 @@ uint8_t rtc_get_addr(uint16_t addr)
 	uint8_t val;
 	uint16_t message = (uint16_t) addr << 8;
 	
-	spi_master_transfer(&message, 1, 0);
+	spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
 	
 	val = (uint8_t) message;	
 	return val;
@@ -241,7 +245,7 @@ void rtc_set_a2(void)
 		buffer = i + 0x8B;
 
 		message = (buffer << 8) | 0x80;
-		spi_master_transfer(&message, 1, 0);
+		spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
 	}
 }
 

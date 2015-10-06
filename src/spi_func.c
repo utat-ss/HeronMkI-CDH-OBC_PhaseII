@@ -146,7 +146,7 @@ static void spi_master_initialize(void)
 
 	/* Set communication parameters for CS0	*/
 	spi_chip_sel = 0;
-	spi_clk_freq = 4000000;	// SPI CLK for RTC = 4MHz.
+	spi_clk_freq = 100000;	// SPI CLK for RTC = 100kHz.
 	spi_clk_pol = 1;
 	spi_clk_pha = 0;
 	spi_set_transfer_delay(SPI_MASTER_BASE, spi_chip_sel, SPI_DLYBS,
@@ -159,8 +159,8 @@ static void spi_master_initialize(void)
 	
 	/* Set communication parameters for CS1	*/
 	spi_chip_sel = 1;
-	spi_clk_freq = 4000000;	// SPI CLK for RTC = 4MHz.
-	spi_clk_pol = 1;
+	spi_clk_freq = 2000000;	// SPI CLK for RTC = 4MHz.
+	spi_clk_pol = 0;
 	spi_clk_pha = 0;
 	spi_set_transfer_delay(SPI_MASTER_BASE, spi_chip_sel, SPI_DLYBS,
 	SPI_DLYBCT);
@@ -172,20 +172,16 @@ static void spi_master_initialize(void)
 	
 	/* Set communication parameters for CS2	*/
 	spi_chip_sel = 2;
-	spi_clk_freq = 200000000;	// SPI CLK for MEM2 = 20MHz.
-	spi_clk_pol = 0;
+	spi_clk_freq = 100000;	// SPI CLK for MEM2 = 100kHz.
+	spi_clk_pol = 1;
 	spi_clk_pha = 0;
 	spi_set_transfer_delay(SPI_MASTER_BASE, spi_chip_sel, SPI_DLYBS,
 	SPI_DLYBCT);
 	spi_set_bits_per_transfer(SPI_MASTER_BASE, spi_chip_sel, SPI_CSR_BITS_8_BIT);
 	spi_set_baudrate_div(SPI_MASTER_BASE, spi_chip_sel, spi_calc_baudrate_div(spi_clk_freq, sysclk_get_cpu_hz()));
-	spi_configure_cs_behavior(SPI_MASTER_BASE, spi_chip_sel, SPI_CS_RISE_FORCED);
+	spi_configure_cs_behavior(SPI_MASTER_BASE, spi_chip_sel, SPI_CS_KEEP_LOW);
 	spi_set_clock_polarity(SPI_MASTER_BASE, spi_chip_sel, spi_clk_pol);
 	spi_set_clock_phase(SPI_MASTER_BASE, spi_chip_sel, spi_clk_pha);
-	
-	/* Set pins low for SPI Memory until ready to initialize	*/
-	gpio_set_pin_low(SPI0_MEM2_HOLD);
-	gpio_set_pin_low(SPI0_MEM2_WP);
 	
 	/* Enable SPI Communication */
 	spi_enable(SPI_MASTER_BASE);
@@ -210,7 +206,7 @@ static void spi_set_clock_configuration(uint8_t configuration)
  */
 void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 {
-	uint32_t i;
+	uint32_t i = 0;
 	uint32_t pcs = spi_get_pcs(chip_sel);
 	static uint16_t data;
 

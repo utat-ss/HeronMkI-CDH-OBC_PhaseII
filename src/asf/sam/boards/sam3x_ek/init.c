@@ -219,6 +219,11 @@ void board_init(void)
 		gpio_configure_pin(SPI0_MEM2_WP, SPI0_MEM2_WP_FLAGS);
 #	endif
 
+#	ifdef CONF_SPI_MEM1
+		gpio_configure_pin(SPI0_MEM1_HOLD, SPI0_MEM1_HOLD_FLAGS);
+		gpio_configure_pin(SPI0_MEM1_WP, SPI0_MEM1_WP_FLAGS);
+#	endif
+
 
 #endif // #ifdef CONF_BOARD_SPI0
 

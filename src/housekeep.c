@@ -19,9 +19,6 @@
 	*	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None
 	*
 	*	NOTES:	 
-	*	Remember that configTICK_RATE_HZ in FreeRTOSConfig.h is currently set to 10 Hz and
-	*	so when that is set to a new value, the amount of ticks in between housekeeping will
-	*	have to be adjusted.
 	*	
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*	New tasks should be written to use as much of CMSIS as possible. The ASF and 
@@ -122,7 +119,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+		if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 		{
 			ID = SUB1_ID5;
 			x = request_housekeeping(ID);								// Request housekeeping from COMS.
@@ -139,7 +136,7 @@ static void prvHouseKeepTask(void *pvParameters )
 			ID = SUB2_ID5;
 			x = request_housekeeping(ID);								// Request housekeeping from PAY.
 			//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
-			xSemaphoreGive(Can1_Mutex);
+			xSemaphoreGive(Can0_Mutex);
 		}
 		
 		xLastWakeTime = xTaskGetTickCount();

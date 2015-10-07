@@ -100,6 +100,10 @@ Author: Keenan Burnett
 *
 *	10/03/2015		I am adding spimem_initialize to the list of initialization procedures in prvSetupHardware().
 *
+*	10/07/2015		Changed Can1_Mutex -> Can0_Mutex, Added Spi0_Mutex to the list of mutexes being initialized.
+*
+*					Moved the initialization of mutexes into safe_mode().
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
@@ -193,10 +197,7 @@ int main(void)
 	
 	/* Prepare the hardware */
 	prvSetupHardware();
-	
-	/* Initialize Mutexes */
-	prvInitializeMutexes();
-	
+		
 	/* Create Tasks */
 	//my_blink();
 	//command_loop();
@@ -234,7 +235,8 @@ static void safe_mode(void)
 	
 	timeOut = 80000000;
 	
-	
+	/* Initialize Mutexes */
+	prvInitializeMutexes();
 	
 	/* Initialize CAN-related registers and functions for tests and operation */
 	can_initialize();
@@ -294,8 +296,11 @@ static void prvSetupHardware(void)
 
 static void prvInitializeMutexes(void)
 {	
-	Can1_Mutex = xSemaphoreCreateBinary();
-	xSemaphoreGive(Can1_Mutex);
+	Can0_Mutex = xSemaphoreCreateBinary();
+	Spi0_Mutex = xSemaphoreCreateBinary();
+
+	xSemaphoreGive(Can0_Mutex);
+	xSemaphoreGive(Spi0_Mutex);
 	return;
 }
 

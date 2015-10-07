@@ -242,6 +242,28 @@ void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 	return;
 }
 
+void spi_master_transfer_keepcslow(void *p_buf, uint32_t size, uint8_t chip_sel)
+{
+	uint32_t i = 0;
+	uint32_t pcs = spi_get_pcs(chip_sel);
+	static uint16_t data;
+
+	uint16_t *p_buffer;
+
+	p_buffer = p_buf;
+		
+	// Keep CS low for the duration of the transfer, keep low @ end.
+	for (i = 0; i < size; i++) 
+	{
+		spi_write(SPI_MASTER_BASE, p_buffer[i], pcs, 0);	
+		/* Wait transfer done. */
+		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
+		spi_read(SPI_MASTER_BASE, &data, &pcs);
+		p_buffer[i] = data;
+	}
+	return;
+}
+
 void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel)
 {
 	uint32_t i, pcs = spi_get_pcs(chip_sel);

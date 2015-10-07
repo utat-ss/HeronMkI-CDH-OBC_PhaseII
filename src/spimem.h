@@ -41,6 +41,8 @@
 #include "gpio.h"
 #include "time.h"
 
+SemaphoreHandle_t	Spi0_Mutex;
+
 /*		SPI MEMORY COMMANDS		*/
 #define		WREN	0x06		// Write-Enable
 #define		WRDI	0x04		// Write-Disable
@@ -57,18 +59,18 @@ uint8_t	spi_mem_buff[4096];		// Buffer required when erasing a sector
 uint32_t spi_mem_buff_sect_num;	// Current sector number of what is loaded into the SPI Memory Buffer.
 
 /*		Fuction Prototypes				*/
-void spimem_initialize(void);
-uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint32_t size);
-uint32_t spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);
-uint32_t check_page(uint32_t page_num);
-uint32_t check_if_wip(uint32_t spi_chip);
-uint32_t get_page(uint32_t addr);
-uint32_t get_sector(uint32_t addr);
-uint8_t get_spimem_status(uint32_t spi_chip);
-uint32_t set_page_dirty(uint32_t page_num);
-uint32_t set_sector_clean_in_bitmap(uint32_t sect_num);
-uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num);
-uint32_t update_spibuffer_with_new_page(uint32_t addr, uint32_t* data_buff, uint32_t size);
-uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num);
-uint32_t write_sector_back_to_spimem(uint32_t spi_chip);
+void spimem_initialize(void);																	// Driver
+int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
+int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
+uint32_t check_page(uint32_t page_num);															// Helper
+uint32_t check_if_wip(uint32_t spi_chip);														// Helper
+uint32_t get_page(uint32_t addr);																// Helper
+uint32_t get_sector(uint32_t addr);																// Helper
+int get_spimem_status(uint32_t spi_chip);														// API, BLOCKS FOR 1 TICK
+uint32_t set_page_dirty(uint32_t page_num);														// Helper
+uint32_t set_sector_clean_in_bitmap(uint32_t sect_num);											// Helper
+uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num);						// Driver
+uint32_t update_spibuffer_with_new_page(uint32_t addr, uint32_t* data_buff, uint32_t size);		// Driver
+uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num);							// Driver
+uint32_t write_sector_back_to_spimem(uint32_t spi_chip);										// Driver
 

@@ -69,7 +69,7 @@
 
 #include "global_var.h"		// Contains convenient global variables.
 
-SemaphoreHandle_t	Can1_Mutex;
+SemaphoreHandle_t	Can0_Mutex;
 
 typedef struct {
 	uint32_t ul_mb_idx;

@@ -18,9 +18,6 @@
 	*	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None
 	*
 	*	NOTES:	 
-	*	Remember that configTICK_RATE_HZ in FreeRTOSConfig.h is currently set to 10 Hz and
-	*	so when that is set to a new value, the amount of ticks in between housekeeping will
-	*	have to be adjusted.
 	*	
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*	New tasks should be written to use as much of CMSIS as possible. The ASF and 
@@ -125,7 +122,7 @@ static void prvCommandTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+		if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 		{
 			ID = SUB1_ID0;
 			x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
@@ -141,7 +138,7 @@ static void prvCommandTask( void *pvParameters )
 			
 			ID = SUB2_ID0;
 			x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.
-			xSemaphoreGive(Can1_Mutex);									// Release CAN1 Mutex
+			xSemaphoreGive(Can0_Mutex);									// Release CAN1 Mutex
 		}
 		
 		xLastWakeTime = xTaskGetTickCount();

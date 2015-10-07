@@ -40,6 +40,14 @@
 *	DEVELOPMENT HISTORY:
 *	09/27/2015			Created
 *
+*	10/05/2015			I have verified that I am able to communicate with the SPI chip by retrieving its status byte.
+*
+*	10/07/2015			The code here appears to be mostly complete, I have added in the functionality so that APIs
+*						must acquire the Spi0_Mutex before they can complete their operation. Each of these functions
+*						will only block for 1 tick before returning a failure status. 
+*
+*						I am currently writing a test program in order to verify the functionality of all this code.
+*
 *	DESCRIPTION:
 *
 *			spimem_initialize gets the chip ready for communication with the OBC.
@@ -71,7 +79,6 @@ void spimem_initialize(void)
 	gpio_set_pin_high(SPI0_MEM2_HOLD);	// Turn "holding" off.
 	gpio_set_pin_high(SPI0_MEM2_WP);	// Turn write protection off.
 	
-	
 	//dumbuf = CE;							// Chip-Erase (this operation can take up to 7s.
 	//spi_master_transfer(&dumbuf, 1, 2);
 	//delay_s(7);								// delay 7 seconds.
@@ -79,7 +86,7 @@ void spimem_initialize(void)
 	//if(check_if_wip(1) != 1)				// Wait for the erase to finish (10 more ms allowed).
 	//	return;								// FAILURE_RECOVERY required here.
 	
-	//check = get_spimem_status(2);
+	//check = get_spimem_status_h(2);
 	//check = check & 0x03;
 	
 //	if(check != 0x02)
@@ -91,7 +98,7 @@ void spimem_initialize(void)
 	{
 		dumbuf[0] = WREN;						// Write-Enable Command.
 		spi_master_transfer(dumbuf, 1, 2);
-		check = get_spimem_status(2);
+		check = get_spimem_status_h(2);
 		if(check != 0x00)
 			pio_toggle_pin(LED3_GPIO);
 	}
@@ -121,8 +128,11 @@ void spimem_initialize(void)
 /* number of consecutive bytes which were successfully written to memory*/
 /* @Note: This function simply writes the bytes you ask for into 		*/
 /* acsending order (numerically) in memory.								*/
+/* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
+/* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
+/* after that, the funciton returns -1.									*/
 /************************************************************************/
-uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint32_t size)
+int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
 	uint32_t i, size1, size2, low, dirty = 0, page, sect_num, check;
 	uint16_t msg_buff[size + 5];
@@ -151,72 +161,120 @@ uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint
 		size2 = 0;
 	}
 
-	if(check_if_wip(spi_chip) != 1)		// SPI chip is either tied up or dead, return FAILURE.
+	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
+	{
+		if(check_if_wip(spi_chip) != 1)		// SPI chip is either tied up or dead, return FAILURE.
 		return -1;
 
-	page = get_page(addr);
-	dirty = check_page(page);
-	if(dirty)
-	{
-		sect_num = get_sector(addr);
-		check = load_sector_into_spibuffer(spi_chip, sect_num);			// if check != 4096, FAILURE_RECOVERY.
-		check = update_spibuffer_with_new_page(addr, data_buff, size1);	// if check != size1, FAILURE_RECOVERY.
-		check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
-		check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
-	}
-	else
-	{
-		msg_buff[2] = addr & 0x000F0000;
-		msg_buff[3] = addr & 0x0000FF00;
-		msg_buff[4] = addr & 0x000000FF;
-
-		for (i = 5; i < (size1 + 5); i++)
-		{
-			msg_buff[i] = *(data_buff + (i - 5));
-		}
-		/* Transfer commands and data to the memory chip */
-		spi_master_transfer(&msg_buff, (size1 + 5), spi_chip);
-
-		set_page_dirty(page);	// Page has been written to, set dirty.
-
-		delay_ms(10);			// Internal Write Time for the SPI Memory Chip.		
-	}
-	
-	if(size2)	// Requested write flows into a second page.
-	{
 		page = get_page(addr);
 		dirty = check_page(page);
 		if(dirty)
 		{
 			sect_num = get_sector(addr);
-			check = load_sector_into_spibuffer(spi_chip, sect_num);						// if check != 4096, FAILURE_RECOVERY.
-			check = update_spibuffer_with_new_page(addr, (data_buff + size1), size2);	// if check != size1, FAILURE_RECOVERY.
+			check = load_sector_into_spibuffer(spi_chip, sect_num);			// if check != 4096, FAILURE_RECOVERY.
+			check = update_spibuffer_with_new_page(addr, data_buff, size1);	// if check != size1, FAILURE_RECOVERY.
 			check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
 			check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
-
 		}
 		else
 		{
-			msg_buff[0] = WREN;
-			msg_buff[1] = PP;
-			msg_buff[2] = (addr + size1) & 0x000F0000;
-			msg_buff[3] = (addr + size1) & 0x0000FF00;
-			msg_buff[4] = (addr + size1) & 0x000000FF;
+			msg_buff[2] = addr & 0x000F0000;
+			msg_buff[3] = addr & 0x0000FF00;
+			msg_buff[4] = addr & 0x000000FF;
 
-			for (i = 5; i < (size2 + 5); i++)
+			for (i = 5; i < (size1 + 5); i++)
 			{
-				msg_buff[i] = *((data_buff + size1) + (i - 5));
+				msg_buff[i] = (uint16_t)*(data_buff + (i - 5));
 			}
 			/* Transfer commands and data to the memory chip */
-			spi_master_transfer(&msg_buff, (size2 + 5), spi_chip);
+			spi_master_transfer(&msg_buff, (size1 + 5), spi_chip);
 
 			set_page_dirty(page);	// Page has been written to, set dirty.
 
-			delay_ms(10);			// Internal Write Time for the SPI Memory Chip.	
+			delay_ms(10);			// Internal Write Time for the SPI Memory Chip.		
 		}
+		
+		if(size2)	// Requested write flows into a second page.
+		{
+			page = get_page(addr);
+			dirty = check_page(page);
+			if(dirty)
+			{
+				sect_num = get_sector(addr);
+				check = load_sector_into_spibuffer(spi_chip, sect_num);						// if check != 4096, FAILURE_RECOVERY.
+				check = update_spibuffer_with_new_page(addr, (data_buff + size1), size2);	// if check != size1, FAILURE_RECOVERY.
+				check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
+				check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
+
+			}
+			else
+			{
+				msg_buff[0] = WREN;
+				msg_buff[1] = PP;
+				msg_buff[2] = (addr + size1) & 0x000F0000;
+				msg_buff[3] = (addr + size1) & 0x0000FF00;
+				msg_buff[4] = (addr + size1) & 0x000000FF;
+
+				for (i = 5; i < (size2 + 5); i++)
+				{
+					msg_buff[i] = (uint16_t)*((data_buff + size1) + (i - 5));
+				}
+				/* Transfer commands and data to the memory chip */
+				spi_master_transfer(&msg_buff, (size2 + 5), spi_chip);
+
+				set_page_dirty(page);	// Page has been written to, set dirty.
+
+				delay_ms(10);			// Internal Write Time for the SPI Memory Chip.	
+			}
+		}
+		
+		xSemaphoreGive(Spi0_Mutex);
+		return (size1 + size2);	
 	}
-	
-	return (size1 + size2);
+
+	else
+		return -1;												// SPI0 is currently being used or there is an error.
+
+
+}
+
+/************************************************************************/
+/* SPIMEM_READ_H 		                                                    */
+/* 																		*/
+/* @param: spi_chip: Indicates which SPI CHIP we are communicating with */
+/* which is either 1, 2, or 3.											*/
+/* @param: addr: indicates the address on the SPI_CHIP we would like to */
+/* read from.															*/
+/* @param: read_buff: Buffer in which the read bytes will be placed.	*/
+/* @param: size: How many bytes we would like to read into memory.		*/
+/* @return: -1 == Failure, otherwise returns the number of pages which	*/
+/* were read into the buffer.											*/
+/* @purpose: Read from the SPI memory chip.								*/
+/* @NOTE: This function is a helper and is ONLY to be used within a 	*/
+/* section of code which has acquired the Spi0_Mutex.					*/
+/************************************************************************/
+static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
+{
+	uint16_t dumbuf[4];
+
+		if (addr > 0xFFFFF)										// Invalid address to write to.
+			return -1;
+		if ((addr + size - 1) > 0xFFFFF)
+			return -1;
+
+		dumbuf[0] = RD;
+		dumbuf[1] = addr & 0x00FF0000;
+		dumbuf[2] = addr & 0x0000FF00;
+		dumbuf[3] = addr & 0x000000FF;
+
+		if(check_if_wip(spi_chip) != 1)							// A write is still in effect, FAILURE_RECOVERY
+			return -1;
+
+		spi_master_transfer_keepcslow(&dumbuf, 4, spi_chip);	// Keeps CS low so that read may begin immediately.
+
+		spi_master_read(read_buff, size, spi_chip);
+
+		return size;
 }
 
 /************************************************************************/
@@ -231,28 +289,38 @@ uint32_t spimem_write(uint8_t spi_chip, uint32_t addr, uint32_t* data_buff, uint
 /* @return: -1 == Failure, otherwise returns the number of pages which	*/
 /* were read into the buffer.											*/
 /* @purpose: Read from the SPI memory chip.								*/
+/* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
+/* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
+/* after that, the funciton returns -1.									*/
 /************************************************************************/
 uint32_t spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
 	uint16_t dumbuf[4];
 
-	if (addr > 0xFFFFF)			// Invalid address to write to.
+	if (addr > 0xFFFFF)										// Invalid address to write to.
 		return -1;
 	if ((addr + size - 1) > 0xFFFFF)
 		return -1;
 
-	dumbuf[0] = RD;
-	dumbuf[1] = addr & 0x00FF0000;
-	dumbuf[2] = addr & 0x0000FF00;
-	dumbuf[3] = addr & 0x000000FF;
+	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
+	{
+		dumbuf[0] = RD;
+		dumbuf[1] = addr & 0x00FF0000;
+		dumbuf[2] = addr & 0x0000FF00;
+		dumbuf[3] = addr & 0x000000FF;
 
-	// Make sure that WIP == 0.
+		if(check_if_wip(spi_chip) != 1)							// A write is still in effect, FAILURE_RECOVERY.
+			return -1;
 
-	spi_master_transfer(&dumbuf, 4, spi_chip);
+		spi_master_transfer_keepcslow(&dumbuf, 4, spi_chip);	// Keeps CS low so that read may begin immediately.
 
-	spi_master_read(read_buff, size, spi_chip);
+		spi_master_read(read_buff, size, spi_chip);
 
-	return size;
+		return size;
+	}
+	else
+		return -1;												// SPI0 is currently being used or there is an error.
+
 }
 
 /************************************************************************/
@@ -265,6 +333,8 @@ uint32_t spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint3
 /* were successfully read into the SPI BUFFER.							*/
 /* @purpose: The function is to be used immediately before a sector		*/
 /* -erase operation. Loads 4kB from SPI_CHIP into spi_mem_buffer		*/
+/* @NOTE: This function is a helper and is ONLY to be used within a 	*/
+/* section of code which has acquired the Spi0_Mutex.					*/
 /************************************************************************/
 uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num)
 {
@@ -275,7 +345,7 @@ uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num)
 
 	addr = sect_num << 12;
 
-	read = spimem_read(spi_chip, addr, spi_mem_buff, 4096);
+	read = spimem_read_h(spi_chip, addr, spi_mem_buff, 4096);
 	spi_mem_buff_sect_num = sect_num;
 
 	return read;
@@ -359,21 +429,49 @@ uint32_t get_sector(uint32_t addr)
 }
 
 /************************************************************************/
+/* GET_SPIMEM_STATUS_H 		                                            */
+/* 																		*/
+/* @param: spi_chip: Indicates which SPI CHIP we are communicating with */
+/* which is either 1, 2, or 3.											*/
+/* @purpose: This function returns the status register from the SPI 	*/
+/* memory chip that was requested.										*/
+/* @NOTE: This function is a helper and is ONLY to be used within a 	*/
+/* section of code which has acquired the Spi0_Mutex.					*/
+/************************************************************************/
+static uint8_t get_spimem_status_h(uint32_t spi_chip)
+{
+	uint16_t dumbuf[2];
+	dumbuf[0] = RSR;											// Read Status Register.
+	dumbuf[1] = 0x00;
+
+	spi_master_transfer(dumbuf, 2, spi_chip);
+	return (uint8_t)dumbuf[1];						// Status of the Chip is returned.
+}
+
+/************************************************************************/
 /* GET_SPIMEM_STATUS 		                                            */
 /* 																		*/
 /* @param: spi_chip: Indicates which SPI CHIP we are communicating with */
 /* which is either 1, 2, or 3.											*/
 /* @purpose: This function returns the status register from the SPI 	*/
 /* memory chip that was requested.										*/
+/* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
+/* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
+/* after that, the funciton returns -1.									*/
 /************************************************************************/
-uint8_t get_spimem_status(uint32_t spi_chip)
+int get_spimem_status(uint32_t spi_chip)
 {
 	uint16_t dumbuf[2];
-	dumbuf[0] = RSR;						// Read Status Register.
+	dumbuf[0] = RSR;											// Read Status Register.
 	dumbuf[1] = 0x00;
-	spi_master_transfer(dumbuf, 2, spi_chip);
-
-	return (uint8_t)dumbuf[1];				// Status of the Chip is returned.
+	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
+	{
+		spi_master_transfer(dumbuf, 2, spi_chip);
+		xSemaphoreGive(Spi0_Mutex);
+		return (uint8_t)dumbuf[1];						// Status of the Chip is returned.
+	}
+	else
+		return -1;										// SPI0 is currently being used or there is an error.
 }
 
 /************************************************************************/
@@ -438,6 +536,8 @@ uint32_t set_sector_clean_in_bitmap(uint32_t sect_num)
 /* @return: -1 == Failure, 1 == Success									*/
 /* @purpose: The function is to be used to erase a single sector within	*/
 /* a SPI memory chip.													*/
+/* @NOTE: This function is a helper and is ONLY to be used within a 	*/
+/* section of code which has acquired the Spi0_Mutex.					*/
 /************************************************************************/
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 {
@@ -445,7 +545,7 @@ uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 	uint8_t addr;
 
 	if(sect_num > 0xFF)							// Invalid Sector Number
-		return -1;
+	return -1;
 
 	if(check_if_wip(spi_chip) != 1)
 		return -1;								// SPI_CHIP is currently tied up or dead, return FAILURE.
@@ -460,7 +560,8 @@ uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 
 	spi_master_transfer(&msg_buff, 5, spi_chip);
 
-	return 1;									// Erase Operation Succeeded.
+	xSemaphoreGive(Spi0_Mutex);
+	return 1;									// Erase Operation Succeeded.	
 }
 
 /************************************************************************/
@@ -472,6 +573,8 @@ uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 /* of bytes which were successfully written to the SPI Chip.			*/
 /* @purpose: The function is to be usd to load the entire spi_mem_buff  */
 /* back into memory. (The typical sequence is load-erase-writeback      */
+/* @NOTE: This function is a helper and is ONLY to be used within a 	*/
+/* section of code which has acquired the Spi0_Mutex.					*/
 /************************************************************************/
 uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 {
@@ -479,7 +582,7 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 	uint32_t addr, i, j;
 
 	if(check_if_wip(spi_chip) != 1)
-		return -1;									// SPI_CHIP is currently tied up or dead, return FAILURE.
+	return -1;									// SPI_CHIP is currently tied up or dead, return FAILURE.
 
 	addr = spi_mem_buff_sect_num << 12;
 
@@ -501,8 +604,7 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 		if(check_if_wip(spi_chip) != 1)
 			return i * 256;							// Write operation took too long, return number of bytes transferred.
 	}
-
-	return i * 256;									// Return the number of bytes which were written to SPI memory.
+	return i * 256;								    // Return the number of bytes which were written to SPI memory.							
 }
 
 /************************************************************************/
@@ -516,17 +618,19 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 /* currently tied up with a write operation, this function will wait for*/
 /* a maximum of 10ms for the chip to become free.(approximately the 	*/
 /* length of a single page-write operation)								*/
+/* @NOTE: This function is ONLY to be used during SPIMEM initialization	*/
+/* or when the SPI0 Mutex has already been acquired.					*/
 /************************************************************************/
 uint32_t check_if_wip(uint32_t spi_chip)
 {
 	uint8_t status;
 	uint32_t timeout = 21053;						// ~10ms timeout.
 
-	status = get_spimem_status(spi_chip);
+	status = get_spimem_status_h(spi_chip);
 	status = status & 0x03;
 	while((status != 0x02) && (timeout--))			// Wait for WIP to be zero (Write-In-Progess)
 	{
-		status = get_spimem_status(spi_chip);
+		status = get_spimem_status_h(spi_chip);
 		status = status & 0x03;
 	}
 

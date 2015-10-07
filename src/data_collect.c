@@ -18,10 +18,7 @@
 	*	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None
 	*
 	*	NOTES:	 
-	*	Remember that configTICK_RATE_HZ in FreeRTOSConfig.h is currently set to 10 Hz and
-	*	so when that is set to a new value, the amount of ticks in between housekeeping will
-	*	have to be adjusted.
-	*	
+	*
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*	New tasks should be written to use as much of CMSIS as possible. The ASF and 
 	*	FreeRTOS API libraries should also be used whenever possible to make the program
@@ -131,7 +128,7 @@ static void prvDataTask( void *pvParameters )
 		low = DATA_REQUEST;
 		high = high_command_generator(OBC_ID, MT_COM, REQ_DATA);
 		
-		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+		if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 		{
 			ID = SUB1_ID0;
 			x = send_can_command(low, high, ID, PRIORITY);				// Request data from COMS.
@@ -147,14 +144,14 @@ static void prvDataTask( void *pvParameters )
 			
 			ID = SUB2_ID0;
 			x = send_can_command(low, high, ID, PRIORITY);				// Request data from PAY.
-			xSemaphoreGive(Can1_Mutex);									// Release CAN1 Mutex
+			xSemaphoreGive(Can0_Mutex);									// Release CAN1 Mutex
 		}
 							
 		
 		xLastWakeTime = xTaskGetTickCount();						// Delay for 100 ticks.
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 
-		//xSemaphoreTake(Can1_Mutex, 2);							// Acquire CAN1 Mutex
+		//xSemaphoreTake(Can0_Mutex, 2);							// Acquire CAN1 Mutex
 		if(glob_drf)		// data reception flag;
 		{
 			x = read_can_data(&high, &low, 1234);
@@ -178,7 +175,7 @@ static void prvDataTask( void *pvParameters )
 				glob_comsf = 0;
 			}
 		}
-		//xSemaphoreGive(Can1_Mutex);								// Release CAN1 Mutex
+		//xSemaphoreGive(Can0_Mutex);								// Release CAN1 Mutex
 	}
 }
 /*-----------------------------------------------------------*/

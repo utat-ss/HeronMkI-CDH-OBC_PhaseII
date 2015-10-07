@@ -276,7 +276,7 @@ uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t a
 uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
-uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t smalltype);			// API Function.
+uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t smalltype);			// API Function.
 void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller);
 void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller);
 uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr);			// API Function.

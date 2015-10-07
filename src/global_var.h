@@ -55,6 +55,9 @@ QueueHandle_t can_com_fifo;
 uint8_t	glob_drf;							// Initialized in can_initialize
 uint8_t glob_comsf;
 
+/* COMPLETE TRANSMISSION FLAG	   */		// Initialized in can_initialize
+uint8_t transmit_complete[8];
+
 /* HOUSEKEEPING COMMAND FLAG	   */
 uint8_t hk_read_requestedf;
 uint8_t hk_read_receivedf;

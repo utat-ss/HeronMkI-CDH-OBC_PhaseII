@@ -76,6 +76,7 @@ static void prvTimeUpdateTask( void *pvParameters )
 			
 			//TODO: SEND CAN COMMAND
 			//x = send_can_command(low, high, ID, PRIORITY);
+			//x = send_can_command(low, high, ID, PRIORITY);
 			
 			rtc_reset_a2();
 		}

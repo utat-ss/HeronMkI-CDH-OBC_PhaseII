@@ -114,6 +114,16 @@
 	*					reception of a response to these commands. 
 	*					NOTE: these new functions will wait a maximum of one second for the operation to be completed.
 	*
+	*	10/07/2015		I am adding a flag named "transmit_complete" to glob_var.h Using this, I am going to make the API functions
+	*					wait for a certain period of time for the value to become 1 they will return a failure code.
+	*					This flag will be set within CAN0_Handler and reset within the initiating function.
+	*
+	*					In addition I am going to be moving our use of mutexes into the APIs themselves so that users do
+	*					not have to understand mutex placement.
+	*
+	*					I also took the time to edit all the headers for the functions to make them all proper.
+	*					
+	*
 	*	DESCRIPTION:	
 	*
 	*					This file is being used for all functions and API related to all things CAN.	
@@ -133,11 +143,14 @@ void CAN1_Handler(void)
    	save_can_object(&can1_mailbox, &temp_mailbox_C1);	//Doesn't erase the CAN message.
 	
 	ul_status = can_get_status(CAN1);
-	if (ul_status & GLOBAL_MAILBOX_MASK) {
-		for (uint8_t i = 0; i < CANMB_NUMBER; i++) {
+	if (ul_status & GLOBAL_MAILBOX_MASK) 
+	{
+		for (uint8_t i = 0; i < CANMB_NUMBER; i++) 
+		{
 			ul_status = can_mailbox_get_status(CAN1, i);
 			
-			if ((ul_status & CAN_MSR_MRDY) == CAN_MSR_MRDY) {
+			if ((ul_status & CAN_MSR_MRDY) == CAN_MSR_MRDY) 
+			{
 				can1_mailbox.ul_mb_idx = i;
 				can1_mailbox.ul_status = ul_status;
 				can_mailbox_read(CAN1, &can1_mailbox);
@@ -171,26 +184,18 @@ void CAN1_Handler(void)
 void CAN0_Handler(void)
 {
 	uint32_t ul_status;
-	/* Save the state of the can0_mailbox object */
-	save_can_object(&can0_mailbox, &temp_mailbox_C0);
 
 	ul_status = can_get_status(CAN0);
-	if (ul_status & GLOBAL_MAILBOX_MASK) {
-		for (uint8_t i = 0; i < CANMB_NUMBER; i++) {
+	if (ul_status & GLOBAL_MAILBOX_MASK) 
+	{
+		for (uint8_t i = 0; i < CANMB_NUMBER; i++) 
+		{
 			ul_status = can_mailbox_get_status(CAN0, i);
 			
-			if ((ul_status & CAN_MSR_MRDY) == CAN_MSR_MRDY) {
-				can0_mailbox.ul_mb_idx = i;
-				can0_mailbox.ul_status = ul_status;
-				can_mailbox_read(CAN0, &can0_mailbox);
-				g_ul_recv_status = 1;
-				
-				// Decode CAN Message
-				debug_can_msg(&can0_mailbox, CAN0);
+			if ((ul_status & CAN_MSR_MRDY) == CAN_MSR_MRDY) 
+			{
+				transmit_complete[i] = 1;		// Indicate that a transmission has completed.
 				//assert(g_ul_recv_status); ***implement assert here.
-				
-				/* Restore the can0 mailbox object */
-				restore_can_object(&can0_mailbox, &temp_mailbox_C0);
 				break;
 			}
 		}
@@ -198,13 +203,9 @@ void CAN0_Handler(void)
 }
 
 /************************************************************************/
-/* DEBUG CAN MESSAGE													*/
-/* 																        */
-/* Only for the purposes of debugging, this function blinks an LED 		*/
-/* depending on the CAN message which was received.						*/
-/*																		*/
+/* DEBUG CAN MESSAGE 													*/
+/* USED FOR debugging 													*/
 /************************************************************************/
-
 void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 {
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
@@ -226,7 +227,14 @@ void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 	return;
 }
 
-
+/************************************************************************/
+/* DECODE_CAN_COMMAND 		                                            */
+/* @param: *p_mailbox: The mailbox object which we would like to decode */
+/* CAN commands from.													*/
+/* @param: *controller: used to verify authenticity						*/
+/* @Purpose: This function decodes commands which are received and 		*/
+/* performs different actions based on what was received. 				*/
+/************************************************************************/
 void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 {
 	//assert(g_ul_recv_status);		// Only decode if a message was received.	***Asserts here.
@@ -281,6 +289,14 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 	return;
 }
 
+/************************************************************************/
+/* ALERT_CAN_DATA 	 		                                            */
+/* @param: *p_mailbox: The mailbox object which we would like to use to */
+/* create CAN alerts. 													*/
+/* @param: *controller: To be used to verify that the request was genuin*/
+/* @Purpose: This function sets flags which let process know that they 	*/
+/* have data waiting for them. 											*/
+/************************************************************************/
 void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 {
 	//assert(g_ul_recv_status);		// Only decode if a message was received.	***Asserts here.
@@ -317,14 +333,13 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 }
 
 /************************************************************************/
-/* STORE CAN MESSAGE 				                                    */
-/*																		*/
-/* This function is used to take the CAN message which was received		*/
-/* and store it in the appropriate global can register.					*/
-/* 																		*/
-/* These registers are then available to tasks through an API call.		*/
+/* STORE_CAN_MESSAGE 		                                            */
+/* @param: *p_mailbox: The mailbox structure which we would like to 	*/
+/* store in memory.														*/
+/* @param: mb: The mailbox from which the message was received. 		*/
+/* @Purpose: This function takes a message which was received and stores*/
+/* in the proper FIFO in memory.										*/
 /************************************************************************/
-
 void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 {
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
@@ -362,9 +377,10 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 }
 
 /************************************************************************/
-/* RESET MAILBOX CONFIGURE STRUCTURE                                    */
+/* RESET_MAILBOX_CONF 		                                            */
+/* @param: *p_mailbox: the mailbox object to be reset. 					*/
+/* @Purpose: This function resets the attributes of object p_mailbox.	*/
 /************************************************************************/
-
 void reset_mailbox_conf(can_mb_conf_t *p_mailbox)
 {
 	p_mailbox->ul_mb_idx = 0;
@@ -378,44 +394,31 @@ void reset_mailbox_conf(can_mb_conf_t *p_mailbox)
 	p_mailbox->ul_fid = 0;
 	p_mailbox->ul_datal = 0;
 	p_mailbox->ul_datah = 0;
+
+	return;
 }
 
 /************************************************************************/
-/*                 SEND A MESSAGE/COMMAND FROM CAN0				        */
-/*	This function will take in two 32 bit integers representing the high*/
-/*  bits and low bits of the message to be sent. It will then take in   */
-/*  the ID of the message to be sent and it's priority, the message will*/
-/*  then be sent out from CAN0 MB7.										*/
-/*																		*/
-/*  The function will return 1 if the action was completed and 0 if not.*/
-/*	NOTE: a '1' does not indicate the transmission was successful.		*/
-/*																		*/
-/*	This function does not alter the can0_mailbox object.				*/
+/* SEND_CAN_COMMAND_H 		                                            */
+/* @param: low: The lower 4 bytes that you would like to send.			*/
+/* @param: high: The upper 4 bytes that you would like to send.			*/
+/* @param: ID: The ID of the SSM that you are sending a command to.		*/
+/* @param: PRIORITY: The priority which will be put on the CAN message. */
+/* @Purpose: This function sends an 8 byte message to the SSM chosen. 	*/
+/* @return: 1 == completed, 0 == failure.								*/
+/* @NOTE: 1 != Success (Necessarily) 									*/
+/* @NOTE: This is a helper function, it is only to be used in sections  */
+/* of code where the Can0_Mutex has been acquired.						*/
 /************************************************************************/
-
-uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY)
+static uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY)
 {	
-	/* We don't need to worry about saving and restoring the state of the can0_mailbox
-	*  because the interrupt handlers should do that for us, and in the future only one
-	*  task will be allowed in a CAN mailbox at any point in the through the use of
-	*  mutex locks.
-	*
-	*  Another thing! Don't place this function in a for loop if you plan on using it to
-	*  send from the same mailbox over and over again, make sure to delay/yield in between calls
-	*  if that is what you're trying to do. Also, be sure to release and acquire mutex locks
-	*  in between each use of the CAN resource.
-	*/
-	
-	/* Save current can0_mailbox object */
-	can_temp_t temp_mailbox;
-	//save_can_object(&can0_mailbox, &temp_mailbox);
-	
+	uint32_t timeout = 8400;		// ~ 100 us timeout.
 	/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
 	/* CAN0 MB7 == COMMAND/MSG MB				*/
 	reset_mailbox_conf(&can0_mailbox);
-	can0_mailbox.ul_mb_idx = 7;			//Mailbox Number 7
+	can0_mailbox.ul_mb_idx = 7;						//Mailbox Number 7
 	can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
-	can0_mailbox.uc_tx_prio = PRIORITY;		//Transmission Priority (Can be Changed dynamically)
+	can0_mailbox.uc_tx_prio = PRIORITY;				//Transmission Priority (Can be Changed dynamically)
 	can0_mailbox.uc_id_ver = 0;
 	can0_mailbox.ul_id_msk = 0;
 	can_mailbox_init(CAN0, &can0_mailbox);
@@ -427,28 +430,90 @@ uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRI
 	can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
 	can_mailbox_write(CAN0, &can0_mailbox);
 
+	transmit_complete[7] = 0;
+
 	/* Send out the information in the mailbox. */
 	can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
-	
-	/* Restore the can0_mailbox object */
-	//restore_can_object(&can0_mailbox, &temp_mailbox);
-	
-	return 1;
+
+	while((transmit_complete[7] != 1) && timeout--){ }
+
+	if(transmit_complete[7] != 1)
+		return -1;									// Transmission took too long.
+	else
+	{
+		transmit_complete[7] = 0;
+		return 1;
+	}
+
 }
 
 /************************************************************************/
-/*		READ CAN DATA 		                                            */
-/*																		*/
-/*		This function returns the CAN message currently residing in     */
-/*		can_glob_data_reg.												*/
-/*																		*/
-/*		It does this by changing the value that the given pointers		*/
-/* 		are pointing to.												*/
-/*																		*/
-/*		The function returns 1 is the operation was successful, 		*/
-/*		otherwise it returns 0.
+/* SEND_CAN_COMMAND 		                                            */
+/* @param: low: The lower 4 bytes that you would like to send.			*/
+/* @param: high: The upper 4 bytes that you would like to send.			*/
+/* @param: ID: The ID of the SSM that you are sending a command to.		*/
+/* @param: PRIORITY: The priority which will be put on the CAN message. */
+/* @Purpose: This function sends an 8 byte message to the SSM chosen. 	*/
+/* @return: 1 == completed, (<=0) == failure.							*/
+/* @NOTE: 1 != Success (Necessarily) 									*/
 /************************************************************************/
+uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY)
+{	
+	uint32_t timeout = 8400;		// ~ 100 us timeout.
 
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
+		/* CAN0 MB7 == COMMAND/MSG MB				*/
+		reset_mailbox_conf(&can0_mailbox);
+		can0_mailbox.ul_mb_idx = 7;			//Mailbox Number 7
+		can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
+		can0_mailbox.uc_tx_prio = PRIORITY;		//Transmission Priority (Can be Changed dynamically)
+		can0_mailbox.uc_id_ver = 0;
+		can0_mailbox.ul_id_msk = 0;
+		can_mailbox_init(CAN0, &can0_mailbox);
+
+		/* Write transmit information into mailbox. */
+		can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
+		can0_mailbox.ul_datal = low;					// shifted over to the standard frame position.
+		can0_mailbox.ul_datah = high;
+		can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
+		can_mailbox_write(CAN0, &can0_mailbox);
+
+		transmit_complete[7] = 0;
+
+		/* Send out the information in the mailbox. */
+		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
+
+		while((transmit_complete[7] != 1) && timeout--){ }
+
+		if(transmit_complete[7] != 1)
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;									// The transmission took too long.
+		}
+		else
+		{
+			transmit_complete[7] = 0;
+			xSemaphoreGive(Can0_Mutex);
+			return 1;									// Transmission succeeded.
+		}
+	}
+	
+	else
+		return -1;												// CAN0 is currently busy, or something has gone wrong.
+}
+
+/************************************************************************/
+/* READ_CAN_DATA 		 	                                            */
+/*																		*/
+/* @param: message_high: The upper 4 bytes of the message read.			*/
+/* @param: message_low: The lower 4 bytes of the message read.			*/
+/* @param: Access_code: Used to ensure that the request was genuine. 	*/
+/* @Purpose: This function returns a CAN message curerntly residing in 	*/
+/* the can_data_fifo queue. 											*/
+/* @return: 1 == successful, 0 == failure.								*/
+/************************************************************************/
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
@@ -464,18 +529,15 @@ uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t a
 }
 
 /************************************************************************/
-/*		READ CAN MESSAGE		                                           */
+/* READ_CAN_MSG 		 	                                            */
 /*																		*/
-/*		This function returns the CAN message currently residing in     */
-/*		can_glob_data_msg.												*/
-/*																		*/
-/*		It does this by changing the value that the given pointers		*/
-/* 		are pointing to.												*/
-/*																		*/
-/*		The function returns 1 is the operation was successful, 		*/
-/*		otherwise it returns 0.
+/* @param: message_high: The upper 4 bytes of the message read.			*/
+/* @param: message_low: The lower 4 bytes of the message read.			*/
+/* @param: Access_code: Used to ensure that the request was genuine. 	*/
+/* @Purpose: This function returns a CAN message curerntly residing in 	*/
+/* the can_msg_fifo queue. 												*/
+/* @return: 1 == successful, 0 == failure.								*/
 /************************************************************************/
-
 uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
@@ -491,18 +553,15 @@ uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t ac
 }
 
 /************************************************************************/
-/*		READ CAN HOUSEKEEPING 		                                    */
+/* READ_CAN_HK  		 	                                            */
 /*																		*/
-/*		This function returns the CAN message currently residing in     */
-/*		can_glob_data_reg.												*/
-/*																		*/
-/*		It does this by changing the value that the given pointers		*/
-/* 		are pointing to.												*/
-/*																		*/
-/*		The function returns 1 is the operation was successful, 		*/
-/*		otherwise it returns 0.
+/* @param: message_high: The upper 4 bytes of the message read.			*/
+/* @param: message_low: The lower 4 bytes of the message read.			*/
+/* @param: Access_code: Used to ensure that the request was genuine. 	*/
+/* @Purpose: This function returns a CAN message curerntly residing in 	*/
+/* the can_hk_fifo queue. 												*/
+/* @return: 1 == successful, 0 == failure.								*/
 /************************************************************************/
-
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
@@ -518,18 +577,15 @@ uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t acc
 }
 
 /************************************************************************/
-/*		READ CAN COMMUNICATIONS PACKET	                                */
+/* READ_CAN_COMS 		 	                                            */
 /*																		*/
-/*		This function returns the CAN message currently residing in     */
-/*		can_glob_data_reg.												*/
-/*																		*/
-/*		It does this by changing the value that the given pointers		*/
-/* 		are pointing to.												*/
-/*																		*/
-/*		The function returns 1 is the operation was successful, 		*/
-/*		otherwise it returns 0.
+/* @param: message_high: The upper 4 bytes of the message read.			*/
+/* @param: message_low: The lower 4 bytes of the message read.			*/
+/* @param: Access_code: Used to ensure that the request was genuine. 	*/
+/* @Purpose: This function returns a CAN message curerntly residing in 	*/
+/* the can_com_fifo queue. 												*/
+/* @return: 1 == successful, 0 == failure.								*/
 /************************************************************************/
-
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
@@ -545,58 +601,74 @@ uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t a
 }
 
 /************************************************************************/
-/*                 REQUEST HOUSKEEPING TO BE SENT TO CAN0		        */
-/*	This function will take in the ID of the node of interest. It will  */
-/*	then send a housekeeping request to this node at a fixed priority	*/
-/*	from CAN0 MB6.														*/
+/* HIGH_COMMAND_GENERATOR 	                                            */
 /*																		*/
-/*  The function will return 1 if the action was completed and 0 if not.*/
-/*	NOTE: a '1' does not indicate the transaction was successful.		*/
-/*																		*/
-/*	This function does not alter the can0_mailbox object.				*/
+/* @param: ID: The ID of the SSM which you would like to get hk from.	*/
+/* @Purpose: This function will take in the ID of the node of interest	*/
+/* It will then send a houeskeeping request to this node at a fixed 	*/
+/* priority from CAN0 MB6.												*/
+/* @return: 1 == complete, 0 == incomplete.								*/
+/* @NOTE: 1 != successful (necessarily)									*/
 /************************************************************************/
-
 uint32_t request_housekeeping(uint32_t ID)
 {
-	/* Save current can0_mailbox object */
-	can_temp_t temp_mailbox;
 	uint32_t high;
 	uint8_t dest = (uint8_t)ID;
-	save_can_object(&can0_mailbox, &temp_mailbox);
-	
-	/* Init CAN0 Mailbox 6 to Housekeeping Request Mailbox. */	
-	reset_mailbox_conf(&can0_mailbox);
-	can0_mailbox.ul_mb_idx = 6;			//Mailbox Number 6
-	can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
-	can0_mailbox.uc_tx_prio = HK_REQUEST_PRIO;		//Transmission Priority (Can be Changed dynamically)
-	can0_mailbox.uc_id_ver = 0;
-	can0_mailbox.ul_id_msk = 0;
-	can_mailbox_init(CAN0, &can0_mailbox);
-	
-	high = high_command_generator(HK_TASK_ID, MT_COM, REQ_HK);
+	uint32_t timeout = 8400;		// ~ 100 us timeout.
 
-	/* Write transmit information into mailbox. */
-	can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
-	can0_mailbox.ul_datal = 0x00;				// shifted over to the standard frame position.
-	can0_mailbox.ul_datah = high;
-	can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
-	can_mailbox_write(CAN0, &can0_mailbox);
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		/* Init CAN0 Mailbox 6 to Housekeeping Request Mailbox. */	
+		reset_mailbox_conf(&can0_mailbox);
+		can0_mailbox.ul_mb_idx = 6;			//Mailbox Number 6
+		can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
+		can0_mailbox.uc_tx_prio = HK_REQUEST_PRIO;		//Transmission Priority (Can be Changed dynamically)
+		can0_mailbox.uc_id_ver = 0;
+		can0_mailbox.ul_id_msk = 0;
+		can_mailbox_init(CAN0, &can0_mailbox);
 
-	/* Send out the information in the mailbox. */
-	can_global_send_transfer_cmd(CAN0, CAN_TCR_MB6);
-	
-	/* Restore the can0_mailbox object */
-	restore_can_object(&can0_mailbox, &temp_mailbox);
-		
-	return 1;
+		high = high_command_generator(HK_TASK_ID, MT_COM, REQ_HK);
+
+		/* Write transmit information into mailbox. */
+		can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
+		can0_mailbox.ul_datal = 0x00;				// shifted over to the standard frame position.
+		can0_mailbox.ul_datah = high;
+		can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
+		can_mailbox_write(CAN0, &can0_mailbox);
+
+		transmit_complete[6] = 0;
+
+		/* Send out the information in the mailbox. */
+		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
+
+		while((transmit_complete[6] != 1) && timeout--){ }
+
+		if(transmit_complete[6] != 1)
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;									// The transmission took too long.
+		}
+		else
+		{
+			transmit_complete[6] = 0;
+			xSemaphoreGive(Can0_Mutex);
+			return 1;									// Transmission succeeded.
+		}
+	}
+	else
+		return -1;										// CAN0 is currently busy, or something has gone wrong.
 }
 
 /************************************************************************/
-/*					SAVING CAN OBJECTS                                  */
-/*	This function will take in a mailbox object as the original pointer */
-/*  and save each of it's elements in a temporary can structure.        */
+/* SAVE_CAN_OBJECT 		 	                                            */
+/*																		*/
+/* @param: original: The original CAN object which we would like to save*/
+/* @param: temp: The temporary CAN object that we are putting orig in.	*/
+/* @param: smallType: Look at the list small_types in can_func.h, pick  */
+/* the one that enables the functionality you want.						*/
+/* @Purpose: The function takes all the attributes of the original		*/
+/* object and stores them in the temp object.							*/
 /************************************************************************/
-
 void save_can_object(can_mb_conf_t *original, can_temp_t *temp)
 {
 	/*This function takes in a mailbox object as the original pointer*/
@@ -617,11 +689,13 @@ void save_can_object(can_mb_conf_t *original, can_temp_t *temp)
 }
 
 /************************************************************************/
-/*					RESTORING CAN OBJECTS                               */
-/*	This function will take in a mailbox object as the original pointer */
-/*  and restore each of it's elements from a temporary can structure.   */
+/* RESTORE_CAN_OBJECT 	 	                                            */
+/*																		*/
+/* @param: *original: A pointer to the original CAN object.				*/
+/* @param: *temp: A pointer to what was the temporary CAN object.		*/
+/* @Purpose: This function replaces all the attributes of the "original"*/
+/* object with all the attributes in the "temp" object.					*/
 /************************************************************************/
-
 void restore_can_object(can_mb_conf_t *original, can_temp_t *temp)
 {
 	/*This function takes in a mailbox object as the original pointer*/	
@@ -641,12 +715,11 @@ void restore_can_object(can_mb_conf_t *original, can_temp_t *temp)
 	return;
 }
 
- /************************************************************************/
-/*					CAN INITIALIZE 			                             */
-/*	Initialzies and enables CAN0 & CAN1 transceivers and clocks.	     */
-/*	CAN0/CAN1 mailboxes are reset and interrupts are disabled.			 */
-/*																		 */
-/*************************************************************************/
+/************************************************************************/
+/* CAN_INITIALIZE 			                                            */
+/* @Purpose: Initializes and enables CAN0 & CAN1 controllers and clocks.*/
+/* CAN0/CAN1 mailboxes are reset and interrupts are disabled.			*/
+/************************************************************************/
 void can_initialize(void)
 {
 	uint32_t ul_sysclk;
@@ -720,16 +793,23 @@ void can_initialize(void)
 		can_hk_fifo = xQueueCreate(fifo_length, item_size);
 		can_com_fifo = xQueueCreate(fifo_length, item_size);
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
+
+		for (i = 0; i < 8; i++)
+		{
+			transmit_complete[i] = 0;
+		}
+
 	}
 	return;
 }
 
 /************************************************************************/
-/*					CAN INIT MAILBOXES                                  */
-/*	This function initializes the different CAN mailbboxes.			    */
-/* 																        */
+/* CAN_INIT_MAILBOXES 		                                            */
+/*																		*/
+/* @param: x: simply meant to be to confirm that this function was 		*/
+/* called naturally.													*/
+/* @Purpose: This function initializes the CAN mailboxes for use.		*/
 /************************************************************************/
-
 uint32_t can_init_mailboxes(uint32_t x)
 {
 	//configASSERT(x);	//Check if this function was called naturally.
@@ -776,11 +856,6 @@ uint32_t can_init_mailboxes(uint32_t x)
 	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB7);					  // The ID of CAN1 MB7 is currently CAN1_MB7 (standard).
 	can_mailbox_init(CAN1, &can1_mailbox);
 	
-	can_enable_interrupt(CAN1, CAN_IER_MB0);
-	can_enable_interrupt(CAN1, CAN_IER_MB5);
-	can_enable_interrupt(CAN1, CAN_IER_MB6);
-	can_enable_interrupt(CAN1, CAN_IER_MB7);
-	
 	/* Init CAN0 Mailbox 6 to Housekeeping Request Mailbox. */	
 	reset_mailbox_conf(&can0_mailbox);
 	can0_mailbox.ul_mb_idx = 6;			//Mailbox Number 6
@@ -790,15 +865,32 @@ uint32_t can_init_mailboxes(uint32_t x)
 	can0_mailbox.ul_id_msk = 0;
 	can_mailbox_init(CAN0, &can0_mailbox);
 
+	can_enable_interrupt(CAN1, CAN_IER_MB0);
+	can_enable_interrupt(CAN1, CAN_IER_MB5);
+	can_enable_interrupt(CAN1, CAN_IER_MB6);
+	can_enable_interrupt(CAN1, CAN_IER_MB7);
+	
+
+
 	return 1;
 }
 
-uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t smalltype)
+/************************************************************************/
+/* HIGH_COMMAND_GENERATOR 	                                            */
+/*																		*/
+/* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
+/* @param: MessageType: Either MT_DATA, MT_HK, MT_COM, MT_TC			*/
+/* @param: smallType: Look at the list small_types in can_func.h, pick  */
+/* the one that enables the functionality you want.						*/
+/* @Purpose: This function is used to generate the upper 4 bytes of all */
+/* CAN messages as per the new structure. 								*/
+/************************************************************************/
+uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t smalltype)
 {
 	uint8_t dummy_time=0x00; //Should be replaced once RTC is ready.
 	uint32_t sender, m_type, s_type;
 	
-	sender = (uint32_t)SENDER_ID;
+	sender = (uint32_t)sender_id;
 	sender = sender << 24;
 		
 	m_type = (uint32_t)MessageType;
@@ -810,114 +902,176 @@ uint32_t high_command_generator(uint8_t SENDER_ID, uint8_t MessageType, uint8_t 
 	return sender + m_type + s_type + dummy_time;
 }
 
+/************************************************************************/
+/* READ_FROM_SSM 	                                                    */
+/*																		*/
+/* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
+/* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
+/* @param: passkey: a unique identifier used to verify that your request*/
+/* actually went through.												*/
+/* @param: addr: The address within the SSM you would like to read 1B	*/
+/* @Purpose: This function can be used to read a single byte of data 	*/
+/* to any address within the range 0x00-0xff							*/
+/* NOTE: This is for use with tasks and their corresponding SSMs only.	*/
+/* NOTE: This function will wait for a maximum of 250ms. for the		*/
+/* operation to complete.												*/
+/************************************************************************/
 uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr)
 {
 	uint32_t high, low, timeout;
 	uint8_t pk, ret_val, p, a;
 	
-	timeout = 80000000;		// Maximum wait time of one second.
+	timeout = 8000000;		// Maximum wait time of 100 ms.
 	
 	high = high_command_generator(sender_id, MT_COM, REQ_READ);
 	p = (uint32_t)passkey;
 	p = p << 24;
 	a = (uint32_t)addr;
 	low = p + a;
-	
-	hk_read_requestedf = 1;
-	send_can_command(low, high, ssm_id, DEF_PRIO);
-	
-	while(!hk_read_receivedf)	// Wait for the response to come back.
-	{
-		if(!timeout--)
-		{
-			hk_read_requestedf = 0;
-			return passkey;		// The read operation failed.
-		}
-	}
-	hk_read_requestedf = 0;
-	
-	pk = (uint8_t)(hk_read_receive[0] >> 24);
-	
-	if ((pk != passkey))
-	{
-		hk_read_receivedf = 0;
-		return passkey;			// The read operation failed.
-	}
-		
-	ret_val = (uint8_t)(hk_read_receive[0] & 0x000000FF);
-	
-	hk_read_receivedf = 0;		// Zero this last to keep in sync.
-	
-	return ret_val;				// This is the result of a read operation.
-	
-}
 
-uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data)
-{
-	uint32_t high, low, timeout, p, a, d;
-	uint8_t pk, ret_val;
-	
-	timeout = 80000000;		// Maximum wait time of one second.
-	
-	high = high_command_generator(sender_id, MT_COM, REQ_WRITE);
-	p = (uint32_t)passkey;
-	p = p << 24;
-	a = (uint32_t)addr;
-	a = a << 8;
-	d = (uint32_t)data;
-	low = p + a + d;
-	
-	hk_write_requestedf = 1;
-	send_can_command(low, high, ssm_id, DEF_PRIO);
-	
-	while(!hk_write_receivedf)	// Wait for the response to come back.
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		if(!timeout--)
+		hk_read_requestedf = 1;
+
+		if (send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
 		{
-			hk_write_requestedf = 0;
-			return passkey;		// The write operation failed.
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
 		}
+		
+		while(!hk_read_receivedf)	// Wait for the response to come back.
+		{
+			if(!timeout--)
+			{
+				hk_read_requestedf = 0;
+				xSemaphoreGive(Can0_Mutex);
+				return passkey;		// The read operation failed.
+			}
+		}
+		hk_read_requestedf = 0;
+		
+		pk = (uint8_t)(hk_read_receive[0] >> 24);
+		
+		if ((pk != passkey))
+		{
+			hk_read_receivedf = 0;
+			xSemaphoreGive(Can0_Mutex);
+			return passkey;			// The read operation failed.
+		}
+			
+		ret_val = (uint8_t)(hk_read_receive[0] & 0x000000FF);
+		
+		hk_read_receivedf = 0;		// Zero this last to keep in sync.
+		
+		xSemaphoreGive(Can0_Mutex);
+		return ret_val;				// This is the result of a read operation.
 	}
-	hk_write_requestedf = 0;
 	
-	pk = (uint8_t)(hk_write_receive[0] >> 24);
-	
-	if ((pk != passkey))
-	{
-		hk_write_receivedf = 0;
-		return passkey;			// The write operation failed.
-	}
-	
-	ret_val = (uint8_t)(hk_read_receive[0] & 0x000000FF);
-	
-	if(ret_val >= 0)
-		return 0;				// The write operation succeeded.
 	else
-		return passkey;			// The write operation failed.
+		return -1;					// CAN0 is currently busy or something has gone wrong.
 }
 
 /************************************************************************/
-/* REQUEST SENSOR DATA                                                  */
+/* WRITE_TO_SSM 	                                                    */
 /*																		*/
-/* This function takes in sender_id, ssm_id, sensor_name and *status	*/
-/* as parameters in order to grab the value of a particular sensor from	*/
-/* an SSM. The 32-bit value returned is the value of the sensor.		*/
-/* If *status is -1 upon completion, operation failed, 1 is success.	*/
+/* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
+/* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
+/* @param: passkey: a unique identifier used to verify that your request*/
+/* actually went through.												*/
+/* @param: addr: The address within the SSM you would like to write to 	*/
+/* @param: data: The single byte that would like to write to addr 		*/
+/* @Purpose: This function can be used to write a single byte of data 	*/
+/* to any address within the range 0x00-0xff							*/
 /* NOTE: This is for use with tasks and their corresponding SSMs only.	*/
 /* NOTE: This function will wait for a maximum of 250ms. for the		*/
 /* operation to complete.												*/
 /************************************************************************/
+uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data)
+{
+	uint32_t high, low, timeout, p, a, d;
+	uint8_t pk, ret_val;
+	timeout = 8000000;		// Maximum wait time of 100 ms.
 
-uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status)
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		high = high_command_generator(sender_id, MT_COM, REQ_WRITE);
+		p = (uint32_t)passkey;
+		p = p << 24;
+		a = (uint32_t)addr;
+		a = a << 8;
+		d = (uint32_t)data;
+		low = p + a + d;
+		
+		hk_write_requestedf = 1;
+
+		if(send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
+		}
+		
+		while(!hk_write_receivedf)	// Wait for the response to come back.
+		{
+			if(!timeout--)
+			{
+				hk_write_requestedf = 0;
+				xSemaphoreGive(Can0_Mutex);
+				return passkey;		// The write operation failed.
+			}
+		}
+		hk_write_requestedf = 0;
+		
+		pk = (uint8_t)(hk_write_receive[0] >> 24);
+		
+		if ((pk != passkey))
+		{
+			hk_write_receivedf = 0;
+			xSemaphoreGive(Can0_Mutex);
+			return passkey;			// The write operation failed.
+		}
+		
+		ret_val = (uint8_t)(hk_read_receive[0] & 0x000000FF);
+		
+		if(ret_val >= 0)
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return 0;				// The write operation succeeded.
+		}
+		else
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return passkey;			// The write operation failed.
+		}
+	}
+	else
+		return -1;					// CAN0 was busy or something has gone wrong.
+}
+
+/************************************************************************/
+/* REQUEST_SENSOR_DATA_H                                                */
+/*																		*/
+/* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
+/* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
+/* @Purpose: This function can be used to retrieve sensor data from an 	*/
+/* SSM. 																*/
+/* NOTE: This is for use with tasks and their corresponding SSMs only.	*/
+/* NOTE: This function will wait for a maximum of 25ms. for the			*/
+/* operation to complete.												*/
+/* NOTE: This function should only be used in sections of code where the*/
+/* Can0_Mutex was acquired.												*/
+/************************************************************************/
+
+static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status)
 {
 	uint32_t high, low, timeout, s, ret_val;
-	timeout = 20000000;		// Maximum wait time of 250ms.
+	timeout = 2000000;		// Maximum wait time of 25ms.
 	
 	high = high_command_generator(sender_id, MT_COM, REQ_DATA);
 	low = (uint32_t)sensor_name;
 	low = low << 24;
-	
-	send_can_command(low, high, ssm_id, DEF_PRIO);
+
+	if (send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		return -1;
 	
 	while(!eps_data_receivedf)	// Wait for the response to come back.
 	{
@@ -945,6 +1099,67 @@ uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_n
 }
 
 /************************************************************************/
+/* REQUEST SENSOR DATA                                                  */
+/*																		*/
+/* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
+/* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
+/* @Purpose: This function can be used to retrieve sensor data from an 	*/
+/* SSM. 																*/
+/* @return: < 0 == Failure, otherwise returns sensor value requested	*/
+/* NOTE: This is for use with tasks and their corresponding SSMs only.	*/
+/* NOTE: This function will wait for a maximum of 25ms. for the			*/
+/* operation to complete.												*/
+/************************************************************************/
+
+uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status)
+{
+	uint32_t high, low, timeout, s, ret_val;
+	timeout = 2000000;		// Maximum wait time of 25ms.
+	
+	high = high_command_generator(sender_id, MT_COM, REQ_DATA);
+	low = (uint32_t)sensor_name;
+	low = low << 24;
+
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		if (send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
+		}
+		
+		while(!eps_data_receivedf)	// Wait for the response to come back.
+		{
+			if(!timeout--)
+			{
+				*status = -1;
+				xSemaphoreGive(Can0_Mutex);
+				return -1;			// The operation failed.
+			}
+		}
+		
+		s = (uint8_t)((eps_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+		
+		if (s != sensor_name)
+		{
+			eps_data_receivedf = 0;
+			*status = -1;
+			xSemaphoreGive(Can0_Mutex);
+			return -1;			// The operation failed.
+		}
+		
+		ret_val = eps_data_receive[0];	// 32-bit return value.
+		
+		eps_data_receivedf = 0;		// Zero this last to keep in sync.
+		*status = 1;				// The operation succeeded.
+		xSemaphoreGive(Can0_Mutex);
+		return ret_val;				// This is the requested data.
+	}
+	else
+		return -1;					// CAN0 was busy or something has gone wrong.
+}
+
+/************************************************************************/
 /* SET SENSOR DATA HIGH/LOW                                             */
 /*																		*/
 /* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
@@ -954,7 +1169,7 @@ uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_n
 /*			or low value.
 /* @return: returns 1 upon success, -1 upon failure.					*/
 /* @NOTE: This function checks to make sure that the request succeeded	*/
-/*			(this has a timeout of 250 ms)								*/
+/*			(this has a timeout of 25 ms)								*/
 /* @NOTE: This is for use with tasks and their corresponding SSMs only.	*/
 /************************************************************************/
 uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary)
@@ -965,15 +1180,30 @@ uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name,
 	low = (uint32_t)sensor_name;
 	low = low << 24;
 	low |= boundary;
-	
-	send_can_command(low, high, ssm_id, DEF_PRIO);
-	
-	check = request_sensor_data(sender_id, ssm_id, sensor_name, &ret_val);
-	
-	if ((ret_val > 0) || (check != boundary))
-		return -1;
+
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		if(send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
+		}
+		
+		check = request_sensor_data_h(sender_id, ssm_id, sensor_name, &ret_val);
+		
+		if ((ret_val > 0) || (check != boundary))
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
+		}
+		else
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return 1;
+		}
+	}
 	else
-		return 1;
+		return -1;						// CAN0 is currently busy or something has gone wrong.
 }
 
 uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary)
@@ -984,14 +1214,30 @@ uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, 
 	low = (uint32_t)sensor_name;
 	low = low << 24;
 	low |= boundary;
-	
-	send_can_command(low, high, ssm_id, DEF_PRIO);
-	check = request_sensor_data(sender_id, ssm_id, sensor_name, &ret_val);
-	
-	if ((ret_val > 0) || (check != boundary))
-		return -1;
+
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		if(send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
+		}
+
+		check = request_sensor_data(sender_id, ssm_id, sensor_name, &ret_val);
+		
+		if ((ret_val > 0) || (check != boundary))
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
+		}
+		else
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return 1;
+		}
+	}
 	else
-		return 1;
+		return -1;
 }
 
 /************************************************************************/
@@ -1003,7 +1249,7 @@ uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, 
 /* @param: value: variable = value on SMM is the desired action.		*/
 /* @return: returns 1 upon success, -1 upon failure.					*/
 /* @NOTE: This function checks to make sure that the request succeeded	*/
-/*			(this has a timeout of 250 ms)								*/
+/*			(this has a timeout of 25 ms)								*/
 /* @NOTE: This is for use with tasks and their corresponding SSMs only.	*/
 /************************************************************************/
 uint32_t set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value)
@@ -1015,13 +1261,22 @@ uint32_t set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint1
 	low = low << 24;
 	low |= value;
 	
-	send_can_command(low, high, ssm_id, DEF_PRIO);
-	check = request_sensor_data(sender_id, ssm_id, var_name, &ret_val);
-	
-	if ((ret_val > 0) || (check != value))
-		return -1;
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		send_can_command_h(low, high, ssm_id, DEF_PRIO);
+		check = request_sensor_data_h(sender_id, ssm_id, var_name, &ret_val);
+		
+		if ((ret_val > 0) || (check != value))
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return -1;
+		}
+		else
+		{
+			xSemaphoreGive(Can0_Mutex);
+			return 1;
+		}
+	}
 	else
-		return 1;
+		return -1;					// CAN0 is currently busy or something has gone wrong.
 }
-
-	

@@ -122,25 +122,21 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
-		{
-			ID = SUB1_ID5;
-			x = request_housekeeping(ID);								// Request housekeeping from COMS.
+		ID = SUB1_ID5;
+		x = request_housekeeping(ID);								// Request housekeeping from COMS.
 			
-			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
 			
-			ID = SUB0_ID5;
-			x = request_housekeeping(ID);								// Request housekeeping from EPS.
+		ID = SUB0_ID5;
+		x = request_housekeeping(ID);								// Request housekeeping from EPS.
 			
-			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
 			
-			ID = SUB2_ID5;
-			x = request_housekeeping(ID);								// Request housekeeping from PAY.
-			//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
-			xSemaphoreGive(Can1_Mutex);
-		}
+		ID = SUB2_ID5;
+		x = request_housekeeping(ID);								// Request housekeeping from PAY.
+		//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);

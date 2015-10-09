@@ -75,9 +75,7 @@ static void prvTimeUpdateTask( void *pvParameters )
 		{
 			
 			//TODO: SEND CAN COMMAND
-			//xSemaphoreTake(Can1_Mutex, 2);		// Acquire CAN1 Mutex
 			//x = send_can_command(low, high, ID, PRIORITY);
-			//xSemaphoreGive(Can1_Mutex);			// Release CAN1 Mutex
 			
 			rtc_reset_a2();
 		}

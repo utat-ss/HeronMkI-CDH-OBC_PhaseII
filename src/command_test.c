@@ -125,24 +125,21 @@ static void prvCommandTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		if (xSemaphoreTake(Can1_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
-		{
-			ID = SUB1_ID0;
-			x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
+
+		ID = SUB1_ID0;
+		x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
 			
-			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
 			
-			ID = SUB0_ID0;
-			x = send_can_command(low, high, ID, PRIORITY);				// Request response from EPS.
+		ID = SUB0_ID0;
+		x = send_can_command(low, high, ID, PRIORITY);				// Request response from EPS.
 			
-			xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-			vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
+		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
 			
-			ID = SUB2_ID0;
-			x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.
-			xSemaphoreGive(Can1_Mutex);									// Release CAN1 Mutex
-		}
+		ID = SUB2_ID0;
+		x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);

@@ -295,7 +295,7 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 	if(big_type != MT_DATA)
 		return;
 
-	switch(small_type)
+	switch(small_type) // Name of sensor will be in the small type.
 	{
 		case SPI_TEMP1:
 			glob_drf = 1;

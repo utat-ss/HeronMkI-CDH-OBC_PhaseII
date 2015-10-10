@@ -27,7 +27,9 @@ Author: Keenan Burnett
 * more portable.
 *
 * DEVELOPMENT HISTORY:
-* 07/06/2015 	Created.
+* 07/06/2015 	K: Created.
+*
+* 10/09/2015	K: Updated comments and a few lines to make things neater.
 *
 * DESCRIPTION:
 *
@@ -53,57 +55,57 @@ functionality. */
 #define EPS_PARAMETER	( 0xABCD )
 /*-----------------------------------------------------------*/
 
-/* Function Prototypes */
+/* Function Prototypes										 */
 static void prvEpsTask( void *pvParameters );
 void eps(void);
-
-/* Function Definitions */
+/*-----------------------------------------------------------*/
 
 /************************************************************************/
-/* COMS Function 														*/
-/* 																		*/
-/* This fuction is to be used in main.c to create the coms task.		*/
-/*																		*/
+/* EPS (Function) 														*/
+/* @Purpose: This function is simply used to create the EPS task below	*/
+/* in main.c															*/
 /************************************************************************/
 void eps( void )
 {
-/* Start the two tasks as described in the comments at the top of this
-file. */
-xTaskCreate( prvEpsTask, /* The function that implements the task. */
-"ON", /* The text name assigned to the task - for debug only as it is not used by the kernel. */
-configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-( void * ) EPS_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
-Eps_PRIORITY, /* The priority assigned to the task. */
-NULL ); /* The task handle is not required, so NULL is passed. */
+	/* Start the two tasks as described in the comments at the top of this
+	file. */
+	xTaskCreate( prvEpsTask, /* The function that implements the task. */
+		"ON", /* The text name assigned to the task - for debug only as it is not used by the kernel. */
+		configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
+		( void * ) EPS_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
+		Eps_PRIORITY, /* The priority assigned to the task. */
+		NULL ); /* The task handle is not required, so NULL is passed. */
 
-/* If all is well, the scheduler will now be running, and the following
-line will never be reached. If the following line does execute, then
-there was insufficient FreeRTOS heap memory available for the idle and/or
-timer tasks to be created. See the memory management section on the
-FreeRTOS web site for more details. */
-return;
+	/* If all is well, the scheduler will now be running, and the following
+	line will never be reached. If the following line does execute, then
+	there was insufficient FreeRTOS heap memory available for the idle and/or
+	timer tasks to be created. See the memory management section on the
+	FreeRTOS web site for more details. */
+	return;
 }
 
 /************************************************************************/
-/* COMS TASK */
-/* This task encapsulates the high-level software functionality of the	*/
-/* communication subsystem on this satellite.							*/
-/*																		*/
+/* PRVEPSTask															*/
+/* @Purpose: This task contains all the high level software required to */
+/* run the EPS Subsystem.												*/
 /************************************************************************/
 static void prvEpsTask(void *pvParameters )
 {
-configASSERT( ( ( unsigned long ) pvParameters ) == EPS_PARAMETER );
-TickType_t xLastWakeTime;
-const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
-/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
+	configASSERT( ( ( unsigned long ) pvParameters ) == EPS_PARAMETER );
+	TickType_t xLastWakeTime;
+	const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
+	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 
-/* Declare Variables Here */
+	/* Declare Variables Here */
 
+	/* @non-terminating@ */	
+	for( ;; )
+	{
+		// Write your application here.
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.
+	}
 
-/* @non-terminating@ */	
-for( ;; )
-{
-	// Write your application here.
 }
-}
 
+// Static Helper Functions may be defined below.

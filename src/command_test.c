@@ -125,14 +125,8 @@ static void prvCommandTask( void *pvParameters )
 		ID = SUB1_ID0;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
 			
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
-			
 		ID = SUB0_ID0;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request response from EPS.
-			
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
 
 		ID = SUB2_ID0;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.

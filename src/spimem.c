@@ -58,6 +58,8 @@
 
 #include "spimem.h"
 
+static uint8_t get_spimem_status_h(uint32_t spi_chip);
+
 /************************************************************************/
 /* SPIMEM_INITIALIZE                                                    */
 /* 																		*/
@@ -71,37 +73,46 @@
 // NOTE: The initialization procedure needs to be repeated for each SPi Mem Chip.
 void spimem_initialize(void)
 {
-	uint16_t dumbuf[1], i;
+	uint16_t dumbuf[2], i;
 	uint8_t check;
+	uint32_t timeout = 7 * 84000000;
 	
 	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off.
 	gpio_set_pin_low(SPI0_MEM1_WP);	// Turn write protection off.
 	gpio_set_pin_high(SPI0_MEM2_HOLD);	// Turn "holding" off.
 	gpio_set_pin_high(SPI0_MEM2_WP);	// Turn write protection off.
 	
-	//dumbuf = CE;							// Chip-Erase (this operation can take up to 7s.
-	//spi_master_transfer(&dumbuf, 1, 2);
-	//delay_s(7);								// delay 7 seconds.
+	dumbuf[0] = WREN;
+	dumbuf[1] = CE;							// Chip-Erase (this operation can take up to 7s.
+	spi_master_transfer(dumbuf, 2, 2);
 	
-	//if(check_if_wip(1) != 1)				// Wait for the erase to finish (10 more ms allowed).
-	//	return;								// FAILURE_RECOVERY required here.
+	check = check_if_wip(2);
 	
-	//check = get_spimem_status_h(2);
-	//check = check & 0x03;
-	
-//	if(check != 0x02)
-//		return;								// FAILURE_RECOVERY required here.
+	delay_s(14);
 		
-//	pio_toggle_pin(LED3_GPIO);
+	check = check_if_wip(2);
+
+	dumbuf[0] = WREN;						// Write-Enable Command.
+	spi_master_transfer(dumbuf, 1, 2);
 	
-	while(1)
-	{
-		dumbuf[0] = WREN;						// Write-Enable Command.
-		spi_master_transfer(dumbuf, 1, 2);
-		check = get_spimem_status_h(2);
-		if(check != 0x00)
-			pio_toggle_pin(LED3_GPIO);
-	}
+	check = get_spimem_status_h(2);
+	check = check & 0x03;
+	
+	if(check != 0x02)
+		return;								// FAILURE_RECOVERY required here.
+		
+	pio_toggle_pin(LED1_GPIO);
+	
+	check = check_if_wip(2);
+	
+	//while(1)
+	//{
+		//dumbuf[0] = WREN;						// Write-Enable Command.
+		//spi_master_transfer(dumbuf, 1, 2);
+		//check = get_spimem_status_h(2);
+		//if(check != 0x00)
+			//pio_toggle_pin(LED3_GPIO);
+	//}
 	
 	for (i = 0; i < 128; i++)
 	{
@@ -163,8 +174,8 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
-		if(check_if_wip(spi_chip) != 1)		// SPI chip is either tied up or dead, return FAILURE.
-		return -1;
+		if(check_if_wip(spi_chip) != 0)		// SPI chip is either tied up or dead, return FAILURE.
+			return -1;
 
 		page = get_page(addr);
 		dirty = check_page(page);
@@ -178,9 +189,9 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 		}
 		else
 		{
-			msg_buff[2] = addr & 0x000F0000;
-			msg_buff[3] = addr & 0x0000FF00;
-			msg_buff[4] = addr & 0x000000FF;
+			msg_buff[2] = (uint16_t)((addr & 0x000F0000) >> 16);
+			msg_buff[3] = (uint16_t)((addr & 0x0000FF00) >> 8);
+			msg_buff[4] = (uint16_t)(addr & 0x000000FF);
 
 			for (i = 5; i < (size1 + 5); i++)
 			{
@@ -211,9 +222,9 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 			{
 				msg_buff[0] = WREN;
 				msg_buff[1] = PP;
-				msg_buff[2] = (addr + size1) & 0x000F0000;
-				msg_buff[3] = (addr + size1) & 0x0000FF00;
-				msg_buff[4] = (addr + size1) & 0x000000FF;
+				msg_buff[2] = (uint16_t)(((addr + size1) & 0x000F0000) >> 16);
+				msg_buff[3] = (uint16_t)(((addr + size1) & 0x0000FF00) >> 8);
+				msg_buff[4] = (uint16_t)((addr + size1) & 0x000000FF);
 
 				for (i = 5; i < (size2 + 5); i++)
 				{
@@ -257,24 +268,24 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 {
 	uint16_t dumbuf[4];
 
-		if (addr > 0xFFFFF)										// Invalid address to write to.
-			return -1;
-		if ((addr + size - 1) > 0xFFFFF)
-			return -1;
+	if (addr > 0xFFFFF)										// Invalid address to write to.
+		return -1;
+	if ((addr + size - 1) > 0xFFFFF)
+		size = 0xFFFFF - size;
 
-		dumbuf[0] = RD;
-		dumbuf[1] = addr & 0x00FF0000;
-		dumbuf[2] = addr & 0x0000FF00;
-		dumbuf[3] = addr & 0x000000FF;
+	dumbuf[0] = RD;
+	dumbuf[1] = (uint16_t)((addr & 0x000F0000) >> 16);
+	dumbuf[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
+	dumbuf[3] = (uint16_t)(addr & 0x000000FF);
 
-		if(check_if_wip(spi_chip) != 1)							// A write is still in effect, FAILURE_RECOVERY
-			return -1;
+	if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY
+		return -1;
 
-		spi_master_transfer_keepcslow(&dumbuf, 4, spi_chip);	// Keeps CS low so that read may begin immediately.
+	spi_master_transfer_keepcslow(&dumbuf, 4, spi_chip);	// Keeps CS low so that read may begin immediately.
 
-		spi_master_read(read_buff, size, spi_chip);
+	spi_master_read(read_buff, size, spi_chip);
 
-		return size;
+	return size;
 }
 
 /************************************************************************/
@@ -293,23 +304,23 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 /* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
 /* after that, the funciton returns -1.									*/
 /************************************************************************/
-uint32_t spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
+int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
 	uint16_t dumbuf[4];
 
 	if (addr > 0xFFFFF)										// Invalid address to write to.
 		return -1;
-	if ((addr + size - 1) > 0xFFFFF)
-		return -1;
+	if ((addr + size - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
+		size = 0xFFFFF - size;
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
 		dumbuf[0] = RD;
-		dumbuf[1] = addr & 0x00FF0000;
-		dumbuf[2] = addr & 0x0000FF00;
-		dumbuf[3] = addr & 0x000000FF;
+		dumbuf[1] = (uint16_t)((addr & 0x000F0000) >> 16);
+		dumbuf[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
+		dumbuf[3] = (uint16_t)(addr & 0x000000FF);
 
-		if(check_if_wip(spi_chip) != 1)							// A write is still in effect, FAILURE_RECOVERY.
+		if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
 			return -1;
 
 		spi_master_transfer_keepcslow(&dumbuf, 4, spi_chip);	// Keeps CS low so that read may begin immediately.
@@ -366,7 +377,7 @@ uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num)
 /* @NOTE: even though this is a 16-bit variable, we are only using the 	*/
 /* lower 8 bits.														*/
 /************************************************************************/
-uint32_t update_spibuffer_with_new_page(uint32_t addr, uint32_t* data_buff, uint32_t size)
+uint32_t update_spibuffer_with_new_page(uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
 	uint32_t sect_num, page_num, index, i;
 
@@ -379,7 +390,7 @@ uint32_t update_spibuffer_with_new_page(uint32_t addr, uint32_t* data_buff, uint
 
 	for (i = 0; i < size; i++)
 	{
-		spi_mem_buff[index + i] = (uint8_t)(*(data_buff + i));
+		spi_mem_buff[index + i] = *(data_buff + i);
 	}
 
 	return 1;
@@ -444,7 +455,7 @@ static uint8_t get_spimem_status_h(uint32_t spi_chip)
 	dumbuf[0] = RSR;											// Read Status Register.
 	dumbuf[1] = 0x00;
 
-	spi_master_transfer(dumbuf, 2, spi_chip);
+	spi_master_transfer(dumbuf, 2, (uint8_t)spi_chip);
 	return (uint8_t)dumbuf[1];						// Status of the Chip is returned.
 }
 
@@ -466,7 +477,7 @@ int get_spimem_status(uint32_t spi_chip)
 	dumbuf[1] = 0x00;
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
-		spi_master_transfer(dumbuf, 2, spi_chip);
+		spi_master_transfer(dumbuf, 2, (uint8_t)spi_chip);
 		xSemaphoreGive(Spi0_Mutex);
 		return (uint8_t)dumbuf[1];						// Status of the Chip is returned.
 	}
@@ -542,21 +553,21 @@ uint32_t set_sector_clean_in_bitmap(uint32_t sect_num)
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 {
 	uint16_t msg_buff[5];
-	uint8_t addr;
+	uint32_t addr;
 
 	if(sect_num > 0xFF)							// Invalid Sector Number
-	return -1;
+		return -1;
 
-	if(check_if_wip(spi_chip) != 1)
+	if(check_if_wip(spi_chip) != 0)
 		return -1;								// SPI_CHIP is currently tied up or dead, return FAILURE.
 		
-	addr = (uint8_t)(sect_num << 12);
+	addr = sect_num << 12;
 
 	msg_buff[0] = WREN;
 	msg_buff[1] = SE;
-	msg_buff[2] = addr & 0x000F0000;
-	msg_buff[3] = addr & 0x0000FF00;
-	msg_buff[4] = addr & 0x000000FF;
+	msg_buff[2] = (uint8_t)((addr & 0x000F0000) >> 16);
+	msg_buff[3] = (uint8_t)((addr & 0x0000FF00) >> 8);
+	msg_buff[4] = (uint8_t)(addr & 0x000000FF);
 
 	spi_master_transfer(&msg_buff, 5, spi_chip);
 
@@ -581,8 +592,8 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 	uint16_t msg_buff[271];
 	uint32_t addr, i, j;
 
-	if(check_if_wip(spi_chip) != 1)
-	return -1;									// SPI_CHIP is currently tied up or dead, return FAILURE.
+	if(check_if_wip(spi_chip) != 0)
+		return -1;									// SPI_CHIP is currently tied up or dead, return FAILURE.
 
 	addr = spi_mem_buff_sect_num << 12;
 
@@ -590,9 +601,9 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 	{
 		msg_buff[0] = WREN;
 		msg_buff[1] = PP;
-		msg_buff[2] = (addr + 256 * i) & 0x000F0000;
-		msg_buff[3] = (addr + 256 * i) & 0x0000FF00;
-		msg_buff[4] = (addr + 256 * i) & 0x000000FF;
+		msg_buff[2] = (uint16_t)(((addr + 256 * i) & 0x000F0000) >> 16);
+		msg_buff[3] = (uint16_t)(((addr + 256 * i) & 0x0000FF00) >> 8);
+		msg_buff[4] = (uint16_t)((addr + 256 * i) & 0x000000FF);
 
 		for (j = 5; j < 271; j++)
 		{
@@ -601,7 +612,7 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 
 		spi_master_transfer(&msg_buff, 271, spi_chip);
 
-		if(check_if_wip(spi_chip) != 1)
+		if(check_if_wip(spi_chip) != 0)
 			return i * 256;							// Write operation took too long, return number of bytes transferred.
 	}
 	return i * 256;								    // Return the number of bytes which were written to SPI memory.							
@@ -612,8 +623,8 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 /* 																		*/
 /* @param: spi_chip: Indicates which SPI CHIP we are communicating with */
 /* which is either 1, 2, or 3.											*/
-/* @return: -1 == Failure, so a Write is Still "In-Progess", 1 == Succes*/
-/* Hence, the SPI_CHIP is free to write to.								*/
+/* @return: -1 == Failure, so a Write is Still "In-Progess", 1 = WIP	*/
+/* 0 == Chip is Free.													*/
 /* @purpose: The function is to be used to check if a SPI MEM chip is 	*/
 /* currently tied up with a write operation, this function will wait for*/
 /* a maximum of 10ms for the chip to become free.(approximately the 	*/
@@ -625,6 +636,7 @@ uint32_t check_if_wip(uint32_t spi_chip)
 {
 	uint8_t status;
 	uint32_t timeout = 21053;						// ~10ms timeout.
+	uint32_t ret_val = -1;;
 
 	status = get_spimem_status_h(spi_chip);
 	status = status & 0x03;
@@ -633,9 +645,21 @@ uint32_t check_if_wip(uint32_t spi_chip)
 		status = get_spimem_status_h(spi_chip);
 		status = status & 0x03;
 	}
+	
+	
 
-	if((status != 0x02) || !timeout)				// Waiting took too long, return FAILURE.
-		return -1;
+	if((status == 0x00) || (!timeout))				// Waiting took too long, return FAILURE.
+		return ret_val;
+	if(status == 0x02)								// No Write in Progress, return 0.
+	{
+		ret_val = 0;
+		return ret_val;
+	}
+	if(status == 0x03)								// Write in progress, return 1.
+	{
+		ret_val = 1;
+		return ret_val;
+	}
 	else
-		return 1;
+		return ret_val;
 }

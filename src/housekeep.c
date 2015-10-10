@@ -114,7 +114,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t ID, x;
-	uint8_t ret_val, passkey = 0, addr = 0x80;
+	uint8_t passkey = 0, addr = 0x80;
 		
 	/* @non-terminating@ */	
 	for( ;; )
@@ -122,14 +122,8 @@ static void prvHouseKeepTask(void *pvParameters )
 		ID = SUB1_ID5;
 		x = request_housekeeping(ID);								// Request housekeeping from COMS.
 			
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
-			
 		ID = SUB0_ID5;
 		x = request_housekeeping(ID);								// Request housekeeping from EPS.
-			
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
 		
 		ID = SUB2_ID5;
 		x = request_housekeeping(ID);								// Request housekeeping from PAY.

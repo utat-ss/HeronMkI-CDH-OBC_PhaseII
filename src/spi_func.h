@@ -38,6 +38,9 @@
 #ifndef SPI_FUNC_H
 #define SPI_FUNC_H
 
+#define SPIMASTER		// These determine which variables will be initialized.
+//#define SPISLAVE
+
 #include "asf.h"
 //#include "stdio_serial.h"
 #include "conf_board.h"

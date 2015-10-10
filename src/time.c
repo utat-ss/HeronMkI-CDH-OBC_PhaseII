@@ -30,7 +30,7 @@
 
 void delay_s(uint32_t s)
 {
-	uint32_t timeout = s * 84000000;	// NUmber of clock cycles needed.
+	uint32_t timeout = s * 8400000;	// NUmber of clock cycles needed.
 	while(timeout--){ }
 	return;
 }

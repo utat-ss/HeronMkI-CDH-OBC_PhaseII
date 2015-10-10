@@ -27,14 +27,17 @@ Author: Keenan Burnett
 * more portable.
 *
 * DEVELOPMENT HISTORY:
-* 07/06/2015 	Created.
+* 07/06/2015 	K: Created.
+*
+* 10/09/2015	K: Updated comments and a few lines to make things neater.
 *
 * DESCRIPTION:
 *
 * Current this file is set up as a template and shall be used by members of the coms subsystem
 * for their own development purposes.
 */
-/* Standard includes. */
+
+/* Standard includes.										*/
 #include <stdio.h>
 /* Kernel includes. */
 #include "FreeRTOS.h"
@@ -53,35 +56,33 @@ functionality. */
 #define COMS_PARAMETER	( 0xABCD )
 /*-----------------------------------------------------------*/
 
-/* Function Prototypes */
+/* Function Prototypes										 */
 static void prvComsTask( void *pvParameters );
 void coms(void);
-
-/* Function Definitions */
+/*-----------------------------------------------------------*/
 
 /************************************************************************/
-/* COMS Function 														*/
-/* 																		*/
-/* This fuction is to be used in main.c to create the coms task.		*/
-/*																		*/
+/* COMS (Function) 														*/
+/* @Purpose: This function is simply used to create the COMS task below	*/
+/* in main.c															*/
 /************************************************************************/
 void coms( void )
 {
-/* Start the two tasks as described in the comments at the top of this
-file. */
-xTaskCreate( prvComsTask, /* The function that implements the task. */
-"ON", /* The text name assigned to the task - for debug only as it is not used by the kernel. */
-configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
-( void * ) COMS_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
-Coms_PRIORITY, /* The priority assigned to the task. */
-NULL ); /* The task handle is not required, so NULL is passed. */
+	/* Start the two tasks as described in the comments at the top of this
+	file. */
+	xTaskCreate( prvComsTask, /* The function that implements the task. */
+		"ON", /* The text name assigned to the task - for debug only as it is not used by the kernel. */
+		configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
+		( void * ) COMS_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
+		Coms_PRIORITY, /* The priority assigned to the task. */
+		NULL ); /* The task handle is not required, so NULL is passed. */
 
-/* If all is well, the scheduler will now be running, and the following
-line will never be reached. If the following line does execute, then
-there was insufficient FreeRTOS heap memory available for the idle and/or
-timer tasks to be created. See the memory management section on the
-FreeRTOS web site for more details. */
-return;
+	/* If all is well, the scheduler will now be running, and the following
+	line will never be reached. If the following line does execute, then
+	there was insufficient FreeRTOS heap memory available for the idle and/or
+	timer tasks to be created. See the memory management section on the
+	FreeRTOS web site for more details. */
+	return;
 }
 
 /************************************************************************/
@@ -92,18 +93,22 @@ return;
 /************************************************************************/
 static void prvComsTask(void *pvParameters )
 {
-configASSERT( ( ( unsigned long ) pvParameters ) == COMS_PARAMETER );
-TickType_t xLastWakeTime;
-const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
-/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
+	configASSERT( ( ( unsigned long ) pvParameters ) == COMS_PARAMETER );
+	TickType_t xLastWakeTime;
+	const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
+	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 
-/* Declare Variables Here */
+	/* Declare Variables Here */
 
 
-/* @non-terminating@ */	
-for( ;; )
-{
-	// Write your application here.
+	/* @non-terminating@ */	
+	for( ;; )
+	{
+		// Write your application here.
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.
+	}
 }
-}
 
+// Static helper functions may be defined below.
+	

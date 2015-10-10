@@ -165,6 +165,10 @@ extern void command_loop(void);
 extern void housekeep(void);
 extern void data_test(void);
 extern void time_update(void);
+extern void eps(void);
+extern void coms(void);
+extern void payload(void);
+extern void spimemtest(void);
 extern void	spi_initialize(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
@@ -204,6 +208,7 @@ int main(void)
 	//housekeep();
 	//data_test();
 	//time_update();
+	spimemtest();
 	
 	/* Start Scheduler */
 	//vTaskStartScheduler();
@@ -231,9 +236,9 @@ static void safe_mode(void)
 	/* Initializes WDT, CAN, and interrupts. */
 	safe_board_init();
 	
-	uint32_t timeOut, low, high;
+	//uint32_t timeOut, low, high;
 	
-	timeOut = 80000000;
+	//timeOut = 80000000;
 	
 	/* Initialize Mutexes */
 	prvInitializeMutexes();
@@ -243,8 +248,8 @@ static void safe_mode(void)
 		
 		
 	//Debugging Stuff
-	uint16_t MEM_LOCATION = 0x00080000;
-	size_t SIZE = 10;
+	//uint32_t MEM_LOCATION = 0x00080000;
+	//size_t SIZE = 10;
 	
 	//uint32_t a;
 	//a = fletcher32(MEM_LOCATION, SIZE);

@@ -43,71 +43,57 @@
 	*	
  */
 
-/* Standard includes. */
+/* Standard includes.										*/
 #include <stdio.h>
-
 /* Kernel includes. */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
-
 /* Atmel library includes. */
 #include "asf.h"
-
 /* Common demo includes. */
 #include "partest.h"
-
 /* CAN Function includes */
 #include "can_func.h"
-
 /* Global Variable includes */
 #include "global_var.h"
-
+/*-----------------------------------------------------------*/
 
 /* Priorities at which the tasks are created. */
 #define Data_TASK_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
 
-/* Values passed to the two tasks just to check the task parameter
-functionality. */
+/* Values passed to the two tasks just to check the task parameter functionality. */
 #define DATA_PARAMETER			( 0xABCD )
 
-/*-----------------------------------------------------------*/
-
-/*
- * Functions Prototypes.
- */
+/* Function Prototypes										*/
 static void prvDataTask( void *pvParameters );
 void data_test(void);
-
-/************************************************************************/
-/*			TEST FUNCTION FOR COMMANDS TO THE STK600                    */
-/************************************************************************/
-/**
- * \brief Tests the housekeeping task.
- */
-void data_test( void )
-{
-		/* Start the two tasks as described in the comments at the top of this
-		file. */
-		xTaskCreate( prvDataTask,					/* The function that implements the task. */
-					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
-					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
-					( void * ) DATA_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
-					Data_TASK_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
-	return;
-}
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
-/*				COMMAND TASK		                                    */
-/*	The sole purpose of this task is to send a single CAN message over	*/
-/*	and over in order to test the STK600's CAN reception.				*/
+/* DATA_TEST	 														*/
+/* @Purpose: This function is simply used to create the data task below	*/
+/* in main.c															*/
 /************************************************************************/
-/**
- * \brief Performs the housekeeping task.
- * @param *pvParameters:
- */
+void data_test( void )
+{
+	/* Start the two tasks as described in the comments at the top of this
+	file. */
+	xTaskCreate( prvDataTask,					/* The function that implements the task. */
+				"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
+				configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
+				( void * ) DATA_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
+				Data_TASK_PRIORITY, 			/* The priority assigned to the task. */
+				NULL );								/* The task handle is not required, so NULL is passed. */
+	return;
+}
+
+/************************************************************************/
+/*				PRVDATATASK												*/
+/* @purpose: This task is used to demonstrate how sensor data or the	*/
+/* like can be															*/
+/* requested from an SSM and then sent to the OBC.						*/
+/************************************************************************/
 static void prvDataTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == DATA_PARAMETER );
@@ -116,8 +102,6 @@ static void prvDataTask( void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t low, high, ID, PRIORITY, x, i;
-	
-	uint32_t* message, mem_ptr;
 	
 	ID = SUB0_ID0;
 	PRIORITY = DATA_PRIO;
@@ -131,22 +115,12 @@ static void prvDataTask( void *pvParameters )
 		ID = SUB1_ID0;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request data from COMS.
 			
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
-			
 		ID = SUB0_ID0;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request data from EPS.
-			
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 1 tick.
-		vTaskDelayUntil(&xLastWakeTime, (TickType_t) 1);
 
 		ID = SUB2_ID0;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request data from PAY.						
-		
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 100 ticks.
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 
-		//xSemaphoreTake(Can0_Mutex, 2);							// Acquire CAN1 Mutex
 		if(glob_drf)		// data reception flag;
 		{
 			x = read_can_data(&high, &low, 1234);
@@ -170,8 +144,9 @@ static void prvDataTask( void *pvParameters )
 				glob_comsf = 0;
 			}
 		}
-		//xSemaphoreGive(Can0_Mutex);								// Release CAN1 Mutex
 	}
+	
+	xLastWakeTime = xTaskGetTickCount();						// Delay for 100 ticks.
+	vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 }
-/*-----------------------------------------------------------*/
 

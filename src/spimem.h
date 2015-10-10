@@ -40,6 +40,8 @@
 #include "spi_func.h"
 #include "gpio.h"
 #include "time.h"
+#include "FreeRTOS.h"
+#include "semphr.h"
 
 SemaphoreHandle_t	Spi0_Mutex;
 
@@ -70,7 +72,6 @@ int get_spimem_status(uint32_t spi_chip);														// API, BLOCKS FOR 1 TICK
 uint32_t set_page_dirty(uint32_t page_num);														// Helper
 uint32_t set_sector_clean_in_bitmap(uint32_t sect_num);											// Helper
 uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num);						// Driver
-uint32_t update_spibuffer_with_new_page(uint32_t addr, uint32_t* data_buff, uint32_t size);		// Driver
+uint32_t update_spibuffer_with_new_page(uint32_t addr, uint8_t* data_buff, uint32_t size);		// Driver
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num);							// Driver
 uint32_t write_sector_back_to_spimem(uint32_t spi_chip);										// Driver
-

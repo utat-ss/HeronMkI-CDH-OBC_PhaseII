@@ -424,6 +424,9 @@
     <Compile Include="src\asf\sam\drivers\uart\uart.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\wdt_reset.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\checksum.c">
       <SubType>compile</SubType>
     </Compile>

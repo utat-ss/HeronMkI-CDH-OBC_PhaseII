@@ -78,7 +78,7 @@ void wdt_reset(void);
 
 /*-------------------------------------------------------------*/
 
-void wdt_reset(void);
+void wdt_reset(void)
 {
 	/*Start the watchdog timer reset task as described in comments */
 	
@@ -113,10 +113,10 @@ static void wdtResetTask(void *pvParameters)
 	//What is this?
 	configASSERT( ( ( unsigned long ) pvParameters ) == WDT_PARAMETER );
 	
-	TickType_t; xLastWakeTime;
+	TickType_t xLastWakeTime;
 	
 	//is this okay?
-	const TickType_t xTimeToWait = WDT_Reset_Delay
+	const TickType_t xTimeToWait = WDT_Reset_Delay;
 	
 	
 	/* @non-terminating@ */	
@@ -128,7 +128,7 @@ static void wdtResetTask(void *pvParameters)
 		xLastWakeTime = xTaskGetTickCount();
 		/* Does this mean that the task will run exactly xTimeToWait after 
 		xLastWakeTime, or is that the earliest possible time it can run?*/
-		vTaskDelayUntil(&xLastWakeTime, &xTimeToWait);
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 		
 		
 	}

@@ -146,7 +146,8 @@ src/main.d src/main.o: ../src/main.c \
  ../src/asf/common/services/serial/portmacro.h \
  ../src/asf/common/services/serial/sam_uart/uart_serial.h \
  ../src/asf/sam/drivers/uart/uart.h ../src/config/conf_uart_serial.h \
- ../src/spi_func.h ../src/asf/sam/drivers/spi/conf_spi.h ../src/rtc.h
+ ../src/spi_func.h ../src/asf/sam/drivers/spi/conf_spi.h ../src/rtc.h \
+ ../src/spimem.h ../src/time.h
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h:
 
@@ -469,3 +470,7 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/sam/drivers/spi/conf_spi.h:
 
 ../src/rtc.h:
+
+../src/spimem.h:
+
+../src/time.h:

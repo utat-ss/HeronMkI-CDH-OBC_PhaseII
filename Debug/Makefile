@@ -109,6 +109,7 @@ C_SRCS +=  \
 ../src/payload.c \
 ../src/rtc.c \
 ../src/spimem.c \
+../src/spimemtest.c \
 ../src/spi_func.c \
 ../src/time.c \
 ../src/time_update.c \
@@ -172,6 +173,7 @@ src/ParTest.o \
 src/payload.o \
 src/rtc.o \
 src/spimem.o \
+src/spimemtest.o \
 src/spi_func.o \
 src/time.o \
 src/time_update.o \
@@ -228,6 +230,7 @@ src/ParTest.o \
 src/payload.o \
 src/rtc.o \
 src/spimem.o \
+src/spimemtest.o \
 src/spi_func.o \
 src/time.o \
 src/time_update.o \
@@ -284,6 +287,7 @@ src/ParTest.d \
 src/payload.d \
 src/rtc.d \
 src/spimem.d \
+src/spimemtest.d \
 src/spi_func.d \
 src/time.d \
 src/time_update.d \
@@ -340,6 +344,7 @@ src/ParTest.d \
 src/payload.d \
 src/rtc.d \
 src/spimem.d \
+src/spimemtest.d \
 src/spi_func.d \
 src/time.d \
 src/time_update.d \
@@ -397,6 +402,8 @@ LINKER_SCRIPT_DEP+=  \
 
 
 # AVR32/GNU C Compiler
+
+
 
 
 

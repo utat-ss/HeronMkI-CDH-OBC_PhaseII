@@ -28,6 +28,8 @@ src\rtc.c
 
 src\spimem.c
 
+src\spimemtest.c
+
 src\spi_func.c
 
 src\time.c

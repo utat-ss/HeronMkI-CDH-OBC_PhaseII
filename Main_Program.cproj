@@ -186,7 +186,7 @@
     <com_atmel_avrdbg_tool_samice>
       <ToolType>com.atmel.avrdbg.tool.samice</ToolType>
       <ToolName>J-Link</ToolName>
-      <ToolNumber>269303623</ToolNumber>
+      <ToolNumber>269301870</ToolNumber>
       <Channel>
         <host>127.0.0.1</host>
         <port>1596</port>
@@ -464,6 +464,9 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\spimem.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\spimemtest.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\spi_func.c">

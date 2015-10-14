@@ -60,7 +60,7 @@
 #include "gpio.h"
 
 /* Priorities at which the tasks are created. */
-#define SMT_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
+#define SMT_PRIORITY		( tskIDLE_PRIORITY + 2 )		// Lower the # means lower the priority
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -174,8 +174,8 @@ static void test1_SimpleWriteAndRead(uint8_t spi_chip)
 	}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
-	if((x != -1) || (y != -1) || (z != 1))
-		pio_toggle_pin(LED3_GPIO);							// Test 1 Succeeded.
+	if((x == -1) || (y == -1) || (z == 1))
+		pio_toggle_pin(LED3_GPIO);							// Test 1 Failed.
 
 	return;
 }
@@ -198,8 +198,8 @@ static void test2_SectorEraseAndRead(uint8_t spi_chip)
 	}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
-	if((x != -1) || (y != -1) || (z != 1))
-		pio_toggle_pin(LED3_GPIO);							// Test 2 Succeeded.
+	if((x == -1) || (y == -1) || (z == 1))
+		pio_toggle_pin(LED3_GPIO);							// Test 2 Failed.
 
 	return;
 }
@@ -223,8 +223,8 @@ static void test3_SectorWriteAndRead(uint8_t spi_chip)
 	}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
-	if((x != -1) || (y != -1) || (z != 1))
-		pio_toggle_pin(LED3_GPIO);							// Test 2 Succeeded.
+	if((x == -1) || (y == -1) || (z == 1))
+		pio_toggle_pin(LED3_GPIO);							// Test 3 Failed.
 
 	return;
 }
@@ -247,8 +247,8 @@ static void test4_SectorEraseAndRead(uint8_t spi_chip)
 	}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
-	if((x != -1) || (y != -1) || (z != 1))
-		pio_toggle_pin(LED3_GPIO);							// Test 2 Succeeded.
+	if((x == -1) || (y == -1) || (z == 1))
+		pio_toggle_pin(LED3_GPIO);							// Test 4 Failed.
 
 	return;
 }
@@ -269,8 +269,8 @@ static void test5_BoundaryWriteAndRead(uint8_t spi_chip)
 	}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
-	if((x != -1) || (y != -1) || (z != 1))
-		pio_toggle_pin(LED3_GPIO);							// Test 2 Succeeded.
+	if((x == -1) || (y == -1) || (z == 1))
+		pio_toggle_pin(LED3_GPIO);							// Test 5 Failed.
 
 	return;
 }
@@ -291,8 +291,8 @@ static void test6_WriteDirtyPageAndRead(uint8_t spi_chip)
 	}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
-	if((x != -1) || (y != -1) || (z != 1))
-		pio_toggle_pin(LED3_GPIO);							// Test 2 Succeeded.
+	if((x == -1) || (y == -1) || (z == 1))
+		pio_toggle_pin(LED3_GPIO);							// Test 6 Failed.
 
 	return;	
 }
@@ -313,8 +313,8 @@ static void test7_WriteDirtyPageAndReadAtBoundary(uint8_t spi_chip)
 	}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
-	if((x != -1) || (y != -1) || (z != 1))
-		pio_toggle_pin(LED3_GPIO);							// Test 2 Succeeded.
+	if((x == -1) || (y == -1) || (z == 1))
+		pio_toggle_pin(LED3_GPIO);							// Test 7 Failed.
 
 	return;	
 }

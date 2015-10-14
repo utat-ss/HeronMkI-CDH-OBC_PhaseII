@@ -211,7 +211,7 @@ int main(void)
 	spimemtest();
 	
 	/* Start Scheduler */
-	//vTaskStartScheduler();
+	vTaskStartScheduler();
 	
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached.  If the following line does execute, then

@@ -53,7 +53,7 @@ SemaphoreHandle_t	Spi0_Mutex;
 #define		RD		0x03		// Read Data
 #define		PP		0x02		// Page Programming
 #define		SE		0x20		// Sector Erase (4kB)
-#define		CE		0x60		// Chip Erase
+#define		CE		0xC7		// Chip Erase
 
 /*		Global Variable Definitions		*/
 uint32_t spi_bit_map[128];		// Bit-Map to pages (256B) within SPI Memory.

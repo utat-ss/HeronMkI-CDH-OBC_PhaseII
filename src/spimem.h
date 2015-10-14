@@ -59,6 +59,7 @@ SemaphoreHandle_t	Spi0_Mutex;
 uint32_t spi_bit_map[128];		// Bit-Map to pages (256B) within SPI Memory.
 uint8_t	spi_mem_buff[4096];		// Buffer required when erasing a sector
 uint32_t spi_mem_buff_sect_num;	// Current sector number of what is loaded into the SPI Memory Buffer.
+uint16_t msg_buff[260];			// Temporary buffer used by the read and write tasks to store data.
 
 /*		Fuction Prototypes				*/
 void spimem_initialize(void);																	// Driver

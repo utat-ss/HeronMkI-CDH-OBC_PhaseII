@@ -170,7 +170,7 @@ static void spi_master_initialize(void)
 	
 	/* Set communication parameters for CS2	*/
 	spi_chip_sel = 2;
-	spi_clk_freq = 40000000;	// SPI CLK for MEM2 = 40MHz.
+	spi_clk_freq = 44000000;	// SPI CLK for MEM2 = 44MHz.
 	spi_clk_pol = 1;
 	spi_clk_pha = 0;
 	spi_set_transfer_delay(SPI_MASTER_BASE, spi_chip_sel, SPI_DLYBS,
@@ -205,9 +205,10 @@ static void spi_set_clock_configuration(uint8_t configuration)
 void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 {
 	uint32_t i = 0;
-	uint8_t* pcs;
-	*pcs = spi_get_pcs(chip_sel);
+	uint8_t pcs;
+	pcs = spi_get_pcs(chip_sel);
 	uint16_t data;
+	uint8_t	timeout = 84;	// ~1us timeout for getting the read status back.
 
 	uint16_t *p_buffer;
 
@@ -215,11 +216,11 @@ void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 	
 	if(size == 1)	// Only transfer a single message.
 	{
-		spi_write(SPI_MASTER_BASE, p_buffer[i], *pcs, 1);
+		spi_write(SPI_MASTER_BASE, p_buffer[i], pcs, 1);
 		// The last parameter above tells SPI whether this is the last byte to be transferred.
 		/* Wait transfer done. */
 		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
-		spi_read(SPI_MASTER_BASE, &data, pcs);
+		spi_read(SPI_MASTER_BASE, &data, &pcs);
 		p_buffer[i] = data;
 		return;
 	}
@@ -227,16 +228,18 @@ void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 	// Keep CS low for the duration of the transfer, set high @ end.
 	for (i = 0; i < (size - 1); i++) 
 	{
-		spi_write(SPI_MASTER_BASE, p_buffer[i], *pcs, 0);	
+		spi_write(SPI_MASTER_BASE, p_buffer[i], pcs, 0);	
 		/* Wait transfer done. */
 		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
-		spi_read(SPI_MASTER_BASE, &data, pcs);
+		spi_read(SPI_MASTER_BASE, &data, &pcs);
 		p_buffer[i] = data;
+		//delay_us(100);
 	}
-	spi_write(SPI_MASTER_BASE, p_buffer[(size - 1)], *pcs, 1);
+	//delay_us(100);
+	spi_write(SPI_MASTER_BASE, p_buffer[(size - 1)], pcs, 1);
 	/* Wait transfer done. */
 	while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
-	spi_read(SPI_MASTER_BASE, &data, pcs);
+	spi_read(SPI_MASTER_BASE, &data, &pcs);
 	p_buffer[(size - 1)] = data;
 	return;
 }
@@ -244,8 +247,8 @@ void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 void spi_master_transfer_keepcslow(void *p_buf, uint32_t size, uint8_t chip_sel)
 {
 	uint32_t i = 0;
-	uint8_t* pcs;
-	*pcs = spi_get_pcs(chip_sel);
+	uint8_t pcs;
+	pcs = spi_get_pcs(chip_sel);
 	uint16_t data;
 
 	uint16_t *p_buffer;
@@ -255,10 +258,10 @@ void spi_master_transfer_keepcslow(void *p_buf, uint32_t size, uint8_t chip_sel)
 	// Keep CS low for the duration of the transfer, keep low @ end.
 	for (i = 0; i < size; i++) 
 	{
-		spi_write(SPI_MASTER_BASE, p_buffer[i], *pcs, 0);	
+		spi_write(SPI_MASTER_BASE, p_buffer[i], pcs, 0);	
 		/* Wait transfer done. */
 		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
-		spi_read(SPI_MASTER_BASE, &data, pcs);
+		spi_read(SPI_MASTER_BASE, &data, &pcs);
 		p_buffer[i] = data;
 	}
 	return;
@@ -267,16 +270,18 @@ void spi_master_transfer_keepcslow(void *p_buf, uint32_t size, uint8_t chip_sel)
 void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel)
 {
 	uint32_t i;
-	uint8_t* pcs;
-	*pcs = spi_get_pcs(chip_sel);
+	uint8_t pcs;
+	pcs = spi_get_pcs(chip_sel);
 	uint16_t data;
 	uint16_t *p_buffer;
 	p_buffer = p_buf;
 
 	for (i = 0; i < size; i++)
 	{
+		spi_write(SPI_MASTER_BASE, 0, pcs, 0);
+		/* Wait transfer done. */
 		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
-		spi_read(SPI_MASTER_BASE, &data, pcs);
+		spi_read(SPI_MASTER_BASE, &data, &pcs);
 		p_buffer[i] = data;
 	}
 }

@@ -89,10 +89,9 @@ void spimem_initialize(void)
 	check = check & 0x03;
 	if(check != 0x02)
 		return;
-	
-	dumbuf[0] = WREN;
-	dumbuf[1] = CE;							// Chip-Erase (this operation can take up to 7s.
-	spi_master_transfer(dumbuf, 2, 2);
+
+	dumbuf[0] = CE;							// Chip-Erase (this operation can take up to 7s.
+	spi_master_transfer(dumbuf, 1, 2);
 	delay_s(14);
 		
 	check = check_if_wip(2);
@@ -103,6 +102,11 @@ void spimem_initialize(void)
 	dumbuf[0] = WREN;						// Write-Enable Command.
 	spi_master_transfer(dumbuf, 1, 2);
 	
+	check = get_spimem_status_h(2);
+	check = check & 0x03;
+	if(check != 0x02)
+		return;
+		
 	check = get_spimem_status_h(2);
 	check = check & 0x03;
 	if(check != 0x02)
@@ -140,10 +144,7 @@ void spimem_initialize(void)
 int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
 	uint32_t i, size1, size2, low, dirty = 0, page, sect_num, check;
-	uint16_t msg_buff[size + 5];
-	msg_buff[0] = WREN;
-	msg_buff[1] = PP;
-	
+		
 	if (size > 256)				// Invalid size to write.
 		return -1;
 	if (addr > 0xFFFFF)			// Invalid address to write to.
@@ -170,7 +171,10 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 	{
 		check = check_if_wip(spi_chip);
 		if(check == 1)
-			return -1;
+			return -1;											// FAILURE_RECOVERY
+			
+		msg_buff[0] = WREN;										// Enable a Write.
+		spi_master_transfer(msg_buff, 1, 2);
 			
 		page = get_page(addr);
 		dirty = check_page(page);
@@ -183,17 +187,18 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 			check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
 		}
 		else
-		{
-			msg_buff[2] = (uint16_t)((addr & 0x000F0000) >> 16);
-			msg_buff[3] = (uint16_t)((addr & 0x0000FF00) >> 8);
-			msg_buff[4] = (uint16_t)(addr & 0x000000FF);
+		{		
+			msg_buff[0] = PP;
+			msg_buff[1] = (uint16_t)((addr & 0x000F0000) >> 16);
+			msg_buff[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
+			msg_buff[3] = (uint16_t)(addr & 0x000000FF);
 
-			for (i = 5; i < (size1 + 5); i++)
+			for (i = 4; i < (size1 + 4); i++)
 			{
-				msg_buff[i] = (uint16_t)(*(data_buff + (i - 5)));
+				msg_buff[i] = (uint16_t)(*(data_buff + (i - 4)));
 			}
 			/* Transfer commands and data to the memory chip */
-			spi_master_transfer(msg_buff, (size1 + 5), spi_chip);
+			spi_master_transfer(msg_buff, (size1 + 4), spi_chip);
 
 			set_page_dirty(page);	// Page has been written to, set dirty.
 
@@ -204,6 +209,14 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 		{
 			page = get_page(addr);
 			dirty = check_page(page);
+			
+			check = check_if_wip(spi_chip);
+			if(check == 1)
+				return size1;
+			
+			msg_buff[0] = WREN;										// Enable a Write.
+			spi_master_transfer(msg_buff, 1, 2);
+			
 			if(dirty)
 			{
 				sect_num = get_sector(addr);
@@ -215,18 +228,17 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 			}
 			else
 			{
-				msg_buff[0] = WREN;
-				msg_buff[1] = PP;
-				msg_buff[2] = (uint16_t)(((addr + size1) & 0x000F0000) >> 16);
-				msg_buff[3] = (uint16_t)(((addr + size1) & 0x0000FF00) >> 8);
-				msg_buff[4] = (uint16_t)((addr + size1) & 0x000000FF);
+				msg_buff[0] = PP;
+				msg_buff[1] = (uint16_t)(((addr + size1) & 0x000F0000) >> 16);
+				msg_buff[2] = (uint16_t)(((addr + size1) & 0x0000FF00) >> 8);
+				msg_buff[3] = (uint16_t)((addr + size1) & 0x000000FF);
 
-				for (i = 5; i < (size2 + 5); i++)
+				for (i = 4; i < (size2 + 4); i++)
 				{
-					msg_buff[i] = (uint16_t)*((data_buff + size1) + (i - 5));
+					msg_buff[i] = (uint16_t)*((data_buff + size1) + (i - 4));
 				}
 				/* Transfer commands and data to the memory chip */
-				spi_master_transfer(msg_buff, (size2 + 5), spi_chip);
+				spi_master_transfer(msg_buff, (size2 + 4), spi_chip);
 
 				set_page_dirty(page);	// Page has been written to, set dirty.
 
@@ -301,7 +313,8 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 /************************************************************************/
 int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
-	uint16_t dumbuf[4];
+	uint16_t dumbuf[5];
+	uint16_t retval = 0;
 
 	if (addr > 0xFFFFF)										// Invalid address to write to.
 		return -1;
@@ -314,13 +327,15 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 		dumbuf[1] = (uint16_t)((addr & 0x000F0000) >> 16);
 		dumbuf[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
 		dumbuf[3] = (uint16_t)(addr & 0x000000FF);
+		dumbuf[4] = 0;
 
 		if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
 			return -1;
 
 		spi_master_transfer_keepcslow(dumbuf, 4, spi_chip);	// Keeps CS low so that read may begin immediately.
-
 		spi_master_read(read_buff, size, spi_chip);
+		
+		retval = *read_buff;
 
 		xSemaphoreGive(Spi0_Mutex);
 		return size;
@@ -547,7 +562,6 @@ uint32_t set_sector_clean_in_bitmap(uint32_t sect_num)
 /************************************************************************/
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 {
-	uint16_t msg_buff[5];
 	uint32_t addr;
 
 	if(sect_num > 0xFF)							// Invalid Sector Number
@@ -556,15 +570,17 @@ uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 	if(check_if_wip(spi_chip) != 0)
 		return -1;								// SPI_CHIP is currently tied up or dead, return FAILURE.
 		
+	msg_buff[0] = WREN;
+	spi_master_transfer(msg_buff, 1, spi_chip);
+		
 	addr = sect_num << 12;
 
-	msg_buff[0] = WREN;
-	msg_buff[1] = SE;
-	msg_buff[2] = (uint8_t)((addr & 0x000F0000) >> 16);
-	msg_buff[3] = (uint8_t)((addr & 0x0000FF00) >> 8);
-	msg_buff[4] = (uint8_t)(addr & 0x000000FF);
+	msg_buff[0] = SE;
+	msg_buff[1] = (uint8_t)((addr & 0x000F0000) >> 16);
+	msg_buff[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
+	msg_buff[3] = (uint8_t)(addr & 0x000000FF);
 
-	spi_master_transfer(&msg_buff, 5, spi_chip);
+	spi_master_transfer(msg_buff, 4, spi_chip);
 
 	xSemaphoreGive(Spi0_Mutex);
 	return 1;									// Erase Operation Succeeded.	
@@ -584,7 +600,6 @@ uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 /************************************************************************/
 uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 {
-	uint16_t msg_buff[271];
 	uint32_t addr, i, j;
 
 	if(check_if_wip(spi_chip) != 0)
@@ -595,22 +610,22 @@ uint32_t write_sector_back_to_spimem(uint32_t spi_chip)
 	for (i = 0; i < 16; i++)						// Write the Buffer back, 1 page at a time.
 	{
 		msg_buff[0] = WREN;
-		msg_buff[1] = PP;
-		msg_buff[2] = (uint16_t)(((addr + 256 * i) & 0x000F0000) >> 16);
-		msg_buff[3] = (uint16_t)(((addr + 256 * i) & 0x0000FF00) >> 8);
-		msg_buff[4] = (uint16_t)((addr + 256 * i) & 0x000000FF);
+		spi_master_transfer(msg_buff,1, spi_chip);		
 
-		for (j = 5; j < 271; j++)
+		msg_buff[0] = PP;
+		msg_buff[1] = (uint16_t)(((addr + 256 * i) & 0x000F0000) >> 16);
+		msg_buff[2] = (uint16_t)(((addr + 256 * i) & 0x0000FF00) >> 8);
+		msg_buff[3] = (uint16_t)((addr + 256 * i) & 0x000000FF);
+
+		for (j = 4; j < 260; j++)
 		{
 			msg_buff[j] = spi_mem_buff[256 * i + j];
 		}
 
-		spi_master_transfer(&msg_buff, 271, spi_chip);
+		spi_master_transfer(msg_buff, 260, spi_chip);
 
 		if(check_if_wip(spi_chip) != 0)
-			return i * 256;							// Write operation took too long, return number of bytes transferred.
-			
-		delay_us(100);								
+			return i * 256;							// Write operation took too long, return number of bytes transferred.								
 	}
 	return i * 256;								    // Return the number of bytes which were written to SPI memory.							
 }

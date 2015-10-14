@@ -55,8 +55,8 @@ extern uint32_t SystemCoreClock;		// This is set at line 59 in system_sam3x.c
 #define configCPU_CLOCK_HZ				( SystemCoreClock )
 #define configTICK_RATE_HZ				( ( TickType_t ) 1000 )			// Has been changed from 1000.
 #define configMAX_PRIORITIES			( 5 )
-#define configMINIMAL_STACK_SIZE		( ( unsigned short ) 130 )
-#define configTOTAL_HEAP_SIZE			( ( size_t ) ( 40960 ) )
+#define configMINIMAL_STACK_SIZE		( ( unsigned short ) 130 )		// was 130
+#define configTOTAL_HEAP_SIZE			( ( size_t ) ( 51200 ) )		// was 40960
 #define configMAX_TASK_NAME_LEN			( 10 )
 #define configUSE_TRACE_FACILITY		0
 #define configUSE_16_BIT_TICKS			0

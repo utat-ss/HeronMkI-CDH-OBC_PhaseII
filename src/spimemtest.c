@@ -162,16 +162,16 @@ static void test1_SimpleWriteAndRead(uint8_t spi_chip)
 {
 	uint32_t rand_addr = 0x00000;
 	int x, y, z;
-	uint32_t i;
+	uint32_t i = 0;
 
-	x = spimem_write(spi_chip, rand_addr, test_page1, 256);		// Write 256 Bytes to a single page in chip 2.
-	y = spimem_read(spi_chip, rand_addr, test_page2, 256);			// Read it back.
+	x = spimem_write(spi_chip, rand_addr, test_page1, 1);		// Write 256 Bytes to a single page in chip 2.
+	y = spimem_read(spi_chip, rand_addr, test_page2, 1);			// Read it back.
 
-	for(i = 0; i < 256; i++)
-	{
+	//for(i = 0; i < 256; i++)
+	//{
 		if(test_page1[i] != test_page2[i])
 			z = 1;											// z = 1 is the arrays are not equal.
-	}
+	//}
 
 	// SET BREAKPOINT AT PIO_TOGGLE_PIN.
 	if((x == -1) || (y == -1) || (z == 1))

@@ -110,7 +110,7 @@ static void prvHouseKeepTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 100;	// Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 1;	// Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t ID, x;

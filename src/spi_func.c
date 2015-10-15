@@ -282,7 +282,7 @@ void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel)
 		/* Wait transfer done. */
 		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
 		spi_read(SPI_MASTER_BASE, &data, &pcs);
-		p_buffer[i] = data;
+		p_buffer[i] = (uint8_t)data;
 	}
 }
 

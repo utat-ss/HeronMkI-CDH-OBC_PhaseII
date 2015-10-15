@@ -639,7 +639,7 @@ uint32_t request_housekeeping(uint32_t ID)
 		transmit_complete[6] = 0;
 
 		/* Send out the information in the mailbox. */
-		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
+		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB6);
 
 		while((transmit_complete[6] != 1) && timeout--){ }
 

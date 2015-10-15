@@ -168,7 +168,6 @@ extern void time_update(void);
 extern void eps(void);
 extern void coms(void);
 extern void payload(void);
-extern void spimemtest(void);
 extern void	spi_initialize(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
@@ -204,11 +203,10 @@ int main(void)
 		
 	/* Create Tasks */
 	//my_blink();
-	//command_loop();
-	//housekeep();
-	//data_test();
+	command_loop();
+	housekeep();
+	data_test();
 	//time_update();
-	spimemtest();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();
@@ -291,7 +289,7 @@ static void prvSetupHardware(void)
 	//rtc_init(DS3234_INTCN);
 	
 	/* Initialize the SPI memory chips	*/
-	spimem_initialize();
+	//spimem_initialize();
 	
 	/* Initialize SPI Memory Chips								  */
 	

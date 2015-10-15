@@ -63,7 +63,7 @@
 #include "can_func.h"
 
 /* Priorities at which the tasks are created. */
-#define Command_TASK_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
+#define Command_TASK_PRIORITY		( tskIDLE_PRIORITY + 2 )		// Lower the # means lower the priority
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -110,7 +110,7 @@ static void prvCommandTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == COMMAND_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 91;	//Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 1;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t low, high, ID, PRIORITY, x;

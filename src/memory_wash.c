@@ -2,7 +2,7 @@
     Author: Keenan Burnett
 
 	***********************************************************************
-	*	FILE NAME:		housekeep.c
+	*	FILE NAME:		memory_wash.c
 	*
 	*	PURPOSE:		
 	*	This file is to be used to create the housekeeping task needed to monitor
@@ -26,21 +26,15 @@
 	*	more portable.
 
 	*	DEVELOPMENT HISTORY:		
-	*	02/18/2015		Created.
-	*
-	*	08/09/2015		Added the function read_from_SSM() to this tasks's duties as a demonstration
-	*					of our reprogramming capabilities.
+	*	10/15/2015		Created.
 	*
 	*	DESCRIPTION:	
 	*
-	*	This file is being used to test Housekeeping Commands between the OBC and a subsystem micro. 
-	*	This file is used to encapsulate a test function called houskeep_test2(), which will create a 
-	*	task that will send housekeeping request as a can message from CAN0 MB7 to MOb0 on the 
-	*	ATMEGA32M1 supported by the STK600.
+	*	This task shall periodically "wash" the external SPI Memory by checking for bit flips and
+	*	subsequently correcting them.
 	*
-	*	It will then delay 15 clock cycles and send the message again.
-	*
-	*	After sending a remote request, a reply message should then be received.
+	*	In order to do this, we intend to have 3 external SPI Memory chips and use a "voting"
+	*	method in order to correct bit flips on the devices.
 	*	
  */
 
@@ -62,33 +56,33 @@
 #include "can_func.h"
 
 /* Priorities at which the tasks are created. */
-#define Housekeep_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
+#define MemoryWash_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
-#define HK_PARAMETER			( 0xABCD )
+#define MW_PARAMETER			( 0xABCD )
 
 /*-----------------------------------------------------------*/
 
 /*
  * Functions Prototypes.
  */
-static void prvHouseKeepTask( void *pvParameters );
-void housekeep(void);
+static void prvMemoryWashTask( void *pvParameters );
+void menory_wash(void);
 
 /************************************************************************/
-/* HOUSEKEEPING (Function) 												*/
-/* @Purpose: This function is used to create the housekeeping task.		*/
+/* MEMORY_WASH (Function)												*/
+/* @Purpose: This function is used to create the memory washing task.	*/
 /************************************************************************/
-void housekeep( void )
+void memory_wash( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
-		xTaskCreate( prvHouseKeepTask,					/* The function that implements the task. */
+		xTaskCreate( prvMemoryWashTask(),					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
-					( void * ) HK_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
-					Housekeep_PRIORITY, 			/* The priority assigned to the task. */
+					( void * ) MW_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
+					MemoryWash_PRIORITY, 			/* The priority assigned to the task. */
 					NULL );								/* The task handle is not required, so NULL is passed. */
 					
 	/* If all is well, the scheduler will now be running, and the following
@@ -100,13 +94,14 @@ void housekeep( void )
 }
 
 /************************************************************************/
-/*				HOUSEKEEPING TASK		                                */
-/* This task is used to periodically gather housekeeping information	*/
-/* and store it in external memory until it is ready to be downlinked.  */
+/*				MEMORY WASH (TASK)		                                */
+/*	This task will periodically take control of the SPI Memory Chips and*/
+/* verify that there are no bit flips within them by way of a voting    */
+/* algorithm between 3 separate chips storing redundant data.			*/
 /************************************************************************/
-static void prvHouseKeepTask(void *pvParameters )
+static void prvMemoryWashTask(void *pvParameters )
 {
-	configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER );
+	configASSERT( ( ( unsigned long ) pvParameters ) == MW_PARAMETER );
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 1;	// Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
@@ -117,20 +112,9 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		ID = SUB1_ID5;
-		x = request_housekeeping(ID);								// Request housekeeping from COMS.
-			
-		ID = SUB0_ID5;
-		x = request_housekeeping(ID);								// Request housekeeping from EPS.
-		
-		ID = SUB2_ID5;
-		x = request_housekeeping(ID);								// Request housekeeping from PAY.
-		//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
-		
+		// Memory washing here.
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
-		
-		passkey ++;
 	}
 }
 /*-----------------------------------------------------------*/

@@ -104,6 +104,8 @@ Author: Keenan Burnett
 *
 *					Moved the initialization of mutexes into safe_mode().
 *
+*	10/15/2015		memory_wash and wdt_reset are being added as tasks which are to be created in main.c
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
@@ -168,6 +170,7 @@ extern void time_update(void);
 extern void eps(void);
 extern void coms(void);
 extern void payload(void);
+extern void memory_wash(void);
 extern void	spi_initialize(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
@@ -207,6 +210,7 @@ int main(void)
 	housekeep();
 	data_test();
 	//time_update();
+	//memory_wash();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

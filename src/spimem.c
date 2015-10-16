@@ -48,11 +48,20 @@
 *
 *						I am currently writing a test program in order to verify the functionality of all this code.
 *
+*	10/13/2015			I have tested this code against my test program spimemtest.c (located in the test repository)
+*						and debugged any defects which came up during the testing. So as far as I know, this set of
+*						drivers and APIs are good to go for future usage.
+*
+*	10/16/2015			It occurred to me yesterday that certain operations that our satellite performs (such as
+*						spi_mem_read and spi_mem_write need to be atomic (execute uninterrupted). Hence I am 
+*						making a simple API for other space systems to use. It will also be used in the functions
+*						I mentioned above.
+*
 *	DESCRIPTION:
 *
 *			spimem_initialize gets the chip ready for communication with the OBC.
 *
-*			The remainder of the functions are fairly self-explanatory.
+*			The remainder of the functions are fairly self-explanatory if you read their headers.
 *
 */
 
@@ -126,7 +135,9 @@ void spimem_initialize(void)
 /* ascending order (numerically) in memory.								*/
 /* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
 /* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
-/* after that, the funciton returns -1.									*/
+/* after that, the function returns -1.									*/
+/* @Note: This function is an atomic operation and hence suspends		*/
+/* interrupts temporarily.												*/
 /************************************************************************/
 int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
@@ -156,12 +167,15 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
+		//enter_atomic();											// Atomic operation begins.
+		
 		if(ready_for_command_h(spi_chip) != 1)
 		{
+			//exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
 			return -1;
 		}
-			
+					
 		page = get_page(addr);
 		dirty = check_page(page);
 		if(dirty)
@@ -176,11 +190,11 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 		{		
 			if(write_page_h(spi_chip, addr, data_buff, size1) != 1)
 			{
+				//exit_atomic();						// Atomic operation ends.
 				xSemaphoreGive(Spi0_Mutex);
 				return -1;
 			}
 		}
-		
 		if(size2)	// Requested write flows into a second page.
 		{
 			page = get_page(addr + size1);
@@ -188,10 +202,10 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 			
 			if(ready_for_command_h(spi_chip) != 1)
 			{
+				//exit_atomic();
 				xSemaphoreGive(Spi0_Mutex);
 				return size1;
 			}
-			
 			if(dirty)
 			{
 				sect_num = get_sector(addr + size1);
@@ -205,20 +219,20 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 			{		
 				if(write_page_h(spi_chip, addr + size1, (data_buff + size1), size2) != 1)
 				{
+					//exit_atomic();
 					xSemaphoreGive(Spi0_Mutex);
 					return size1;
 				}
 			}
 		}
 		
+		//exit_atomic();
 		xSemaphoreGive(Spi0_Mutex);
 		return (size1 + size2);	
 	}
 
 	else
 		return -1;												// SPI0 is currently being used or there is an error.
-
-
 }
 
 /************************************************************************/
@@ -282,7 +296,7 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 /* @purpose: Read from the SPI memory chip.								*/
 /* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
 /* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
-/* after that, the funciton returns -1.									*/
+/* after that, the function returns -1.									*/
 /************************************************************************/
 int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
@@ -295,6 +309,8 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
+		//enter_atomic();											// Atomic operation begins.
+		
 		msg_buff[0] = RD;
 		msg_buff[1] = (uint16_t)((addr & 0x000F0000) >> 16);
 		msg_buff[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
@@ -307,6 +323,7 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 
 		if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
 		{
+			//exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
 			return -1;
 		}
@@ -318,6 +335,7 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 			*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
 		}
 
+		//exit_atomic();
 		xSemaphoreGive(Spi0_Mutex);
 		return size;
 	}
@@ -337,6 +355,8 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 /* -erase operation. Loads 4kB from SPI_CHIP into spi_mem_buffer		*/
 /* @NOTE: This function is a helper and is ONLY to be used within a 	*/
 /* section of code which has acquired the Spi0_Mutex.					*/
+/* @Note: This function is an atomic operation and hence suspends		*/
+/* interrupts temporarily.												*/
 /************************************************************************/
 uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num)
 {
@@ -475,9 +495,11 @@ int get_spimem_status(uint32_t spi_chip)
 	dumbuf[1] = 0x00;
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
+		//enter_atomic();
 		spi_master_transfer(dumbuf, 2, (uint8_t)spi_chip);
 		xSemaphoreGive(Spi0_Mutex);
 		return (uint8_t)dumbuf[1];						// Status of the Chip is returned.
+		//exit_atomic();
 	}
 	else
 		return -1;										// SPI0 is currently being used or there is an error.

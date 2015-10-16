@@ -78,7 +78,7 @@ void memory_wash( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
-		xTaskCreate( prvMemoryWashTask(),					/* The function that implements the task. */
+		xTaskCreate( prvMemoryWashTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) MW_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */

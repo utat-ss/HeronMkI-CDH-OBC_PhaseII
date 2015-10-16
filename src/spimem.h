@@ -7,7 +7,7 @@
 *	PURPOSE:		Houses the includes and definitions for spimem.c
 *
 *
-*	FILE REFERENCES:		spi_func.h, gpio.h
+*	FILE REFERENCES:		spi_func.h, gpio.h, time.h, FreeRTOS.h, task.h
 *
 *	EXTERNAL VARIABLES:
 *
@@ -42,6 +42,7 @@
 #include "time.h"
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "atomic.h"
 
 SemaphoreHandle_t	Spi0_Mutex;
 
@@ -76,3 +77,4 @@ uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num);						
 uint32_t update_spibuffer_with_new_page(uint32_t addr, uint8_t* data_buff, uint32_t size);		// Driver
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num);							// Driver
 uint32_t write_sector_back_to_spimem(uint32_t spi_chip);										// Driver
+

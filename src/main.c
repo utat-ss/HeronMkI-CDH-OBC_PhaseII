@@ -172,7 +172,6 @@ extern void coms(void);
 extern void payload(void);
 extern void memory_wash(void);
 extern void	spi_initialize(void);
-extern void spimemtest(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
 
@@ -207,12 +206,11 @@ int main(void)
 		
 	/* Create Tasks */
 	//my_blink();
-	//command_loop();
-	//housekeep();
-	//data_test();
+	command_loop();
+	housekeep();
+	data_test();
 	//time_update();
 	//memory_wash();
-	spimemtest();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

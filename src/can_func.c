@@ -122,6 +122,8 @@
 	*					not have to understand mutex placement.
 	*
 	*					I also took the time to edit all the headers for the functions to make them all proper.
+	*
+	*					I got rid of the "transmit_complete" flags as they were a terrible idea.
 	*					
 	*
 	*	DESCRIPTION:	
@@ -194,7 +196,6 @@ void CAN0_Handler(void)
 			
 			if ((ul_status & CAN_MSR_MRDY) == CAN_MSR_MRDY) 
 			{
-				transmit_complete[i] = 1;		// Indicate that a transmission has completed.
 				//assert(g_ul_recv_status); ***implement assert here.
 				break;
 			}
@@ -430,21 +431,10 @@ static uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uin
 	can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
 	can_mailbox_write(CAN0, &can0_mailbox);
 
-	transmit_complete[7] = 0;
-
 	/* Send out the information in the mailbox. */
 	can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
-
-	while((transmit_complete[7] != 1) && timeout--){ }
-
-	if(transmit_complete[7] != 1)
-		return -1;									// Transmission took too long.
-	else
-	{
-		transmit_complete[7] = 0;
-		return 1;
-	}
-
+	
+	return 0;
 }
 
 /************************************************************************/
@@ -480,24 +470,11 @@ uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRI
 		can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
 		can_mailbox_write(CAN0, &can0_mailbox);
 
-		transmit_complete[7] = 0;
-
 		/* Send out the information in the mailbox. */
 		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
-
-		while((transmit_complete[7] != 1) && timeout--){ }
-
-		if(transmit_complete[7] != 1)
-		{
-			xSemaphoreGive(Can0_Mutex);
-			return -1;									// The transmission took too long.
-		}
-		else
-		{
-			transmit_complete[7] = 0;
-			xSemaphoreGive(Can0_Mutex);
-			return 1;									// Transmission succeeded.
-		}
+		xSemaphoreGive(Can0_Mutex);
+		delay_us(100);
+		return 1;
 	}
 	
 	else
@@ -622,7 +599,7 @@ uint32_t request_housekeeping(uint32_t ID)
 		reset_mailbox_conf(&can0_mailbox);
 		can0_mailbox.ul_mb_idx = 6;			//Mailbox Number 6
 		can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
-		can0_mailbox.uc_tx_prio = HK_REQUEST_PRIO;		//Transmission Priority (Can be Changed dynamically)
+		can0_mailbox.uc_tx_prio = 10;		//Transmission Priority (Can be Changed dynamically)
 		can0_mailbox.uc_id_ver = 0;
 		can0_mailbox.ul_id_msk = 0;
 		can_mailbox_init(CAN0, &can0_mailbox);
@@ -636,24 +613,11 @@ uint32_t request_housekeeping(uint32_t ID)
 		can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
 		can_mailbox_write(CAN0, &can0_mailbox);
 
-		transmit_complete[6] = 0;
-
 		/* Send out the information in the mailbox. */
-		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB6);
-
-		while((transmit_complete[6] != 1) && timeout--){ }
-
-		if(transmit_complete[6] != 1)
-		{
-			xSemaphoreGive(Can0_Mutex);
-			return -1;									// The transmission took too long.
-		}
-		else
-		{
-			transmit_complete[6] = 0;
-			xSemaphoreGive(Can0_Mutex);
-			return 1;									// Transmission succeeded.
-		}
+		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB6);		
+		xSemaphoreGive(Can0_Mutex);
+		delay_us(100);
+		return 1;
 	}
 	else
 		return -1;										// CAN0 is currently busy, or something has gone wrong.
@@ -751,8 +715,7 @@ void can_initialize(void)
 		/* Disable all CAN0 & CAN1 interrupts. */
 		can_disable_interrupt(CAN0, CAN_DISABLE_ALL_INTERRUPT_MASK);
 		can_disable_interrupt(CAN1, CAN_DISABLE_ALL_INTERRUPT_MASK);
-			
-		NVIC_EnableIRQ(CAN0_IRQn);
+
 		NVIC_EnableIRQ(CAN1_IRQn);
 		
 		can_reset_all_mailbox(CAN0);
@@ -793,12 +756,6 @@ void can_initialize(void)
 		can_hk_fifo = xQueueCreate(fifo_length, item_size);
 		can_com_fifo = xQueueCreate(fifo_length, item_size);
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
-
-		for (i = 0; i < 8; i++)
-		{
-			transmit_complete[i] = 0;
-		}
-
 	}
 	return;
 }
@@ -870,8 +827,6 @@ uint32_t can_init_mailboxes(uint32_t x)
 	can_enable_interrupt(CAN1, CAN_IER_MB6);
 	can_enable_interrupt(CAN1, CAN_IER_MB7);
 	
-
-
 	return 1;
 }
 
@@ -964,6 +919,7 @@ uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_
 		hk_read_receivedf = 0;		// Zero this last to keep in sync.
 		
 		xSemaphoreGive(Can0_Mutex);
+		delay_us(100);
 		return ret_val;				// This is the result of a read operation.
 	}
 	
@@ -1032,10 +988,11 @@ uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t
 		
 		ret_val = (uint8_t)(hk_read_receive[0] & 0x000000FF);
 		
-		if(ret_val >= 0)
+		if(ret_val > 0)
 		{
 			xSemaphoreGive(Can0_Mutex);
-			return 0;				// The write operation succeeded.
+			delay_us(100);
+			return 1;				// The write operation succeeded.
 		}
 		else
 		{
@@ -1153,6 +1110,7 @@ uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_n
 		eps_data_receivedf = 0;		// Zero this last to keep in sync.
 		*status = 1;				// The operation succeeded.
 		xSemaphoreGive(Can0_Mutex);
+		delay_us(100);
 		return ret_val;				// This is the requested data.
 	}
 	else
@@ -1166,7 +1124,7 @@ uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_n
 /* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
 /* @param: sensor_name: Name of the sensor at hand. ex: PANELX_V		*/
 /* @param: boundary: The value which you would like to set as the high	*/
-/*			or low value.
+/*			or low value.												*/
 /* @return: returns 1 upon success, -1 upon failure.					*/
 /* @NOTE: This function checks to make sure that the request succeeded	*/
 /*			(this has a timeout of 25 ms)								*/
@@ -1174,7 +1132,8 @@ uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_n
 /************************************************************************/
 uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary)
 {
-	uint32_t high, low, ret_val, check;
+	uint32_t high, low, check;
+	uint8_t ret_val;
 	
 	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_HIGH);
 	low = (uint32_t)sensor_name;
@@ -1199,6 +1158,7 @@ uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name,
 		else
 		{
 			xSemaphoreGive(Can0_Mutex);
+			delay_us(100);
 			return 1;
 		}
 	}
@@ -1208,7 +1168,8 @@ uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name,
 
 uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary)
 {
-	uint32_t high, low, ret_val, check;
+	uint32_t high, low, check;
+	uint8_t ret_val;
 	
 	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_LOW);
 	low = (uint32_t)sensor_name;
@@ -1233,6 +1194,7 @@ uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, 
 		else
 		{
 			xSemaphoreGive(Can0_Mutex);
+			delay_us(100);
 			return 1;
 		}
 	}
@@ -1254,7 +1216,8 @@ uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, 
 /************************************************************************/
 uint32_t set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value)
 {
-	uint32_t high, low, ret_val, check;
+	uint32_t high, low, check;
+	uint8_t ret_val;
 	
 	high = high_command_generator(sender_id, MT_COM, SET_VAR);
 	low = (uint32_t)var_name;
@@ -1274,6 +1237,7 @@ uint32_t set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint1
 		else
 		{
 			xSemaphoreGive(Can0_Mutex);
+			delay_us(100);
 			return 1;
 		}
 	}

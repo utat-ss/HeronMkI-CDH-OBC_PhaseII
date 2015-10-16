@@ -49,14 +49,13 @@
 /* Atmel library includes. */
 #include "asf.h"
 
-/* Common demo includes. */
+/* Common includes. */
 #include "partest.h"
 
-/* CAN Function includes */
-#include "can_func.h"
+#include "spimem.h"
 
 /* Priorities at which the tasks are created. */
-#define MemoryWash_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
+#define MemoryWash_PRIORITY		( tskIDLE_PRIORITY + 4 )		// Lower the # means lower the priority
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -64,6 +63,7 @@ functionality. */
 
 /*-----------------------------------------------------------*/
 
+static uint8_t page_buff1[256], page_buff2[256], page_buff3[256]; 
 /*
  * Functions Prototypes.
  */
@@ -103,16 +103,62 @@ static void prvMemoryWashTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == MW_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 1;	// Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 5400000;	// Number entered here corresponds to the number of ticks we should wait (90 minutes)
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t ID, x;
-	uint8_t passkey = 0, addr = 0x80;
+	int x, y, z;
+	uint8_t spi_chip, write_required, sum, correct_val;	// write_required can be either 1, 2, 3, or 4 to indicate which chip needed a write.
+	uint32_t page, addr, byte;
 		
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		// Memory washing here.
+		for(page = 0; page < 4096; page++)	// Loop through each page in memory.
+		{
+			addr = page << 8;
+			
+			for(spi_chip = 1; spi_chip < 4; spi_chip++)
+			{
+				x = spimem_read(spi_chip, addr, page_buff1, 256);
+				y = spimem_read(spi_chip, addr, page_buff2, 256);
+				z = spimem_read(spi_chip, addr, page_buff3, 256);	
+					
+				if((x < 0) || (y < 0) || (z < 0))
+					x = x;									// FAILURE_RECOVERY.
+			}
+			
+			for(byte = 0; byte < 256; byte++)
+			{
+				sum = page_buff1[byte] + page_buff2[byte] + page_buff3[byte];
+				
+				if(sum < 3)
+				{
+					if(sum == 2)
+						correct_val = 1;
+					if(sum < 2)
+						correct_val = 0;
+				}
+				else
+					correct_val = sum / 3;
+					
+				if(page_buff1[byte] != correct_val)
+				{
+					x = spimem_write(1, addr, &correct_val, 1);		// Correct the byte on that chip.
+				}
+				if(page_buff2[byte] != correct_val)
+				{
+					y = spimem_write(2, addr, &correct_val, 1);
+				}
+				if(page_buff3[byte] != correct_val)
+				{
+					z = spimem_write(3, addr, &correct_val, 1);
+				}
+				
+				if((x < 0) || (y < 0) || (z < 0))
+					x = x;									// FAILURE_RECOVERY.
+			}
+			
+		}
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}

@@ -233,9 +233,9 @@ void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 		while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);
 		spi_read(SPI_MASTER_BASE, &data, &pcs);
 		p_buffer[i] = data;
-		//delay_us(100);
+		delay_us(100);
 	}
-	//delay_us(100);
+	delay_us(100);
 	spi_write(SPI_MASTER_BASE, p_buffer[(size - 1)], pcs, 1);
 	/* Wait transfer done. */
 	while ((spi_read_status(SPI_MASTER_BASE) & SPI_SR_RDRF) == 0);

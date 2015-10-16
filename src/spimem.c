@@ -98,7 +98,6 @@ void spimem_initialize(void)
 		
 	dumbuf[0] = CE;							// Chip-Erase (this operation can take up to 7s.
 	spi_master_transfer(dumbuf, 1, 2);
-	delay_s(14);
 	
 	while((check_if_wip(2) != 0) && timeout--){ }	// Wait for a maximum of 15 s.
 		
@@ -167,11 +166,11 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
-		//enter_atomic();											// Atomic operation begins.
+		enter_atomic();											// Atomic operation begins.
 		
 		if(ready_for_command_h(spi_chip) != 1)
 		{
-			//exit_atomic();
+			exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
 			return -1;
 		}
@@ -190,7 +189,7 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 		{		
 			if(write_page_h(spi_chip, addr, data_buff, size1) != 1)
 			{
-				//exit_atomic();						// Atomic operation ends.
+				exit_atomic();						// Atomic operation ends.
 				xSemaphoreGive(Spi0_Mutex);
 				return -1;
 			}
@@ -202,7 +201,7 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 			
 			if(ready_for_command_h(spi_chip) != 1)
 			{
-				//exit_atomic();
+				exit_atomic();
 				xSemaphoreGive(Spi0_Mutex);
 				return size1;
 			}
@@ -219,14 +218,14 @@ int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t s
 			{		
 				if(write_page_h(spi_chip, addr + size1, (data_buff + size1), size2) != 1)
 				{
-					//exit_atomic();
+					exit_atomic();
 					xSemaphoreGive(Spi0_Mutex);
 					return size1;
 				}
 			}
 		}
 		
-		//exit_atomic();
+		exit_atomic();
 		xSemaphoreGive(Spi0_Mutex);
 		return (size1 + size2);	
 	}
@@ -309,7 +308,7 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
-		//enter_atomic();											// Atomic operation begins.
+		enter_atomic();											// Atomic operation begins.
 		
 		msg_buff[0] = RD;
 		msg_buff[1] = (uint16_t)((addr & 0x000F0000) >> 16);
@@ -323,7 +322,7 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 
 		if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
 		{
-			//exit_atomic();
+			exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
 			return -1;
 		}
@@ -335,7 +334,7 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 			*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
 		}
 
-		//exit_atomic();
+		exit_atomic();
 		xSemaphoreGive(Spi0_Mutex);
 		return size;
 	}
@@ -495,11 +494,11 @@ int get_spimem_status(uint32_t spi_chip)
 	dumbuf[1] = 0x00;
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
-		//enter_atomic();
+		enter_atomic();
 		spi_master_transfer(dumbuf, 2, (uint8_t)spi_chip);
 		xSemaphoreGive(Spi0_Mutex);
 		return (uint8_t)dumbuf[1];						// Status of the Chip is returned.
-		//exit_atomic();
+		exit_atomic();
 	}
 	else
 		return -1;										// SPI0 is currently being used or there is an error.

@@ -107,7 +107,7 @@ static void prvMemoryWashTask(void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	int x, y, z;
-	uint8_t spi_chip, write_required, sum, correct_val;	// write_required can be either 1, 2, 3, or 4 to indicate which chip needed a write.
+	uint8_t spi_chip, write_required = 0, sum, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
 	uint32_t page, addr, byte;
 		
 	/* @non-terminating@ */	
@@ -129,33 +129,31 @@ static void prvMemoryWashTask(void *pvParameters )
 			
 			for(byte = 0; byte < 256; byte++)
 			{
-				sum = page_buff1[byte] + page_buff2[byte] + page_buff3[byte];
-				
-				if(sum < 3)
+				if(page_buff1[byte] != page_buff2[byte])
 				{
-					if(sum == 2)
-						correct_val = 1;
-					if(sum < 2)
-						correct_val = 0;
+					if(page_buff2[byte] == page_buff3[byte])
+					{
+						write_required = 1;
+						correct_val = page_buff2[byte;]
+					}
+						
+					if(page_buff1[byte] == page_buff3[byte])
+					{
+						write_required = 2;
+						correct_val = page_buff3[byte];
+					}
 				}
 				else
-					correct_val = sum / 3;
-					
-				if(page_buff1[byte] != correct_val)
 				{
-					x = spimem_write(1, addr, &correct_val, 1);		// Correct the byte on that chip.
-				}
-				if(page_buff2[byte] != correct_val)
-				{
-					y = spimem_write(2, addr, &correct_val, 1);
-				}
-				if(page_buff3[byte] != correct_val)
-				{
-					z = spimem_write(3, addr, &correct_val, 1);
+					if(page_buff1[byte] != page_buff3[byte])
+					{
+						write_required = 3;
+						correct_val = page_buff1[byte];
+					}
 				}
 				
-				if((x < 0) || (y < 0) || (z < 0))
-					x = x;									// FAILURE_RECOVERY.
+				if(write_required)
+					spimem_write(write_required, (addr + byte), &correct_val, 1);
 			}
 			
 		}

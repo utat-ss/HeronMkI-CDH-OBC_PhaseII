@@ -179,14 +179,14 @@ typedef struct {
 /* SENDER_ID */
 #define COMS_ID					0x00
 #define EPS_ID					0x01
-#define PAYL_ID					0x02
+#define PAY_ID					0x02
 #define OBC_ID					0x03
 #define HK_TASK_ID				0x04
 #define DATA_TASK_ID			0x05
 #define TC_TASK_ID				0x06
 #define COMS_TASK_ID			0x07
 #define EPS_TASK_ID				0x08
-#define PAYL_TASK_ID			0x09
+#define PAY_TASK_ID				0x09
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01
@@ -281,8 +281,8 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller);
 void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller);
 uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr);			// API Function.
 uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data);	// API Function.
-uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status);	// API Function.
-uint32_t set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);	// API Function.
-uint32_t set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);		// API Function.
-uint32_t set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value);				// API Function.
+uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, int* status);	// API Function.
+int set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);	// API Function.
+int set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);		// API Function.
+int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value);				// API Function.
 

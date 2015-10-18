@@ -134,7 +134,7 @@ static void prvMemoryWashTask(void *pvParameters )
 					if(page_buff2[byte] == page_buff3[byte])
 					{
 						write_required = 1;
-						correct_val = page_buff2[byte;]
+						correct_val = page_buff2[byte];
 					}
 						
 					if(page_buff1[byte] == page_buff3[byte])

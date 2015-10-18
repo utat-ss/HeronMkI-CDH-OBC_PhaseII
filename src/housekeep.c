@@ -111,19 +111,20 @@ static void prvHouseKeepTask(void *pvParameters )
 	const TickType_t xTimeToWait = 100;	// Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t ID, x;
+	uint32_t ID;
+	int x;
 	uint8_t passkey = 0, addr = 0x80;
 		
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		ID = SUB1_ID5;
+		ID = EPS_ID;
 		x = request_housekeeping(ID);								// Request housekeeping from COMS.
 			
-		ID = SUB0_ID5;
+		ID = COMS_ID;
 		x = request_housekeeping(ID);								// Request housekeeping from EPS.
 		
-		ID = SUB2_ID5;
+		ID = PAY_ID;
 		x = request_housekeeping(ID);								// Request housekeeping from PAY.
 		//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
 		

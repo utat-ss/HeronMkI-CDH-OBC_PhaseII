@@ -113,7 +113,8 @@ static void prvCommandTask( void *pvParameters )
 	const TickType_t xTimeToWait = 1;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t low, high, ID, PRIORITY, x;
+	uint32_t low, high, ID, PRIORITY;
+	int x;
 	
 	low = DUMMY_COMMAND;
 	high = high_command_generator(OBC_ID, MT_COM, REQ_RESPONSE);
@@ -122,13 +123,13 @@ static void prvCommandTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		ID = SUB1_ID0;
+		ID = EPS_ID;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
 			
-		ID = SUB0_ID0;
+		ID = COMS_ID;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request response from EPS.
 
-		ID = SUB2_ID0;
+		ID = PAY_ID;
 		x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.
 		
 		//xLastWakeTime = xTaskGetTickCount();

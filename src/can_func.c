@@ -453,34 +453,23 @@ static uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uin
 /* @return: 1 == completed, (<=0) == failure.							*/
 /* @NOTE: 1 != Success (Necessarily) 									*/
 /************************************************************************/
-uint32_t send_can_command(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY)
+int send_can_command(uint32_t low, uint32_t high, uint32_t ssm_id, uint32_t PRIORITY)
 {	
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	uint32_t id, ret_val;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
-		/* CAN0 MB7 == COMMAND/MSG MB				*/
-		reset_mailbox_conf(&can0_mailbox);
-		can0_mailbox.ul_mb_idx = 7;			//Mailbox Number 7
-		can0_mailbox.uc_obj_type = CAN_MB_TX_MODE;
-		can0_mailbox.uc_tx_prio = PRIORITY;		//Transmission Priority (Can be Changed dynamically)
-		can0_mailbox.uc_id_ver = 0;
-		can0_mailbox.ul_id_msk = 0;
-		can_mailbox_init(CAN0, &can0_mailbox);
-
-		/* Write transmit information into mailbox. */
-		can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
-		can0_mailbox.ul_datal = low;					// shifted over to the standard frame position.
-		can0_mailbox.ul_datah = high;
-		can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
-		can_mailbox_write(CAN0, &can0_mailbox);
-
-		/* Send out the information in the mailbox. */
-		can_global_send_transfer_cmd(CAN0, CAN_TCR_MB7);
+		ret_val = send_can_command_h(low, high, id, PRIORITY);
 		xSemaphoreGive(Can0_Mutex);
-		delay_us(100);
-		return 1;
+		return (int)ret_val;
 	}
 	
 	else
@@ -1130,12 +1119,19 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 
 uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, int* status)
 {
-	uint32_t ret_val = 0;;
+	uint32_t ret_val = 0;
+	uint32_t id;
 	uint8_t* s;
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 	
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		ret_val = request_sensor_data_h(sender_id, ssm_id, sensor_name, s);
+		ret_val = request_sensor_data_h(sender_id, id, sensor_name, s);
 		*status = (int)(*s);
 		xSemaphoreGive(Can0_Mutex);
 		return ret_val;
@@ -1161,6 +1157,14 @@ int set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint
 {
 	uint32_t high, low, check;
 	uint8_t status;
+	uint32_t id;
+
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 	
 	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_HIGH);
 	low = (uint32_t)sensor_name;
@@ -1169,13 +1173,13 @@ int set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint
 
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		if(send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		if(send_can_command_h(low, high, id, DEF_PRIO) < 1)
 		{
 			xSemaphoreGive(Can0_Mutex);
 			return -1;
 		}
 		
-		check = request_sensor_data_h(sender_id, ssm_id, sensor_name, &status);
+		check = request_sensor_data_h(sender_id, id, sensor_name, &status);
 		
 		if ((status > 1) || (check != boundary))
 		{
@@ -1197,6 +1201,14 @@ int set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint1
 {
 	uint32_t high, low, check;
 	uint8_t ret_val;
+	uint32_t id;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 	
 	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_LOW);
 	low = (uint32_t)sensor_name;
@@ -1205,13 +1217,13 @@ int set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint1
 
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		if(send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		if(send_can_command_h(low, high, id, DEF_PRIO) < 1)
 		{
 			xSemaphoreGive(Can0_Mutex);
 			return -1;
 		}
 
-		check = request_sensor_data_h(sender_id, ssm_id, sensor_name, &ret_val);
+		check = request_sensor_data_h(sender_id, id, sensor_name, &ret_val);
 		
 		if ((ret_val > 1) || (check != boundary))
 		{
@@ -1245,6 +1257,14 @@ int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t v
 {
 	uint32_t high, low, check;
 	uint8_t ret_val;
+	uint32_t id;
+
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 	
 	high = high_command_generator(sender_id, MT_COM, SET_VAR);
 	low = (uint32_t)var_name;
@@ -1253,8 +1273,8 @@ int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t v
 	
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		send_can_command_h(low, high, ssm_id, DEF_PRIO);
-		check = request_sensor_data_h(sender_id, ssm_id, var_name, &ret_val);
+		send_can_command_h(low, high, id, DEF_PRIO);
+		check = request_sensor_data_h(sender_id, id, var_name, &ret_val);
 		
 		if ((ret_val > 1) || (check != value))
 		{

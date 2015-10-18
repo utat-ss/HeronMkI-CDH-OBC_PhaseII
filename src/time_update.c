@@ -22,6 +22,8 @@
 /*		RTC includes.	*/
 #include "rtc.h"
 
+#include "global_var.h"
+
 /* Priorities at which the tasks are created. */
 #define TIME_UPDATE_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
 
@@ -67,16 +69,24 @@ void time_update( void )
 static void prvTimeUpdateTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == TIME_UPDATE_PARAMETER );
+	
+	timestamp time;
+	uint32_t high;
 
 	/* @non-terminating@ */	
 	for( ;; )
 	{
 		if (rtc_triggered_a2())
 		{
+			rtc_get(&time);
 			
-			//TODO: SEND CAN COMMAND
-			//x = send_can_command(low, high, ID, PRIORITY);
-			//x = send_can_command(low, high, ID, PRIORITY);
+			CURRENT_MINUTE = time.minute;
+			
+			high = high_command_generator(TC_TASK_ID, MT_TC, SET_TIME);
+			
+			send_can_command((uint32_t)CURRENT_MINUTE, high, EPS_ID, DEF_PRIO);
+			send_can_command((uint32_t)CURRENT_MINUTE, high, COMS_ID, DEF_PRIO);
+			send_can_command((uint32_t)CURRENT_MINUTE, high, PAY_ID, DEF_PRIO);
 			
 			rtc_reset_a2();
 		}

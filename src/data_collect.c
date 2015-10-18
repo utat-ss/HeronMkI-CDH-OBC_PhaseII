@@ -101,10 +101,9 @@ static void prvDataTask( void *pvParameters )
 	const TickType_t xTimeToWait = 1;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t low, high, ID, PRIORITY, i;
+	uint32_t low, high, PRIORITY, i;
 	int x;
 	
-	ID = SUB0_ID0;
 	PRIORITY = DATA_PRIO;
 	
 	/* @non-terminating@ */	
@@ -113,14 +112,9 @@ static void prvDataTask( void *pvParameters )
 		low = DATA_REQUEST;
 		high = high_command_generator(OBC_ID, MT_COM, REQ_DATA);
 		
-		ID = EPS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request data from COMS.
-			
-		ID = COMS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request data from EPS.
-
-		ID = PAY_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request data from PAY.						
+		x = send_can_command(low, high, EPS_ID, PRIORITY);				// Request data from COMS.
+		x = send_can_command(low, high, COMS_ID, PRIORITY);				// Request data from EPS.
+		x = send_can_command(low, high, PAY_ID, PRIORITY);				// Request data from PAY.						
 
 		if(glob_drf)		// data reception flag;
 		{

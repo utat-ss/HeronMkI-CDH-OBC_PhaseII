@@ -123,14 +123,9 @@ static void prvCommandTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		ID = EPS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
-			
-		ID = COMS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request response from EPS.
-
-		ID = PAY_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.
+		x = send_can_command(low, high, EPS_ID, PRIORITY);				// Request response from COMS.
+		x = send_can_command(low, high, COMS_ID, PRIORITY);				// Request response from EPS.
+		x = send_can_command(low, high, PAY_ID, PRIORITY);				// Request response from PAY.
 		
 		//xLastWakeTime = xTaskGetTickCount();
 		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);

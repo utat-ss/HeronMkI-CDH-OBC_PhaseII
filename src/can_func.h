@@ -200,6 +200,7 @@ typedef struct {
 #define SET_SENSOR_HIGH			0x09	// Remember to put SENSOR_NAME into Byte 3.
 #define SET_SENSOR_LOW			0x0A
 #define SET_VAR					0x0B	// Remember to put VAR_NAME into Byte 3.
+#define SET_TIME				0x0C
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

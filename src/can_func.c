@@ -837,7 +837,6 @@ uint32_t can_init_mailboxes(uint32_t x)
 /************************************************************************/
 uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t smalltype)
 {
-	uint8_t dummy_time=0x00; //Should be replaced once RTC is ready.
 	uint32_t sender, m_type, s_type;
 	
 	sender = (uint32_t)sender_id;
@@ -849,7 +848,7 @@ uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t 
 	s_type = (uint32_t)smalltype;
 	s_type = s_type << 8;
 	
-	return sender + m_type + s_type + dummy_time;
+	return sender + m_type + s_type + (uint32_t)CURRENT_MINUTE;
 }
 
 /************************************************************************/

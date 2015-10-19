@@ -642,44 +642,6 @@ Copyright (C) 2012 Atmel Corporation. All rights reserved.
 #define PIO_PD28_IDX         124
 #define PIO_PD29_IDX         125
 #define PIO_PD30_IDX         126
-#define PIO_PE0_IDX          128
-#define PIO_PE1_IDX          129
-#define PIO_PE2_IDX          130
-#define PIO_PE3_IDX          131
-#define PIO_PE4_IDX          132
-#define PIO_PE5_IDX          133
-#define PIO_PE6_IDX          134
-#define PIO_PE7_IDX          135
-#define PIO_PE8_IDX          136
-#define PIO_PE9_IDX          137
-#define PIO_PE10_IDX         138
-#define PIO_PE11_IDX         139
-#define PIO_PE12_IDX         140
-#define PIO_PE13_IDX         141
-#define PIO_PE14_IDX         142
-#define PIO_PE15_IDX         143
-#define PIO_PE16_IDX         144
-#define PIO_PE17_IDX         145
-#define PIO_PE18_IDX         146
-#define PIO_PE19_IDX         147
-#define PIO_PE20_IDX         148
-#define PIO_PE21_IDX         149
-#define PIO_PE22_IDX         150
-#define PIO_PE23_IDX         151
-#define PIO_PE24_IDX         152
-#define PIO_PE25_IDX         153
-#define PIO_PE26_IDX         154
-#define PIO_PE27_IDX         155
-#define PIO_PE28_IDX         156
-#define PIO_PE29_IDX         157
-#define PIO_PE30_IDX         158
-#define PIO_PE31_IDX         159
-#define PIO_PF0_IDX          160
-#define PIO_PF1_IDX          161
-#define PIO_PF2_IDX          162
-#define PIO_PF3_IDX          163
-#define PIO_PF4_IDX          164
-#define PIO_PF5_IDX          165
 
 #endif /* _SAM3X8E_PIO_ */
 

@@ -56,11 +56,12 @@
 
 //What other includes do I need?
 
-
+#include "wdt.h"
 
 
 /* Priorities at which the task is created. */
 #define WDT_Reset_PRIORITY        (tskIDLE_PRIORITY + 1)
+/* all other task priorities need to be incremented */
 
 /* Time that task is delayed for after running. Should this be here? */
 #define WDT_Reset_Delay				   100 
@@ -123,14 +124,10 @@ static void wdtResetTask(void *pvParameters)
 	
 	for ( ;; )
 	{
-		/* Here will be some code that resets the WDT */
+		wdt_restart(WDT)
 		
 		xLastWakeTime = xTaskGetTickCount();
-		/* Does this mean that the task will run exactly xTimeToWait after 
-		xLastWakeTime, or is that the earliest possible time it can run?*/
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
-		
-		
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);	
 	}
 	
 }

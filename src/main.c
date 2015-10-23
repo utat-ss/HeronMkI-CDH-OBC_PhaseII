@@ -173,6 +173,8 @@ extern void payload(void);
 extern void memory_wash(void);
 extern void	spi_initialize(void);
 
+extern void wdt_reset(void)
+
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
 
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
@@ -211,6 +213,7 @@ int main(void)
 	data_test();
 	//time_update();
 	//memory_wash();
+	wdt_reset();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

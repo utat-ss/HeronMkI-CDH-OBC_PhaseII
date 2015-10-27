@@ -111,4 +111,6 @@ static void prvComsTask(void *pvParameters )
 }
 
 // Static helper functions may be defined below.
-	
+
+
+static pus_packetize_tm(uint8_t sender, uint8_t dest, uint8_t packet_num, uint8_t* data)

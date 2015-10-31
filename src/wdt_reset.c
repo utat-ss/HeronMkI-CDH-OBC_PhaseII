@@ -56,7 +56,7 @@
 
 //What other includes do I need?
 
-#include "wdt.h"
+#include <asf/sam/drivers/wdt/wdt.h>
 
 
 /* Priorities at which the task is created. */
@@ -124,7 +124,7 @@ static void wdtResetTask(void *pvParameters)
 	
 	for ( ;; )
 	{
-		wdt_restart(WDT)
+		wdt_restart(WDT);
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);	

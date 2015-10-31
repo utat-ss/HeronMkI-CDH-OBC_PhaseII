@@ -22,6 +22,8 @@
 /*		RTC includes.	*/
 #include "rtc.h"
 
+#include "can_func.h"
+
 #include "global_var.h"
 
 /* Priorities at which the tasks are created. */
@@ -36,6 +38,8 @@ functionality. */
  */
 static void prvTimeUpdateTask( void *pvParameters );
 void time_update(void);
+
+struct timestamp time;
 
 /************************************************************************/
 /*			TEST FUNCTION FOR COMMANDS TO THE STK600                    */
@@ -69,8 +73,6 @@ void time_update( void )
 static void prvTimeUpdateTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == TIME_UPDATE_PARAMETER );
-	
-	timestamp time;
 	uint32_t high;
 
 	/* @non-terminating@ */	
@@ -82,11 +84,12 @@ static void prvTimeUpdateTask( void *pvParameters )
 			
 			CURRENT_MINUTE = time.minute;
 			
-			high = high_command_generator(TC_TASK_ID, MT_TC, SET_TIME);
-			
-			send_can_command((uint32_t)CURRENT_MINUTE, high, EPS_ID, DEF_PRIO);
-			send_can_command((uint32_t)CURRENT_MINUTE, high, COMS_ID, DEF_PRIO);
-			send_can_command((uint32_t)CURRENT_MINUTE, high, PAY_ID, DEF_PRIO);
+			high = high_command_generator(TC_TASK_ID, EPS_ID, MT_TC, SET_TIME);
+			send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB1_ID0, DEF_PRIO);
+			high = high_command_generator(TC_TASK_ID, COMS_ID, MT_TC, SET_TIME);
+			send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB0_ID0, DEF_PRIO);
+			high = high_command_generator(TC_TASK_ID, PAY_ID, MT_TC, SET_TIME);
+			send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB2_ID0, DEF_PRIO);
 			
 			rtc_reset_a2();
 		}

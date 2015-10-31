@@ -49,13 +49,14 @@ Author: Keenan Burnett
 #include "partest.h"
 /* CAN Function includes */
 #include "can_func.h"
+/* Global variable includes */
+#include "global_var.h"
+
 /* Priorities at which the tasks are created. */
 #define Coms_PRIORITY	( tskIDLE_PRIORITY + 1 ) // Lower the # means lower the priority
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
 #define COMS_PARAMETER	( 0xABCD )
-
-#define PACKET_LENGTH	143
 /*-----------------------------------------------------------*/
 
 /* Function Prototypes										 */
@@ -64,7 +65,6 @@ void coms(void);
 /*-----------------------------------------------------------*/
 
 /* Global variables											 */
-uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];
 uint8_t version;
 uint8_t type, data_header, flag, apid, sequence_flags, sequence_count;
 uint16_t abs_time;
@@ -109,7 +109,6 @@ static void prvComsTask(void *pvParameters )
 	/* Declare Variables Here */
 	sequence_count = 0;
 
-
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -141,7 +140,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		sequence_flags = 0x3;	// Indicates that this is a standalone packet.
 		
 	// Packet Header	
-	current_tm[142] = ((version & 0x07) << 5) & ((type & 0x01);
+	current_tm[142] = ((version & 0x07) << 5) & (type & 0x01);
 	current_tm[141] = apid;
 	current_tm[140] = (sequence_flags & 0x03) << 6;
 	current_tm[139] = sequence_count;
@@ -171,7 +170,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		
 		// Run CRC function here to fill in current_tm[1,0]
 		
-		if( send_pus_packet() < 0)
+		if( send_pus_packet(sender) < 0)
 			return 0;
 			
 		return 1;
@@ -195,7 +194,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		
 		// Run CRC function here to fill in current_tm[1,0]
 				
-		if(send_pus_packet() < 0)
+		if(send_pus_packet(sender) < 0)
 			return i;
 	}
 	
@@ -206,3 +205,4 @@ static int receive_telemetry(uint8_t sender, uint8_t dest, uint8_t packet_num, u
 {
 	
 }
+

@@ -62,12 +62,12 @@ functionality. */
 /* Function Prototypes										 */
 static void prvEpsTask( void *pvParameters );
 void eps(void);
-static uint8_t getxDirection(void);
-static uint8_t getyDirection(void);
+static void getxDirection(void);
+static void getyDirection(void);
 static uint8_t setxDuty(void);
 static uint8_t setyDuty(void);
-static int32_t get_sensor_data(uint8_t sensor_id);
-static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
+static uint32_t get_sensor_data(uint8_t sensor_id);
+static void set_variable_value(uint8_t variable_name, uint8_t new_var_value);
 /*-----------------------------------------------------------*/
 
 
@@ -175,7 +175,7 @@ static void getxDirection(void)
 /****************************************************************************************/
 static void getyDirection(void)
 {
-	uint32_t pyv, pyi, pyp_new, pyp_last;
+	uint32_t pyv, pyi, pyp_new, pxp_new, pyp_last;
 
 	pyv = get_sensor_data(PANELY_V);
 	pyi = get_sensor_data(PANELY_I);
@@ -231,7 +231,7 @@ static uint8_t setyDuty(void)
 	{
 		yDuty = yDuty - DUTY_INCREMENT;
 	}
-	set_variable(MPPTB, yDuty);
+	set_variable(EPS_TASK_ID, EPS_ID, MPPTB, yDuty);
 }
 
 

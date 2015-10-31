@@ -45,6 +45,9 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 
+/*		PUS DEFINITIONS HERE			*/
+#define PACKET_LENGTH	143
+
 /*  CAN GLOBAL FIFOS			   */
 QueueHandle_t can_data_fifo;			// Initialized in can_initialize
 QueueHandle_t can_msg_fifo;
@@ -82,3 +85,12 @@ uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 uint32_t  SAFE_MODE;					// Condition which will initially hold the system in safe_mode.
 
 uint8_t CURRENT_MINUTE;
+
+/* Latest TC packet received, next TM packet to send	*/
+uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];
+
+/* TC/TM Packet flags									*/
+uint8_t tm_transfer_completef;
+uint8_t tm_packet_sentf;
+uint8_t tc_packet_receivedf;
+

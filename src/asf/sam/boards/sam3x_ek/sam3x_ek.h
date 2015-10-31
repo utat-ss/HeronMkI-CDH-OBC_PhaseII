@@ -610,12 +610,12 @@ Edited by: Keenan Burnett
 #define PINS_CAN1    PIN_CAN1_TXD, PIN_CAN1_RXD
 
 /** CAN1 transceiver PIN RS. */
-#define PIN_CAN1_TR_RS_IDX        PIO_PE15_IDX
-#define PIN_CAN1_TR_RS_FLAGS      (PIO_TYPE_PIO_OUTPUT_0 | PIO_DEFAULT)
-
-/** CAN1 transceiver PIN EN. */
-#define PIN_CAN1_TR_EN_IDX        PIO_PE16_IDX
-#define PIN_CAN1_TR_EN_FLAGS      (PIO_TYPE_PIO_OUTPUT_0 | PIO_DEFAULT)
+//#define PIN_CAN1_TR_RS_IDX        PIO_PE15_IDX
+//#define PIN_CAN1_TR_RS_FLAGS      (PIO_TYPE_PIO_OUTPUT_0 | PIO_DEFAULT)
+//
+///** CAN1 transceiver PIN EN. */
+//#define PIN_CAN1_TR_EN_IDX        PIO_PE16_IDX
+//#define PIN_CAN1_TR_EN_FLAGS      (PIO_TYPE_PIO_OUTPUT_0 | PIO_DEFAULT)
 
 /** CAN1 PIN RX. */
 #define PIN_CAN1_RX_IDX           (PIO_PB15_IDX)

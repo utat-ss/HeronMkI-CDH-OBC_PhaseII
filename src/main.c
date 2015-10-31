@@ -173,7 +173,7 @@ extern void payload(void);
 extern void memory_wash(void);
 extern void	spi_initialize(void);
 
-extern void wdt_reset(void)
+extern void wdt_reset(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
 

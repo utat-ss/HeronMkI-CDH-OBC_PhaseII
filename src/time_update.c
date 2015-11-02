@@ -1,9 +1,31 @@
 /*
- * update_sat_time.c
- *
- * Created: 8/29/2015 15:49:07
- *  Author: Omar
- */ 
+Author: Keenan Burnett, Omar Abdeldayem
+***********************************************************************
+* FILE NAME: coms.c
+*
+* PURPOSE:
+* This file is to be used to house the time-management task (which shall manage
+* all time-related activities.
+*
+* FILE REFERENCES: stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
+*
+* EXTERNAL VARIABLES:
+*
+* EXTERNAL REFERENCES: Same a File References.
+*
+* ABORNOMAL TERMINATION CONDITIONS, ERROR AND WARNING MESSAGES: None yet.
+*
+* ASSUMPTIONS, CONSTRAINTS, CONDITIONS: None
+*
+* NOTES:
+*
+* REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
+*
+* DEVELOPMENT HISTORY:
+* 08/29/2015 	O: Created.
+*
+* DESCRIPTION:
+*/
 
 /* Standard includes. */
 #include <stdio.h>

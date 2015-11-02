@@ -254,6 +254,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
 	uint8_t sender, destination, big_type, small_type;
+	BaseType_t wake_task;	// Not needed here.
 
 	sender = (uint8_t)(uh_data_incom >> 28);
 	destination = (uint8_t)((uh_data_incom & 0x0F000000)>>24);
@@ -295,6 +296,18 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 					break;
 			}
 			break;
+		case SEND_TC:
+			xQueueSendToBackFromISR(tc_msg_fifo, &ul_data_incom, &wake_task);		// Telecommand reception FIFO.
+			xQueueSendToBackFromISR(tc_msg_fifo, &uh_data_incom, &wake_task);
+		case TC_PACKET_READY:
+			start_tc_packet();
+		case TM_TRANSACTION_RESP:
+			tm_transfer_completef = (uint8_t)(ul_data_incom & 0x000000FF);
+			break;
+		case OK_START_TM_PACKET:
+			start_tm_transferf = 1;
+			break;
+
 		default :
 			break;
 	}
@@ -362,7 +375,7 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 {
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
-	BaseType_t wake_task;	// Not needed, we won't block on queue reads.
+	BaseType_t wake_task;	// Not needed here.
 
 	/* UPDATE THE GLOBAL CAN REGS		*/
 	switch(mb)
@@ -762,6 +775,17 @@ void can_initialize(void)
 			hk_write_receive[i] = 0;
 		}
 		
+		/* Initialize Global variables and buffers related to PUS packts */
+		for (i = 0; i < 143; i++)
+		{
+			current_tc[i] = 0;
+			current_tm[i] = 0;
+		}
+		tm_transfer_completef = 0;
+		start_tm_transferf = 0;
+		current_tc_fullf = 0;
+		receiving_tcf = 0;
+		
 		/* Initialize global CAN FIFOs			*/
 		fifo_length = 100;		// Max number of items in the FIFO.
 		item_size = 4;			// Number of bytes in the items (4 bytes).
@@ -771,6 +795,7 @@ void can_initialize(void)
 		can_msg_fifo = xQueueCreate(fifo_length, item_size);
 		can_hk_fifo = xQueueCreate(fifo_length, item_size);
 		can_com_fifo = xQueueCreate(fifo_length, item_size);
+		tc_msg_fifo = xQueueCreate(fifo_length, item_size);
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
 	}
 	return;
@@ -1337,41 +1362,14 @@ int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t v
 		return -1;					// CAN0 is currently busy or something has gone wrong.
 }
 
-// This function breaks down the PUS packet into multiple CAN messages 
-// that are sent in turn and then placed into a telemetry buffer on the side of the SSM.
-
-// Note: It is assumed that the PUS packet shall be located in current_tm which is defined in glob_var.h
-
-// Instead of putting time in Byte 4, I'm going to use it for sequence control so that the SSM can check 
-// to make sure that no packets were lost.
-
-// It should also be obvious that this packet is being sent to the COMS SSM.
-
-// DO NOT call this function from an ISR.
-
-int send_pus_packet(uint8_t sender_id)
+// Let the SSM know that you're ready for a TC packet.
+static void start_tc_packet(void)
 {
-	uint32_t low, i;
-	uint32_t num_transfers = PACKET_LENGTH / 4;
-	uint8_t timeout = 250, byte_four;
-	
-	for(i = 0; i < (num_transfers - 1); i++)
+	if((!receiving_tcf) && (!current_tc_fullf))
 	{
-		low = (uint32_t)current_tm[i + 2];			// Place the data into the lower 4 bytes of the CAN message.	
-		low &= (uint32_t)(current_tm[i + 3] << 8);
-		low &= (uint32_t)(current_tm[i + 4] << 16);
-		low &= (uint32_t)(current_tm[i + 5] << 24);
-		byte_four = i;
-		send_can_command(low, byte_four, sender_id, COMS_ID, SEND_TM, COMMAND_PRIO);
-		taskYIELD();								// Causes a mandatory delay of at least 1ms (since the systick is 1kHz)
+		send_can_command(0x00, 0x00, COMS_TASK_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);		
 	}
-	
-	while(!tm_transfer_completef)					// Delay for a maximum of 250 ms for the SSM to let the OBC know that
-	{												// the transfer has completed.
-		if(!timeout--)
-			return -1;
-		taskYIELD();
-	}
-	return PACKET_LENGTH;
+	receiving_tcf = 1;
+	return;
 }
 

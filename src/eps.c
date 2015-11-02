@@ -30,11 +30,6 @@ Author: Keenan Burnett
 * 07/06/2015 	K: Created.
 *
 * 10/09/2015	K: Updated comments and a few lines to make things neater.
-*
-* DESCRIPTION:
-*
-* Current this file is set up as a template and shall be used by members of the eps subsystem
-* for their own development purposes.
 */
 /* Standard includes. */
 #include <stdio.h>

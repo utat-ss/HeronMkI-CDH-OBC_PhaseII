@@ -30,11 +30,6 @@ Author: Keenan Burnett
 * 07/06/2015 	K: Created.
 *
 * 10/09/2015	K: Updated comments and a few lines to make things neater.
-*
-* DESCRIPTION:
-*
-* Current this file is set up as a template and shall be used by members of the coms subsystem
-* for their own development purposes.
 */
 
 /* Standard includes.										*/
@@ -97,7 +92,9 @@ void coms( void )
 /* COMS TASK */
 /* This task encapsulates the high-level software functionality of the	*/
 /* communication subsystem on this satellite.							*/
-/*																		*/
+/* @Note: The current telemetry packet that needs to be downlinked is	*/
+/* placed in current_tm[] and the current and next telecommand that were*/
+/* received are placed in current_tc[] and next_tc[] respectively.		*/
 /************************************************************************/
 static void prvComsTask(void *pvParameters )
 {
@@ -113,96 +110,10 @@ static void prvComsTask(void *pvParameters )
 	for( ;; )
 	{
 		// Write your application here.
+		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.
 	}
 }
 
 // Static helper functions may be defined below.
-
-
-// Remember to keep track of "absolute time"
-
-// *data should be a pointer to a 128-byte buffer which shall contain the contents of the message to be sent.
-
-static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub, uint16_t num_packets, uint8_t* data)
-{
-	uint16_t i, j;
-	
-	version = 0;		// First 3 bits of the packet ID. (0 is default)
-	type = 0;			// Distinguishes TC and TM packets, TC == 1.
-	data_header = 1;	// Include the data field header in the PUS packet.
-	apid = sender;
-	
-	if(num_packets > 1)
-		sequence_flags = 0x1;	// Indicates that this is the first packet in a series of packets.
-	else
-		sequence_flags = 0x3;	// Indicates that this is a standalone packet.
-		
-	// Packet Header	
-	current_tm[142] = ((version & 0x07) << 5) & (type & 0x01);
-	current_tm[141] = apid;
-	current_tm[140] = (sequence_flags & 0x03) << 6;
-	current_tm[139] = sequence_count;
-	current_tm[138] = (uint8_t)((num_packets & 0xFF00) >> 8);
-	current_tm[137]	 = (uint8_t)(num_packets & 0x00FF);
-	// Data Field Header
-	current_tm[136] = (version & 0x07) << 4;
-	current_tm[135] = service_type;
-	current_tm[134] = service_sub_type;
-	current_tm[133] = packet_sub;
-	current_tm[132] = dest;
-	current_tm[131] = (uint8_t)((abs_time & 0xFF00) >> 8);
-	current_tm[130] = (uint8_t)(abs_time & 0x00FF);
-	
-	// The Packet Error Control (PEC) is usually put at the end,
-	// this is usually a CRC on the rest of the packet.
-	
-	if(num_packets == 1)
-	{
-		sequence_count++;
-		current_tm[139] = sequence_count;
-		
-		for(j = 2; j < (PACKET_LENGTH - 13); j++)
-		{
-			current_tm[j] = *(data + (j - 2));
-		}
-		
-		// Run CRC function here to fill in current_tm[1,0]
-		
-		if( send_pus_packet(sender) < 0)
-			return 0;
-			
-		return 1;
-	}
-	
-	for(i = 0; i < num_packets; i++)
-	{
-		sequence_count++;
-		current_tm[139] = sequence_count;
-		
-		if(i > 1)
-			sequence_flags = 0x0;			// Continuation packet
-		if(i == (num_packets - 1))
-			sequence_flags = 0x2;			// Last packet
-		current_tm[140] = (sequence_flags & 0x03) << 6;
-		
-		for(j = 0; j < (PACKET_LENGTH - 13); j++)
-		{
-			current_tm[j] = *(data + (j - 2) + (i * 128));
-		}
-		
-		// Run CRC function here to fill in current_tm[1,0]
-				
-		if(send_pus_packet(sender) < 0)
-			return i;
-	}
-	
-	return num_packets;
-}
-
-static int receive_telemetry(uint8_t sender, uint8_t dest, uint8_t packet_num, uint8_t* data)
-{
-	
-}
-

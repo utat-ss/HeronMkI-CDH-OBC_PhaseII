@@ -53,6 +53,7 @@ QueueHandle_t can_data_fifo;			// Initialized in can_initialize
 QueueHandle_t can_msg_fifo;
 QueueHandle_t can_hk_fifo;
 QueueHandle_t can_com_fifo;
+QueueHandle_t tc_msg_fifo;
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize
@@ -91,6 +92,6 @@ uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];
 
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;
-uint8_t tm_packet_sentf;
-uint8_t tc_packet_receivedf;
+uint8_t start_tm_transferf;
+uint8_t current_tc_fullf, receiving_tcf;
 

@@ -79,9 +79,9 @@ static uint32_t ready_for_command_h(uint32_t spi_chip);
 /* they are ready for communication with the OBC. We also initialize 	*/
 /* the bitmap and SPI Memory Buffer here.								*/
 /* @return: None.														*/
+/* @Note: The initialization procedure needs to be repeated for each	*/
+/* SPI memory chip.														*/
 /************************************************************************/
-
-// NOTE: The initialization procedure needs to be repeated for each SPi Mem Chip.
 void spimem_initialize(void)
 {
 	uint16_t dumbuf[2], i;

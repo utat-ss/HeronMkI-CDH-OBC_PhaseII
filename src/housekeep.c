@@ -18,7 +18,9 @@
 	*
 	*	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None
 	*
-	*	NOTES:	 
+	*	NOTES:
+	*			This service needs to store housekeeping / diagnostic "definitions"
+	*			which define how hk or diag is put together before being downlinked.
 	*	
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*	New tasks should be written to use as much of CMSIS as possible. The ASF and 
@@ -31,16 +33,13 @@
 	*	08/09/2015		Added the function read_from_SSM() to this tasks's duties as a demonstration
 	*					of our reprogramming capabilities.
 	*
-	*	DESCRIPTION:	
+	*	11/04/2015		I am adding in functionality so that we periodically send a housekeeping packet
+	*					to obc_packet_router through hk_to_t_fifo.
+	*					HK "packets" are just the data field of the PUS packet to be sent and are hence
+	*					a maximum of 128 B. They can be larger, but then they must be split into multiple
+	*					packets.
 	*
-	*	This file is being used to test Housekeeping Commands between the OBC and a subsystem micro. 
-	*	This file is used to encapsulate a test function called houskeep_test2(), which will create a 
-	*	task that will send housekeeping request as a can message from CAN0 MB7 to MOb0 on the 
-	*	ATMEGA32M1 supported by the STK600.
-	*
-	*	It will then delay 15 clock cycles and send the message again.
-	*
-	*	After sending a remote request, a reply message should then be received.
+	*	DESCRIPTION:
 	*	
  */
 
@@ -71,10 +70,16 @@ functionality. */
 /*-----------------------------------------------------------*/
 
 /*
- * Functions Prototypes.
+ * Function Prototypes.
  */
 static void prvHouseKeepTask( void *pvParameters );
 void housekeep(void);
+static void clear_current_hk(void);
+
+/* Global Variables for Housekeeping */
+static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
+static uint32_t new_kh_msg_high, new_hk_msg_low;
+static uint8_t scheduled_collectionf;
 
 /************************************************************************/
 /* HOUSEKEEPING (Function) 												*/
@@ -111,15 +116,33 @@ static void prvHouseKeepTask(void *pvParameters )
 	const TickType_t xTimeToWait = 100;	// Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	int x;
-	uint8_t passkey = 0, addr = 0x80;
+	uint8_t i;
+	uint8_t passkey = 1234, addr = 0x80;
+	new_kh_msg_high = 0;
+	new_hk_msg_low = 0;
+	scheduled_collectionf = 1;
+	clear_current_hk();
 		
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		x = request_housekeeping(EPS_ID);								// Request housekeeping from COMS.
-		x = request_housekeeping(COMS_ID);								// Request housekeeping from EPS.
-		x = request_housekeeping(PAY_ID);								// Request housekeeping from PAY.
-		//ret_val = read_from_SSM(HK_TASK_ID, SUB0_ID0, passkey, addr);
+		if(scheduled_collectionf)
+		{
+			x = request_housekeeping(EPS_ID);								// Request housekeeping from COMS.
+			x = request_housekeeping(COMS_ID);								// Request housekeeping from EPS.
+			x = request_housekeeping(PAY_ID);								// Request housekeeping from PAY.
+
+			xTimeToWait = 100;												// Give the SSMs >100ms to transmit their housekeeping
+			xLastWakeTime = xTaskGetTickCount();
+			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+			scheduled_collectionf = 0;
+		}
+
+		
+		x = read_can_hk(&new_kh_msg_high, &new_hk_msg_low, passkey);
+		if(x > 0)
+			store_housekeeping();
+		
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
@@ -129,3 +152,14 @@ static void prvHouseKeepTask(void *pvParameters )
 }
 /*-----------------------------------------------------------*/
 
+// Define Static helper functions below.
+
+static void clear_current_hk(void)
+{
+	uint8_t i;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_hk[i] = 0;
+	}
+	return;
+}

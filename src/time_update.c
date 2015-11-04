@@ -1,7 +1,7 @@
 /*
 Author: Keenan Burnett, Omar Abdeldayem
 ***********************************************************************
-* FILE NAME: coms.c
+* FILE NAME: time_update
 *
 * PURPOSE:
 * This file is to be used to house the time-management task (which shall manage
@@ -19,10 +19,20 @@ Author: Keenan Burnett, Omar Abdeldayem
 *
 * NOTES:
 *
+*				This task is soon going to turn into the "time management" task.
+*
+*				How to keep track of absolute time on the spacecraft?
+*
 * REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
 *
 * DEVELOPMENT HISTORY:
 * 08/29/2015 	O: Created.
+*
+* 10/25/2015	K: I added the code to the SSM programs so that a CAN message may be sent in order to
+*				update the CURRENT_MINUTE variable stored in the SSM.
+*
+*				I also added in the code here so that it sends out a CAN message to all the SSMs
+*				every minute (in order to update CURRENT_MINUTE).
 *
 * DESCRIPTION:
 */
@@ -64,11 +74,9 @@ void time_update(void);
 struct timestamp time;
 
 /************************************************************************/
-/*			TEST FUNCTION FOR COMMANDS TO THE STK600                    */
+/* TIME_UPDATE (Function)												*/
+/* @Purpose: This function is used to create the time update task.		*/
 /************************************************************************/
-/**
- * \brief Tests the housekeeping task.
- */
 void time_update( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
@@ -88,10 +96,6 @@ void time_update( void )
 /*	The sole purpose of this task is to send a single CAN containing	*/
 /*	the current minute from the RTC, every minute						*/
 /************************************************************************/
-/**
- * \brief Performs the housekeeping task.
- * @param *pvParameters:
- */
 static void prvTimeUpdateTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == TIME_UPDATE_PARAMETER );

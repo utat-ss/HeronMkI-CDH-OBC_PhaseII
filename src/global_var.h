@@ -47,13 +47,19 @@
 
 /*		PUS DEFINITIONS HERE			*/
 #define PACKET_LENGTH	143
+#define DATA_LENGTH		128
 
-/*  CAN GLOBAL FIFOS			   */
-QueueHandle_t can_data_fifo;			// Initialized in can_initialize
-QueueHandle_t can_msg_fifo;
-QueueHandle_t can_hk_fifo;
-QueueHandle_t can_com_fifo;
-QueueHandle_t tc_msg_fifo;
+/*  CAN GLOBAL FIFOS				*/
+/* Initialized in can_initialize()	*/
+QueueHandle_t can_data_fifo;			// CAN Handler	-->		data_collect
+QueueHandle_t can_msg_fifo;				// CAN Handler	-->		data_collect
+QueueHandle_t can_hk_fifo;				// CAN Handler	-->		housekeep
+QueueHandle_t can_com_fifo;				// CAN Handler	-->		command_test
+QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
+
+/* PUS PACKET FIFOS					*/
+/* Initialized in can_initialize()	*/
+QueueHandle_t hk_to_tm_fifo;			// housekeep	-->		obc_packet_router
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize
@@ -86,10 +92,6 @@ uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 uint32_t  SAFE_MODE;					// Condition which will initially hold the system in safe_mode.
 
 uint8_t CURRENT_MINUTE;
-
-/* Latest TC packet received, next TM packet to send	*/
-uint8_t current_tc[PACKET_LENGTH + 1], current_tm[PACKET_LENGTH + 1];	// Arrays are 144B for ease of implementation.
-uint8_t tc_to_decode[PACKET_LENGTH + 1];
 
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;

@@ -25,6 +25,12 @@ Author: Keenan Burnett
 * DEVELOPMENT HISTORY:
 * 11/01/2015		Created.
 *
+* 11/03/2015		TC/TM transaction functions are now complete.
+*
+* 11/04/2015		Added a function for sending a TC verification.
+*
+*
+*
 * DESCRIPTION:
 * This task is in charge of managing communication requests from tasks on
 * the OBC that wish to have something downlinked as well as dissecting the incoming
@@ -66,27 +72,39 @@ Author: Keenan Burnett
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
-#define OBC_PACKET_ROUTER_PARAMETER			( 0xABCD )
+#define OBC_PACKET_ROUTER_PARAMETER		( 0xABCD )
 
 /*
  * Functions Prototypes.
  */
 static void prvOBCPacketRouterTask( void *pvParameters );
 void obc_packet_router(void);
+static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data);
+static int receive_tc_msg(void);
+static int send_pus_packet_tm(uint8_t sender_id);
+static void send_tc_transaction_response(uint8_t code);
+static void clear_current_tc(void);
+static void clear_current_data(void);
+static void store_current_tc(void);
+static void decode_telecommand(void);
+static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter);
 
 /* Global variables											 */
-uint8_t version;
-uint8_t type, data_header, flag, apid, sequence_flags, sequence_count;
-uint16_t abs_time;
+static uint8_t version;															// The version of PUS we are using.
+static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
+uint16_t abs_time;															// Should count up from 0 the moment the satellite is deployed.
 static uint8_t tc_sequence_count;
-uint32_t new_tc_msg_high, new_tc_msg_low;
+static uint32_t new_tc_msg_high, new_tc_msg_low;
+static uint8_t tc_verify_success_counter, tc_verify_fail_counter;
+static uint8_t current_data[DATA_LENGTH];
+/* Latest TC packet received, next TM packet to send	*/
+static uint8_t current_tc[PACKET_LENGTH + 1], current_tm[PACKET_LENGTH + 1];	// Arrays are 144B for ease of implementation.
+static uint8_t tc_to_decode[PACKET_LENGTH + 1];
 
 /************************************************************************/
-/*			TEST FUNCTION FOR COMMANDS TO THE STK600                    */
+/* OBC_PACKET_ROUTER (Function)											*/
+/* @Purpose: This function is used to create the obc packet router task	*/
 /************************************************************************/
-/**
- * \brief Tests the housekeeping task.
- */
 void obc_packet_router( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
@@ -102,14 +120,15 @@ void obc_packet_router( void )
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
-/*				TIME UPDATE TASK		                                */
-/*	The sole purpose of this task is to send a single CAN containing	*/
-/*	the current minute from the RTC, every minute						*/
+/*				OBC_PACKET_ROUTER		                                */
+/*	This task receives chunks of telecommand packets in FIFOs			*/
+/* new_tc_msg_low and new_tc_msg_high. It then attempts to reconstruct	*/
+/* the entire telecommand packet which was received by the COMS SSM.	*/
+/* After which it will decode the telecommand and either send out the	*/
+/* required immediate command or it will send a scheduling request to	*/
+/* the scheduling process. This task can also receive telemetry requests*/
+/* from other tasks which come in FIFOs which have yet to be defined.	*/
 /************************************************************************/
-/**
- * \brief Performs the housekeeping task.
- * @param *pvParameters:
- */
 static void prvOBCPacketRouterTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == OBC_PACKET_ROUTER_PARAMETER );
@@ -117,11 +136,22 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	int status;
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
-	
+
+	/* Initialize Global variables and flags */
 	current_tc_fullf = 0;
 	tc_sequence_count = 0;
 	new_tc_msg_high = 0;
 	new_tc_msg_low = 0;
+	tc_verify_success_counter = 0;
+	tc_verify_fail_counter = 0
+	clear_current_data();
+
+
+	/* Initialize variable used in PUS Packets */
+	version = 0;		// First 3 bits of the packet ID. (0 is default)
+	data_header = 1;	// Include the data field header in the PUS packet.
+
+
 
 	/* @non-terminating@ */	
 	for( ;; )
@@ -143,43 +173,59 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 
 // static helper functions may be defined below.
 
-// Remember to keep track of "absolute time"
-
-// *data should be a pointer to a 128-byte buffer which shall contain the contents of the message to be sent.
-
-static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub, uint16_t num_packets, uint8_t* data)
+/************************************************************************/
+/* PACKETIZE_SEND_TELEMETRY                                             */
+/* 																		*/
+/* @param: sender: The ID of the task which is sending this request,	*/
+/* ex: OBC_PACKET_ROUTER_ID												*/
+/* @param: dest: The ID of the SSM which we are going to send the TM	*/
+/* packet to, ex: COMS_ID.												*/
+/* @param: service_type: ex: TC verification = 1.						*/
+/* @param: service_sub_type: ex: Define New Housekeeping Parameter		*/
+/* Report => ST = 3, SST = 1											*/
+/* @param: packet_sub_counter: Should be a global variable which is		*/
+/* incremented every time a packet of this (ST/SST) is sent.			*/
+/* @param: num_packet: The number of packets which you would like to	*/
+/* send.																*/
+/* @param: *dada: Array of 128 Bytes of data for the packet.			*/
+/* @purpose: This function turns the parameters into a 143 B PUS packet */
+/* and proceeds to send this packet to the COMS SSM so that it can be	*/
+/* downlinked to the groundstation.										*/
+/* @return: -1 == Failure, 36 == success.								*/
+/************************************************************************/
+static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data)
 {
 	uint16_t i, j;
 	
-	version = 0;		// First 3 bits of the packet ID. (0 is default)
-	type = 0;			// Distinguishes TC and TM packets, TC == 1.
-	data_header = 1;	// Include the data field header in the PUS packet.
-	apid = sender;
+	type = 0;			// Distinguishes TC and TM packets, TM = 0
+	sequence_count = 0
 	
 	if(num_packets > 1)
-	sequence_flags = 0x1;	// Indicates that this is the first packet in a series of packets.
+		sequence_flags = 0x1;	// Indicates that this is the first packet in a series of packets.
 	else
-	sequence_flags = 0x3;	// Indicates that this is a standalone packet.
+		sequence_flags = 0x3;	// Indicates that this is a standalone packet.
 	
 	// Packet Header
 	current_tm[143] = 0x00;		// Extra byte to make the array 144 B.
 	current_tm[142] = ((version & 0x07) << 5) & (type & 0x01);
-	current_tm[141] = apid;
+	current_tm[141] = sender
 	current_tm[140] = (sequence_flags & 0x03) << 6;
 	current_tm[139] = sequence_count;
-	current_tm[138] = (uint8_t)((num_packets & 0xFF00) >> 8);
-	current_tm[137]	 = (uint8_t)(num_packets & 0x00FF);
+	current_tm[138] = 0x00;
+	current_tm[137]	= PACKET_LENGTH - 1;	// Represents the length of the data field - 1.
 	// Data Field Header
 	current_tm[136] = (version & 0x07) << 4;
 	current_tm[135] = service_type;
 	current_tm[134] = service_sub_type;
-	current_tm[133] = packet_sub;
+	current_tm[133] = packet_sub_counter;
 	current_tm[132] = dest;
 	current_tm[131] = (uint8_t)((abs_time & 0xFF00) >> 8);
 	current_tm[130] = (uint8_t)(abs_time & 0x00FF);
-	
-	// The Packet Error Control (PEC) is usually put at the end,
+	// The Packet Error Control (PEC) is usually put at the end
 	// this is usually a CRC on the rest of the packet.
+	current_tm[1] = 0x00;
+	current_tm[0] = 0x00;
+
 	
 	if(num_packets == 1)
 	{
@@ -193,7 +239,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		
 		// Run CRC function here to fill in current_tm[1,0]
 		
-		if( send_pus_packet(sender) < 0)
+		if( send_pus_packet_tm(sender) < 0)
 		return 0;
 		
 		return 1;
@@ -210,7 +256,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		sequence_flags = 0x2;			// Last packet
 		current_tm[140] = (sequence_flags & 0x03) << 6;
 		
-		for(j = 0; j < (PACKET_LENGTH - 13); j++)
+		for(j = 2; j < (PACKET_LENGTH - 13); j++)
 		{
 			current_tm[j] = *(data + (j - 2) + (i * 128));
 		}
@@ -358,11 +404,76 @@ static void clear_current_tc(void)
 	return;
 }
 
+static void clear_current_data(void)
+{
+	uint8_t i;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_data = 0;
+	}
+	return;
+}
+
 static void store_current_tc(void)
 {
 	uint8_t i;
 	for(i = 0; i < PACKET_LENGTH; i++)
 	{
 		tc_to_decode[i] = current_tc[i];
+	}
+}
+
+// This function assumes that the telecommand to decode is contained in tc_to_decode[144].
+static void decode_telecommand(void)
+{
+	//
+}
+
+// This function turns the parameters into a TC verification packet and proceeds to send it
+// to the COMS SSM so that it can be downlinked.
+// status: 1 = SUCCESS, 0 = FAILURE
+// @return: -1 == FAILURE, 1 == SUCCESS
+static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter)
+{
+	int resp = -1;
+	if (status > 1)
+		return -1;				// Invalid Status inputted.
+	if (code > 5)
+		return -1;				// Invalid code inputted.
+
+	clear_current_data();
+	
+	if(status)					// Telecommand Acceptance Report - Success (1,1)
+	{
+		tc_verify_success_counter++;
+		current_data[0] = (uint8_t)(sequence_control & 0x00FF);
+		current_data[1] = (uint8_t)((sequence_control & 0xFF00) >> 8);
+		current_data[2] = (uint8_t)(packet_id & 0x00FF);
+		current_data[3] = (uint8_t)((packet_id & 0xFF00) >> 8);
+		resp = packetize_send_telemetry(OBC_PACKET_ROUTER_ID, COMS_ID, 1, 1, tc_verify_success_counter, 1, current_data);
+
+		if(resp == -1)
+			return -1;
+		else
+			return 1;		
+	}
+	else						// Telecommand Acceptance Report - Failure (1,2)
+	{
+		tc_verify_fail_counter++;
+		current_data[0] = (uint8_t)((parameter & 0x000000FF));
+		current_data[1] = (uint8_t)((parameter & 0x0000FF00) >> 8);
+		current_data[2] = (uint8_t)((parameter & 0x00FF0000) >> 16);
+		current_data[3] = (uint8_t)((parameter & 0xFF000000) >> 24);
+		current_data[4] = code;
+		current_data[5] = (uint8_t)(sequence_control & 0x00FF);
+		current_data[6] = (uint8_t)((sequence_control & 0xFF00) >> 8);
+		current_data[7] = (uint8_t)(packet_id & 0x00FF);
+		current_data[8] = (uint8_t)((packet_id & 0xFF00) >> 8);		
+		resp = packetize_send_telemetry(OBC_PACKET_ROUTER_ID, COMS_ID, 1, 2, tc_verify_success_counter, 1, current_data);
+
+		if(resp == -1)
+			return -1;
+		else
+			return 1;
 	}
 }

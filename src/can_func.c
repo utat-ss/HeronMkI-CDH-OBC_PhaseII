@@ -516,15 +516,21 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_data_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_data_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_data_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_data_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+				return -1;
+		}
+		else
+			return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -540,15 +546,21 @@ uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t a
 uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_msg_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_msg_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_msg_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_msg_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+				return -1;
+		}
+		else
+			return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -560,19 +572,26 @@ uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t ac
 /* @Purpose: This function returns a CAN message curerntly residing in 	*/
 /* the can_hk_fifo queue. 												*/
 /* @return: 1 == successful, 0 == failure.								*/
+/* @Note: This function will block for a maximum of 2 ticks.			*/
 /************************************************************************/
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_hk_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_hk_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_hk_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_hk_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+			return -1;
+		}
+		else
+		return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -588,15 +607,21 @@ uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t acc
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_com_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_com_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_com_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_com_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+			return -1;
+		}
+		else
+		return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -718,20 +743,6 @@ void can_initialize(void)
 	uint32_t x = 1, i = 0;
 	UBaseType_t fifo_length, item_size;
 
-	/* Initialize CAN0 Transceiver. */
-	//sn65hvd234_set_rs(&can0_transceiver, PIN_CAN0_TR_RS_IDX);
-	//sn65hvd234_set_en(&can0_transceiver, PIN_CAN0_TR_EN_IDX);
-	///* Enable CAN0 Transceiver. */
-	//sn65hvd234_disable_low_power(&can0_transceiver);
-	//sn65hvd234_enable(&can0_transceiver);
-//
-	///* Initialize CAN1 Transceiver. */
-	//sn65hvd234_set_rs(&can1_transceiver, PIN_CAN1_TR_RS_IDX);
-	//sn65hvd234_set_en(&can1_transceiver, PIN_CAN1_TR_EN_IDX);
-	///* Enable CAN1 Transceiver. */
-	//sn65hvd234_disable_low_power(&can1_transceiver);
-	//sn65hvd234_enable(&can1_transceiver);
-
 	/* Enable CAN0 & CAN1 clock. */
 	pmc_enable_periph_clk(ID_CAN0);
 	pmc_enable_periph_clk(ID_CAN1);
@@ -786,9 +797,9 @@ void can_initialize(void)
 		current_tc_fullf = 0;
 		receiving_tcf = 0;
 		
-		/* Initialize global CAN FIFOs			*/
+		/* Initialize global CAN FIFOs					*/
 		fifo_length = 100;		// Max number of items in the FIFO.
-		item_size = 4;			// Number of bytes in the items (4 bytes).
+		item_size = 4;			// Number of bytes in the items.
 		
 		/* This corresponds to 400 bytes, or 50 CAN messages */
 		can_data_fifo = xQueueCreate(fifo_length, item_size);
@@ -796,6 +807,14 @@ void can_initialize(void)
 		can_hk_fifo = xQueueCreate(fifo_length, item_size);
 		can_com_fifo = xQueueCreate(fifo_length, item_size);
 		tc_msg_fifo = xQueueCreate(fifo_length, item_size);
+
+		/* Initialize global PUS Packet FIFOs			*/
+		fifo_length = 2;			// Max number of items in the FIFO.
+		item_size = 128;			// Number of bytes in the items
+
+		/* This corresponds to 256 bytes, or 2 HK Collections */
+		hk_to_tm_fifo = xQueueCreate(fifo_length, item_size);
+
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
 	}
 	return;

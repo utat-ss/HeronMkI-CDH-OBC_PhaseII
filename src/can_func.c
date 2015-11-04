@@ -307,7 +307,6 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 		case OK_START_TM_PACKET:
 			start_tm_transferf = 1;
 			break;
-
 		default :
 			break;
 	}
@@ -780,6 +779,7 @@ void can_initialize(void)
 		{
 			current_tc[i] = 0;
 			current_tm[i] = 0;
+			tc_to_decode[i] = 0;
 		}
 		tm_transfer_completef = 0;
 		start_tm_transferf = 0;
@@ -1367,7 +1367,7 @@ static void start_tc_packet(void)
 {
 	if((!receiving_tcf) && (!current_tc_fullf))
 	{
-		send_can_command(0x00, 0x00, COMS_TASK_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);		
+		send_can_command(0x00, 0x00, OBC_PACKET_ROUTER_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);		
 	}
 	receiving_tcf = 1;
 	return;

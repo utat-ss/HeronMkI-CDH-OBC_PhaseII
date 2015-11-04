@@ -59,11 +59,6 @@ static void prvComsTask( void *pvParameters );
 void coms(void);
 /*-----------------------------------------------------------*/
 
-/* Global variables											 */
-uint8_t version;
-uint8_t type, data_header, flag, apid, sequence_flags, sequence_count;
-uint16_t abs_time;
-
 /************************************************************************/
 /* COMS (Function) 														*/
 /* @Purpose: This function is simply used to create the COMS task below	*/

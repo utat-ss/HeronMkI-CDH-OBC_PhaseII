@@ -88,7 +88,8 @@ uint32_t  SAFE_MODE;					// Condition which will initially hold the system in sa
 uint8_t CURRENT_MINUTE;
 
 /* Latest TC packet received, next TM packet to send	*/
-uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];
+uint8_t current_tc[PACKET_LENGTH + 1], current_tm[PACKET_LENGTH + 1];	// Arrays are 144B for ease of implementation.
+uint8_t tc_to_decode[PACKET_LENGTH + 1];
 
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;

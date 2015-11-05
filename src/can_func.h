@@ -245,10 +245,31 @@ SemaphoreHandle_t	Can0_Mutex;
 #define OBC_V					0x0F
 #define OBC_I					0x10
 #define BATT_I					0x11
+#define COMS_TEMP				0x12
+#define OBC_TEMP				0x13
+#define PAY_TEMP0				0x14
+#define PAY_TEMP1				0x15
+#define PAY_TEMP2				0x16
+#define PAY_TEMP3				0x17
+#define PAY_TEMP4				0x18
+#define PAY_HUM					0x19
+#define PAY_PRESS				0x1A
 
 /* VARIABLE NAMES		*/
-#define MPPTA					0x01
-#define MPPTB					0x02	
+#define MPPTA					0xFF
+#define MPPTB					0xFE
+#define COMS_MODE				0xFD
+#define EPS_MODE				0xFC
+#define PAY_MODE				0xFB
+#define OBC_MODE				0xFA
+#define PAY_STATE				0xF9
+#define ABS_TIME_D				0xF8
+#define ABS_TIME_H				0xF7
+#define ABS_TIME_M				0xF6
+#define ABS_TIME_S				0xF5
+#define SPI_CHIP_1				0xF4
+#define SPI_CHIP_2				0xF3
+#define SPI_CHIP_3				0xF2	
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

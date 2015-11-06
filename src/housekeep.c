@@ -23,6 +23,8 @@
 	*
 	*			Consider thinking about how to guarantee that every time housekeeping is downlinked those
 	*			values are fresh.
+	*
+	*			Remember to have TC verification for execution completion.
 	*	
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*	New tasks should be written to use as much of CMSIS as possible. The ASF and 
@@ -40,6 +42,14 @@
 	*					HK "packets" are just the data field of the PUS packet to be sent and are hence
 	*					a maximum of 128 B. They can be larger, but then they must be split into multiple
 	*					packets.
+	*
+	*	11/05/2015		I added a bunch of helper functions in order to implement what is required of this task
+	*					in order to fulfill the PUS service specifications.
+	*
+	*					These functions include: store_housekeeping(), send_hk_as_tm(), send_params_report(), and exec_commands().
+	*
+	*					I am also adding some functionality into store_housekeeping() so that it keeps a certain number of 
+	*					old housekeeping packets in SPI memory.
 	*
 	*	DESCRIPTION:
 	*	
@@ -73,11 +83,20 @@ functionality. */
 #define DEFAULT					0
 #define ALTERNATE				1
 
+/* Definitions to clarify which service subtypes represent what	*/
+/* Housekeeping							*/
+#define NEW_HK_DEFINITION				1
+#define CLEAR_HK_DEFINITION				3
+#define ENABLE_PARAM_REPORT				5
+#define DISABLE_PARAM_REPORT			6
+#define REPORT_HK_DEFINITIONS			9
+#define HK_DEFINITON_REPORT				10
+#define HK_REPORT						25
+
 /*-----------------------------------------------------------*/
 
-/*
- * Function Prototypes.
- */
+
+/* Function Prototypes */
 static void prvHouseKeepTask( void *pvParameters );
 void housekeep(void);
 static void clear_current_hk(void);
@@ -86,17 +105,23 @@ static int store_housekeeping(void);
 static void setup_default_definition(void);
 static void set_definition(uint8_t sID);
 static void clear_alternate_hk_definition(void);
+static void clear_current_command(void);
+static void send_hk_as_tm(void);
+static void send_param_report(void);
+static void exec_commands(void);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
+static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
 static uint8_t hk_definition0[DATA_LENGTH];			// Used to store the current housekeeping format definition.
 static uint8_t hk_definition1[DATA_LENGTH];			// Used to store an alternate housekeeping definition.
 static uint8_t current_hk_definition[DATA_LENGTH];
-static uint8_t current_hk_definitionf;
-static uint8_t hk_format;							// Unique identifier for the housekeeping format definition.
+static uint8_t current_hk_definitionf;					// Unique identifier for the housekeeping format definition.
 static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
 static uint32_t new_kh_msg_high, new_hk_msg_low;
-static uint8_t scheduled_collectionf, current_hk_fullf;
+static uint8_t current_hk_fullf, param_report_requiredf;
+static uint8_t collection_interval0, collection_interval1;		// How to wait for the next collection (in minutes)
+static TickType_t xTimeToWait;				// Number entered here corresponds to the number of ticks we should wait.
 
 /************************************************************************/
 /* HOUSEKEEPING (Function) 												*/
@@ -130,18 +155,20 @@ static void prvHouseKeepTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 100;	// Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	int x;
 	uint8_t i;
+	uint8_t command;
 	uint8_t passkey = 1234, addr = 0x80;
 	new_kh_msg_high = 0;
 	new_hk_msg_low = 0;
-	scheduled_collectionf = 1;
 	current_hk_fullf = 0;
-	hk_format = 0;					// Default definition version.
-	current_hk_definitionf = 0;
+	current_hk_definitionf = 0;		// Default definition
+	param_report_requiredf = 0;
+	collection_interval0 = 30;
+	collection_interval1 = 30;	
 	clear_current_hk();
+	clear_current_command();
 	setup_default_definition();
 	set_definition(DEFAULT);
 	clear_alternate_hk_definition();
@@ -149,22 +176,60 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		if(scheduled_collectionf)
-		{
-			request_housekeeping_all();
-			store_housekeeping();
-		}
-		
-		if(!scheduled_collectionf)
-		{
-			xqueue
-		}
-
+		x = exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
+		request_housekeeping_all();
+		store_housekeeping();
+		send_hk_as_tm();
+		if(param_report_requiredf)
+			send_param_report();
 	}
 }
 /*-----------------------------------------------------------*/
 
 // Define Static helper functions below.
+
+// This function attempts to receive a command from the command queue which is 
+// fed by the obc packet router.
+// If there isn't one ready, it waits for a number of ticks that corresponds to
+// <collection_interval> minutes. 
+static void exec_commands(void)
+{
+	if( xQueueReceive(obc_to_hk_fifo, current_command[0], xTimeToWait) == pdTRUE)
+	{
+		command = current_command[137];
+		switch(command)
+		{
+			case	NEW_HK_DEFINITION:
+				collection_interval1 = current_command[136];
+				for(i = 0; i < DATA_LENGTH; i++)
+				{
+					hk_definition1[i] = current_command[i];
+				}
+				hk_definition1[127] = 1;		//sID = 1
+				hk_definition1[126] = collection_interval1;
+				hk_definition1[125] = current_command[135];
+				set_definition(ALTERNATE);
+			case	CLEAR_HK_DEFINITION:
+				collection_interval1 = 30;
+				for(i = 0; i < DATA_LENGTH; i++)
+				{
+					hk_definition1[i] = 0;
+				}
+				set_definition(DEFAULT);
+			case	ENABLE_PARAM_REPORT:
+				param_report_requiredf = 1;
+			case	DISABLE_PARAM_REPORT:
+				param_report_requiredf = 0;
+			case	REPORT_HK_DEFINITIONS:
+				param_report_requiredf = 1;
+			default:
+				break;
+		}
+		return 1;
+	}
+	else
+		return -1;
+}
 
 static void clear_current_hk(void)
 {
@@ -172,6 +237,16 @@ static void clear_current_hk(void)
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_hk[i] = 0;
+	}
+	return;
+}
+
+static void clear_current_command(void)
+{
+	uint8_t i;
+	for(i = 0; i < (DATA_LENGTH + 10); i++)
+	{
+		current_command[i] = 0;
 	}
 	return;
 }
@@ -198,10 +273,8 @@ static int request_housekeeping_all(void)
 	xTimeToWait = 100;												// Give the SSMs >100ms to transmit their housekeeping
 	xLastWakeTime = xTaskGetTickCount();
 	vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
-	scheduled_collectionf = 0;
 	return 1;
 }
-
 
 // This function does not erase old values, it only updates them.
 static int store_housekeeping(void)
@@ -218,8 +291,10 @@ static int store_housekeeping(void)
 		for(i = 0; i < DATA_LENGTH; i += 2)
 		{
 			if(hk_definition0[i] == parameter_name)
+			{
 				current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
-				current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8); 
+				current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
+			}
 		}
 		taskYIELD();		// Allows for more messages to come in.
 	}
@@ -228,6 +303,8 @@ static int store_housekeeping(void)
 	
 	// Make sure that all values have been updated.
 		// Reacquire values if they haven't been.
+		
+	// Store the new housekeeping in SPI memory.
 	
 	current_hk_fullf = 1;
 	return 1;
@@ -243,6 +320,10 @@ static void setup_default_definition(void)
 	{
 		hk_definition0[i] = 0;
 	}
+	
+	hk_definition0[127] = 0;							// sID = 0
+	hk_definition0[126] = collection_interval0;			// Collection interval = 30 min
+	hk_definition0[125] = 36;							// Number of parameters (2B each)
 	hk_definition0[75] = PANELX_V;
 	hk_definition0[74] = PANELX_V;
 	hk_definition0[73] = PANELX_I;
@@ -325,21 +406,49 @@ static void setup_default_definition(void)
 static void set_definition(uint8_t sID)
 {
 	uint8_t i;
-	if(!sID)
+	if(!sID)								// DEFAULT
 	{
 		for(i = 0; i < DATA_LENGTH; i++)
 		{
 			current_hk_definition[i] = hk_definition0[i];		
 		}
 		current_hk_definitionf = 0;
+		xTimeToWait = collection_interval0 * 1000 * 60;
 	}
-	if(sID == 1)
+	if(sID == 1)							// ALTERNATE
 	{
 		for(i = 0; i < DATA_LENGTH; i++)
 		{
 			current_hk_definition[i] = hk_definition1[i];
 		}
 		current_hk_definitionf = 1;
+		xTimeToWait = collection_interval1 * 1000 * 60;
 	}
+	return;
+}
+
+static void send_hk_as_tm(void)
+{
+	uint8_t i;
+	clear_current_command();
+	current_command[137] = HK_REPORT;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_command[i] = current_hk[i];
+	}
+	xQueueSendToBack(hk_to_tm_fifo, current_command[0], (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	return;
+}
+
+static void send_param_report(void)
+{
+	uint8_t i;
+	clear_current_command();
+	current_command[137] = HK_DEFINITON_REPORT;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_command[i] = current_hk_definition[i];
+	}
+	xQueueSendToBack(hk_to_tm_fifo, current_command[0], (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
 	return;
 }

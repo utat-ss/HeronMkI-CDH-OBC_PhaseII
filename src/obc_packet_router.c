@@ -37,6 +37,15 @@ Author: Keenan Burnett
 *
 *					I am including checksum.h so that I can do a CRC on the PUS packet.
 *
+* 11/06/2015		I created a helpfer function called verify_telecommand() which goes through
+*					all the possible invalidities in the packet other than usage errors.
+*					When an error is detected, a TC verify failure packet is created.
+*					If all goes well, a TC verify accetptance packet is created.
+*
+*					I am also working on creating a helper function called decode_telecommand()
+*					This shall do all the work of turning the incoming telecommands into 
+*					actions, task commands, and CAN messages.
+*
 * DESCRIPTION:
 * This task is in charge of managing communication requests from tasks on
 * the OBC that wish to have something downlinked as well as dissecting the incoming
@@ -82,6 +91,23 @@ Author: Keenan Burnett
 functionality. */
 #define OBC_PACKET_ROUTER_PARAMETER		( 0xABCD )
 
+/* Definitions to clarify which services represent what.		*/
+#define TC_VERIFY_SERVICE				1
+#define HK_SERVICE						3
+#define EVENT_REPORT_SERVICE			5
+#define MEMORY_SERVICE					6
+#define TIME_SERVICE					9
+
+/* Definitions to clarify which service subtypes represent what	*/
+/* Housekeeping							*/
+#define NEW_HK_DEFINITION				1
+#define CLEAR_HK_DEFINITION				3
+#define ENABLE_PARAM_REPORT				5
+#define DISABLE_PARAM_REPORT			6
+#define REPORT_HK_DEFINITIONS			9
+#define HK_DEFINITON_REPORT				10
+#define HK_REPORT						25
+
 /*
  * Functions Prototypes.
  */
@@ -94,21 +120,25 @@ static void send_tc_transaction_response(uint8_t code);
 static void clear_current_tc(void);
 static void clear_current_data(void);
 static void store_current_tc(void);
-static void decode_telecommand(void);
+static int decode_telecommand(void);
+static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type);
 static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter);
+static int verify_telecommand(uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type);static int verify_telecommand(uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type, uint8_t version, uint8_t ccsds_flag, uint8_t packet_version);
 
 /* Global variables											 */
 static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 uint16_t abs_time;															// Should count up from 0 the moment the satellite is deployed.
-uint16_t packet_id, 
+uint16_t packet_id, pcs; 
 static uint8_t tc_sequence_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_counter, tc_verify_fail_counter;
 static uint8_t current_data[DATA_LENGTH];
+static uint8_t current_command[DATA_LENGTH + 10];
 /* Latest TC packet received, next TM packet to send	*/
 static uint8_t current_tc[PACKET_LENGTH + 1], current_tm[PACKET_LENGTH + 1];	// Arrays are 144B for ease of implementation.
 static uint8_t tc_to_decode[PACKET_LENGTH + 1];
+static TickType_t xTimeToWait;
 
 /************************************************************************/
 /* OBC_PACKET_ROUTER (Function)											*/
@@ -154,13 +184,12 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	tc_verify_success_counter = 0;
 	tc_verify_fail_counter = 0
 	clear_current_data();
+	clear_current_command();
 
 
 	/* Initialize variable used in PUS Packets */
 	version = 0;		// First 3 bits of the packet ID. (0 is default)
 	data_header = 1;	// Include the data field header in the PUS packet.
-
-
 
 	/* @non-terminating@ */	
 	for( ;; )
@@ -171,10 +200,19 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			status = receive_tc_msg();					// FAILURE_RECOVERY if status == -1.
 		}
 		if(current_tc_fullf)
-			// Decode the incoming PUS packet and generate a command.
+			decode_telecommand();
 
-		// When Needed:
-			//packetize_send_telemetry(...);
+		if(xQueueReceive(hk_to_tm_fifo, current_command[0], (TickType_t)1) == pdTRUE)
+		{
+			if(current_command[137] == 0)
+			{
+				packetize_send_telemetry(HK_TASK_ID, HK_GROUND_ID, 1, 3, 25, 1, current_command[0]);
+			}	
+			if(current_command[137] == 1)
+			{
+				packetize_send_telemetry(HK_TASK_ID, HK_GROUND_ID, 1, 3, 10, 1, current_command[0]);
+			}
+		}
 			
 	}
 }
@@ -373,9 +411,9 @@ static int send_pus_packet_tm(uint8_t sender_id)
 		if(tm_transfer_completef == 0xFF)			// The transaction has failed.
 			return -1;
 		low =	(uint32_t)current_tm[(i * 4)];			// Place the data into the lower 4 bytes of the CAN message.
-		low &= (uint32_t)(current_tm[(i * 4) + 1] << 8);
-		low &= (uint32_t)(current_tm[(i * 4) + 2] << 16);
-		low &= (uint32_t)(current_tm[(i * 4) + 3] << 24);
+		low += (uint32_t)(current_tm[(i * 4) + 1] << 8);
+		low += (uint32_t)(current_tm[(i * 4) + 2] << 16);
+		low += (uint32_t)(current_tm[(i * 4) + 3] << 24);
 		send_can_command(low, i, sender_id, COMS_ID, SEND_TM, COMMAND_PRIO);
 		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 10ms (10 * 1ms)
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
@@ -425,7 +463,17 @@ static void clear_current_data(void)
 	uint8_t i;
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
-		current_data = 0;
+		current_data[i] = 0;
+	}
+	return;
+}
+
+static void clear_current_command(void)
+{
+	uint8_t i;
+	for(i = 0; i < (DATA_LENGTH + 10); i++)
+	{
+		current_command[i] = 0;
 	}
 	return;
 }
@@ -441,11 +489,13 @@ static void store_current_tc(void)
 
 // This function assumes that the telecommand to decode is contained in tc_to_decode[144].
 // current_tc_fullf should also be 1 before executing this function.
-static void decode_telecommand(void)
+static int decode_telecommand(void)
 {
 	uint8_t data_field_headerf, apid;
+	int x;
+	uint32_t parameter = 0;
 	uint8_t packet_length;
-	uint16_t pec1, pec0, pcs;
+	uint16_t pec1, pec0;
 	uint8_t ack, service_type, service_sub_type, source_id;
 	uint8_t version1, type1, sequence_flags1, sequence_count1;
 	uint8_t ccsds_flag, packet_version;
@@ -481,24 +531,185 @@ static void decode_telecommand(void)
 	pec1 = packet_error_control << 8;
 	pec1 &= (uint16_t)(current_tc[0]);
 	
-	/* Check that the packet error control is correct */
+	/* Check that the packet error control is correct		*/
 	pec0 = fletcher16(current_tc[2], 141);
+	/* Verify that the telecommand is ready to be decoded.	*/
+	x = verify_telecommand(packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
+	if(x < 0)
+		return -1;
+	
+	/* Decode the telecommand packet						*/		// To be updated on a rolling basis
+	decode_telecommand_h(service_type, service_sub_type);
+	
+	return;
+}
+
+// This function looks at the service type and service substype of the incoming telecommand and turns it into 
+// either a task command, action, or CAN message.
+static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
+{	
+	uint8_t sID = 0xFF;
+	uint8_t collection_interval = 0;
+	uint8_t npar1 = 0;
+	uint8_t i;
+	
+	clear_current_command();
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_command[i] = current_tc[i];
+	}
+	
+	if(service_type == HK_SERVICE)
+	{
+		switch(service_sub_type)
+		{
+			case	NEW_HK_DEFINITION:
+				sID = current_tc[129];			// Structure ID for this definition.
+				if(sID != 1)
+				{
+					send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);				// Only sID of 1 is allowed.
+					return -1;
+				}
+				collection_interval = (uint32_t)current_tc[128];	
+				npar1 = current_tc[127];
+				
+				if(npar1 > 64)
+				{
+					send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);				// Npar1 must be <= 64
+					return -1;
+				}
+				
+				current_command[137] = HK_SERVICE;
+				current_command[136] = collection_interval;
+				current_command[135] = npar1;
+				
+				for (i = 0; i < DATA_LENGTH; i++)
+				{
+					current_command[i] = current_tc[i + 2];
+				}
+				
+				xQueueSendToBack(obc_to_hk_fifo, &current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue.
+				
+			case	CLEAR_HK_DEFINITION:
+				sID = current_tc[129];
+				if(sID != 1)
+				{
+					send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);				// Usage error.
+					return -1;
+				}
+				current_command[137] = CLEAR_HK_DEFINITION;
+				xQueueSendToBack(obc_to_hk_fifo, &current_command, (TickType_t)1);
+			case	ENABLE_PARAM_REPORT:
+				current_command[137] = ENABLE_PARAM_REPORT;
+				xQueueSendToBack(obc_to_hk_fifo, &current_command, (TickType_t)1);
+			case	DISABLE_PARAM_REPORT:
+				current_command[137] = DISABLE_PARAM_REPORT;
+				xQueueSendToBack(obc_to_hk_fifo, &current_command, (TickType_t)1);
+			case	REPORT_HK_DEFINITIONS:
+				current_command[137] = REPORT_HK_DEFINITIONS;
+				xQueueSendToBack(obc_to_hk_fifo, &current_command, (TickType_t)1);
+			default:
+				break;
+		}
+	}
+	
+	return;
+}
+
+// This helper function is going to be used to determine whether or not the received telecommand is valid.
+// FAILURE_RECOVERY required if any of the send_tc_verification functions returns -1.
+static int verify_telecommand(uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type, uint8_t version, uint8_t ccsds_flag, uint8_t packet_version)
+{
+	int x;
+	if(packet_length != PACKET_LENGTH)
+	{
+		x = send_tc_verification(packet_id, pcs, 0xFF, 1, (uint32_t)packet_length);		// TC verify acceptance report, failure, 1 == invalid packet length
+		return -1;
+	}
 	
 	if(pec0 != pec1)
 	{
-		send_tc_verification(packet_id, pcs, 0xFF, 2);			// Return a TC verification packet failure for invalid checksum.
-		current_tc_fullf = 0;
-		return 1;												// Decode succeeded, even though the telecommand didn't
+		x = send_tc_verification(packet_id, pcs, 0xFF, 2, (uint32_t)pec1);				// TC verify acceptance report, failure, 2 == invalid PEC (checksum)
+		return -1;
 	}
 	
-	if(apid != OBC)
-
+	if((service_type != 3) && (service_type != 6) && (service_type != 9))
+	{
+		x = send_tc_verification(packet_id, pcs, 0xFF, 3, (uint32_t)service_type);		// TC verify acceptance report, failure, 3 == invalid service type
+		return -1;
+	}
+	
+	if(service_type == 3)
+	{
+		if((service_sub_type != 1) && (service_sub_type != 2) && (service_sub_type != 3) && (service_sub_type != 4) && (service_sub_type != 5) && (service_sub_type != 6)
+		&& (service_sub_type != 7) && (service_sub_type != 8) && (service_sub_type != 9) && (service_sub_type != 11) && (service_sub_type != 17) && (service_sub_type != 18))
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, 4, (uint32_t)service_sub_type);	// TC verify acceptance report, failure, 4 == invalid service subtype.
+			return -1;
+		}
 		
+		if((apid != HK_TASK_ID) && (apid != FDIR_TASK_ID))
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, 0, (uint32_t)apid);				// TC verify acceptance report, failure, 0 == invalid apid
+			return -1
+		}
+	}
+	
+	if(service_type == 6)
+	{
+		if((service_sub_type != 2) && (service_sub_type != 5) && (service_sub_type != 9))
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, 4, (uint32_t)service_sub_type);	// TC verify acceptance report, failure, 4 == invalid service subtype
+			return -1;
+		}
+		if(apid != MEMORY_TASK_ID)
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, 0, (uint32_t)apid);				// TC verify acceptance report, failure, 0 == invalid apid
+			return -1;
+		}
+	}
+	
+	if(service_type == 9)
+	{
+		if(service_sub_type != 1)
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, 4, (uint32_t)service_sub_type);		// TC verify acceptance report, failure, 4 == invalid service subtype
+			return -1;			
+		}
+		if(apid != TIME_TASK_ID)
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, 0, (uint32_t)apid);				// TC verify acceptance report, failure, 0 == invalid apid
+			return -1;
+		}
+	}
+	
+	if(!version)
+	{
+		x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);							// TC verify acceptance repoort, failure, 5 == usage error
+		return -1;
+	}
+	
+	if(ccsds_flag != 1)
+	{
+		x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);							// TC verify acceptance report, failure, 5 == usage error
+		return -1;
+	}
+	
+	if(packet_version != 1)
+	{
+		x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);							// TC verify acceptance report, failure, 5 == usage error
+		return -1;
+	}
+	
+	/* The telecommand packet is good to be decoded further!		*/
+	x = send_tc_verification(packet_id, pcs, 0, 0, 0);										// TC verify acceptance report, success.
+	return 1;
 }
+
 
 // This function turns the parameters into a TC verification packet and proceeds to send it
 // to the COMS SSM so that it can be downlinked.
-// status: 1 = SUCCESS, 0 = FAILURE
+// status: 0 = SUCCESS, >0 = FAILURE
 // @return: -1 == FAILURE, 1 == SUCCESS
 static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter)
 {
@@ -510,7 +721,7 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 
 	clear_current_data();
 	
-	if(status)					// Telecommand Acceptance Report - Success (1,1)
+	if(!status)					// Telecommand Acceptance Report - Success (1,1)
 	{
 		tc_verify_success_counter++;
 		current_data[0] = (uint8_t)(sequence_control & 0x00FF);
@@ -537,7 +748,7 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 		current_data[7] = (uint8_t)(packet_id & 0x00FF);
 		current_data[8] = (uint8_t)((packet_id & 0xFF00) >> 8);		
 		resp = packetize_send_telemetry(OBC_PACKET_ROUTER_ID, COMS_ID, 1, 2, tc_verify_success_counter, 1, current_data);
-
+		current_tc_fullf = 0;
 		if(resp == -1)
 			return -1;
 		else

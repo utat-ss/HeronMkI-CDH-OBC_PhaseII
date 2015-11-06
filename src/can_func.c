@@ -810,14 +810,14 @@ void can_initialize(void)
 
 		/* Initialize global PUS Packet FIFOs			*/
 		fifo_length = 2;			// Max number of items in the FIFO.
-		item_size = 128;			// Number of bytes in the items
+		item_size = 138;			// Number of bytes in the items
 
-		/* This corresponds to 256 bytes, or 2 HK Collections */
+		/* This corresponds to 266 bytes, or 2 HK Commands. */
 		hk_to_tm_fifo = xQueueCreate(fifo_length, item_size);
 		
 		/* Initialize global Command FIFOs				*/
-		fifo_length = 256;
-		item_size = 1;
+		fifo_length = 2;
+		item_size = 138;
 		
 		/* This corresponds to 256 bytes	   		    */
 		obc_to_hk_fifo = xQueueCreate(fifo_length, item_size);

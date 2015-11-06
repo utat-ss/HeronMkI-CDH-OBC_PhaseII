@@ -29,7 +29,13 @@ Author: Keenan Burnett
 *
 * 11/04/2015		Added a function for sending a TC verification.
 *
+* 11/05/2015		I am adding functionality so that this task can communicate 
+*					with the housekeeping task via a command FIFO.
 *
+*					I am writing the function decode_telecommand() which shall take
+*					what is stored in current_tc, and turn it into a command to a task or SSM.
+*
+*					I am including checksum.h so that I can do a CRC on the PUS packet.
 *
 * DESCRIPTION:
 * This task is in charge of managing communication requests from tasks on
@@ -67,6 +73,8 @@ Author: Keenan Burnett
 
 #include "global_var.h"
 
+#include "checksum.h"
+
 /* Priorities at which the tasks are created. */
 #define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 5 )	// Shares highest priority with FDIR.
 
@@ -93,6 +101,7 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 uint16_t abs_time;															// Should count up from 0 the moment the satellite is deployed.
+uint16_t packet_id, 
 static uint8_t tc_sequence_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_counter, tc_verify_fail_counter;
@@ -198,7 +207,8 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	uint16_t i, j;
 	
 	type = 0;			// Distinguishes TC and TM packets, TM = 0
-	sequence_count = 0
+	sequence_count = 0;
+	uint16_t packet_error_control = 0;
 	
 	if(num_packets > 1)
 		sequence_flags = 0x1;	// Indicates that this is the first packet in a series of packets.
@@ -207,7 +217,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	
 	// Packet Header
 	current_tm[143] = 0x00;		// Extra byte to make the array 144 B.
-	current_tm[142] = ((version & 0x07) << 5) & (type & 0x01);
+	current_tm[142] = ((version & 0x07) << 5) | (type & 0x01);
 	current_tm[141] = sender
 	current_tm[140] = (sequence_flags & 0x03) << 6;
 	current_tm[139] = sequence_count;
@@ -237,7 +247,10 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 			current_tm[j] = *(data + (j - 2));
 		}
 		
-		// Run CRC function here to fill in current_tm[1,0]
+		/* Run checksum on the PUS packet	*/
+		packet_error_control = fletcher16(current_tm[2], 141);
+		current_tm[1] = (uint8_t)(packet_error_control >> 8);
+		current_tm[0] = (uint8_t)(packet_error_control & 0x00FF);
 		
 		if( send_pus_packet_tm(sender) < 0)
 		return 0;
@@ -261,7 +274,10 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 			current_tm[j] = *(data + (j - 2) + (i * 128));
 		}
 		
-		// Run CRC function here to fill in current_tm[1,0]
+		/* Run checksum on the PUS packet	*/
+		packet_error_control = fletcher16(current_tm[2], 141);
+		current_tm[1] = (uint8_t)(packet_error_control >> 8);
+		current_tm[0] = (uint8_t)(packet_error_control & 0x00FF);
 		
 		if(send_pus_packet_tm(sender) < 0)
 		return i;
@@ -424,9 +440,60 @@ static void store_current_tc(void)
 }
 
 // This function assumes that the telecommand to decode is contained in tc_to_decode[144].
+// current_tc_fullf should also be 1 before executing this function.
 static void decode_telecommand(void)
 {
-	//
+	uint8_t data_field_headerf, apid;
+	uint8_t packet_length;
+	uint16_t pec1, pec0, pcs;
+	uint8_t ack, service_type, service_sub_type, source_id;
+	uint8_t version1, type1, sequence_flags1, sequence_count1;
+	uint8_t ccsds_flag, packet_version;
+	
+	if(!current_tc_fullf)
+		return -1;
+	
+	packet_id = (uint16_t)(current_tc[139]);
+	packet_id = packet_id << 8;
+	packet_id |= (uint16_t)(current_tc[138]);
+	
+	pcs = (uint16_t)(current_tc[137]);
+	pcs = pcs << 8;
+	pcs |= (uint16_t)(current_tc[136]);
+	
+	// PACKET HEADER
+	version1			= (current_tc[139] & 0xE0) >> 5;
+	type1				= (current_tc[139] & 0x10) >> 4;
+	data_field_headerf	= (current_tc[139] & 0x08) >> 3;
+	apid				= current_tc[138];
+	sequence_flags1		= (current_tc[137] & 0xC0) >> 6;
+	sequence_count1		= current_tc[136];
+	packet_length		= current_tc[134] + 1;				// B137 = PACKET_LENGTH - 1
+	// DATA FIELD HEADER
+	ccsds_flag			= (current_tc[133] & 0X80) >> 7;
+	packet_version		= (current_tc[133] & 0X70) >> 4;
+	ack					= current_tc[133] & 0X0F;
+	service_type		= current_tc[132];
+	service_sub_type	= current_tc[131];
+	source_id			= current_tc[130];
+	
+	pec1 = (uint16_t)(current_tc[1]);
+	pec1 = packet_error_control << 8;
+	pec1 &= (uint16_t)(current_tc[0]);
+	
+	/* Check that the packet error control is correct */
+	pec0 = fletcher16(current_tc[2], 141);
+	
+	if(pec0 != pec1)
+	{
+		send_tc_verification(packet_id, pcs, 0xFF, 2);			// Return a TC verification packet failure for invalid checksum.
+		current_tc_fullf = 0;
+		return 1;												// Decode succeeded, even though the telecommand didn't
+	}
+	
+	if(apid != OBC)
+
+		
 }
 
 // This function turns the parameters into a TC verification packet and proceeds to send it

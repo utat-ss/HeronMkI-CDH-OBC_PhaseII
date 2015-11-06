@@ -69,6 +69,10 @@
 functionality. */
 #define HK_PARAMETER			( 0xABCD )
 
+/* HK DEFINITION DEFINES		*/
+#define DEFAULT					0
+#define ALTERNATE				1
+
 /*-----------------------------------------------------------*/
 
 /*
@@ -77,11 +81,19 @@ functionality. */
 static void prvHouseKeepTask( void *pvParameters );
 void housekeep(void);
 static void clear_current_hk(void);
+static int request_housekeeping_all(void);
+static int store_housekeeping(void);
+static void setup_default_definition(void);
+static void set_definition(uint8_t sID);
+static void clear_alternate_hk_definition(void);
 
 /* Global Variables for Housekeeping */
-static uint8_t current_hk[DATA_LENGTH];			// Used to store the next housekeeping packet we would like to downlink.
-static uint8_t hk_definition[PACKET_LENGTH];	// Used to store the current housekeeping format definition.
-static uint8_t hk_format;						// Unique identifier for the housekeeping format definition.
+static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
+static uint8_t hk_definition0[DATA_LENGTH];			// Used to store the current housekeeping format definition.
+static uint8_t hk_definition1[DATA_LENGTH];			// Used to store an alternate housekeeping definition.
+static uint8_t current_hk_definition[DATA_LENGTH];
+static uint8_t current_hk_definitionf;
+static uint8_t hk_format;							// Unique identifier for the housekeeping format definition.
 static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
 static uint32_t new_kh_msg_high, new_hk_msg_low;
 static uint8_t scheduled_collectionf, current_hk_fullf;
@@ -128,8 +140,11 @@ static void prvHouseKeepTask(void *pvParameters )
 	scheduled_collectionf = 1;
 	current_hk_fullf = 0;
 	hk_format = 0;					// Default definition version.
+	current_hk_definitionf = 0;
 	clear_current_hk();
-	set_default_definition();
+	setup_default_definition();
+	set_definition(DEFAULT);
+	clear_alternate_hk_definition();
 		
 	/* @non-terminating@ */	
 	for( ;; )
@@ -157,6 +172,16 @@ static void clear_current_hk(void)
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_hk[i] = 0;
+	}
+	return;
+}
+
+static void clear_alternate_hk_definition(void)
+{
+	uint8_t i;
+	for(i = 0; I < DATA_LENGTH; i++)
+	{
+		hk_definition1[i] = 0;
 	}
 	return;
 }
@@ -192,7 +217,7 @@ static int store_housekeeping(void)
 		parameter_name = (new_kh_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
 		for(i = 0; i < DATA_LENGTH; i += 2)
 		{
-			if(hk_definition[i] == parameter_name)
+			if(hk_definition0[i] == parameter_name)
 				current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
 				current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8); 
 		}
@@ -210,90 +235,111 @@ static int store_housekeeping(void)
 
 // This function sets the default definition that is used upon
 // startup for sending housekeeping packet.
-static void set_default_definition(void)
+static void setup_default_definition(void)
 {
 	uint8_t i;
 	
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
-		hk_definition[i] = 0;
+		hk_definition0[i] = 0;
 	}
-	hk_definition[75] = PANELX_V;
-	hk_definition[74] = PANELX_V;
-	hk_definition[73] = PANELX_I;
-	hk_definition[72] = PANELX_I;
-	hk_definition[71] = PANELY_V;
-	hk_definition[70] = PANELY_V;
-	hk_definition[69] = PANELY_I;
-	hk_definition[68] = PANELY_I;
-	hk_definition[67] = BATTM_V;
-	hk_definition[66] = BATTM_V;
-	hk_definition[65] = BATT_V;
-	hk_definition[64] = BATT_V;
-	hk_definition[63] = BATTIN_I;
-	hk_definition[62] = BATTIN_I;
-	hk_definition[61] = BATTOUT_I;
-	hk_definition[60] = BATTOUT_I;
-	hk_definition[59] = BATT_TEMP;
-	hk_definition[58] = BATT_TEMP;	//
-	hk_definition[57] = EPS_TEMP;
-	hk_definition[56] = EPS_TEMP;	//
-	hk_definition[55] = COMS_V;
-	hk_definition[54] = COMS_V;
-	hk_definition[53] = COMS_I;
-	hk_definition[52] = COMS_I;
-	hk_definition[51] = PAY_V;
-	hk_definition[50] = PAY_V;
-	hk_definition[49] = PAY_I;
-	hk_definition[48] = PAY_I;
-	hk_definition[47] = OBC_V;
-	hk_definition[46] = OBC_V;
-	hk_definition[45] = OBC_I;
-	hk_definition[44] = OBC_I;
-	hk_definition[43] = BATT_I;
-	hk_definition[42] = BATT_I;
-	hk_definition[41] = EPS_MODE;	//
-	hk_definition[40] = EPS_MODE;
-	hk_definition[39] = COMS_TEMP;	//
-	hk_definition[38] = COMS_TEMP;
-	hk_definition[37] = COMS_MODE;	//
-	hk_definition[36] = COMS_MODE;
-	hk_definition[35] = PAY_TEMP0;
-	hk_definition[34] = PAY_TEMP0;
-	hk_definition[33] = PAY_TEMP1;
-	hk_definition[32] = PAY_TEMP1;
-	hk_definition[31] = PAY_TEMP2;
-	hk_definition[30] = PAY_TEMP2;
-	hk_definition[29] = PAY_TEMP3;
-	hk_definition[28] = PAY_TEMP3;
-	hk_definition[27] = PAY_TEMP4;
-	hk_definition[26] = PAY_TEMP4;
-	hk_definition[25] = PAY_HUM;
-	hk_definition[24] = PAY_HUM;
-	hk_definition[23] = PAY_PRESS;
-	hk_definition[22] = PAY_PRESS;
-	hk_definition[21] = PAY_MODE;
-	hk_definition[20] = PAY_MODE;
-	hk_definition[19] = PAY_STATE;
-	hk_definition[18] = PAY_STATE;
-	hk_definition[17] = OBC_TEMP;
-	hk_definition[16] = OBC_TEMP;
-	hk_definition[15] = OBC_MODE;
-	hk_definition[14] = OBC_MODE;
-	hk_definition[13] = ABS_TIME_D;
-	hk_definition[12] = ABS_TIME_D;
-	hk_definition[11] = ABS_TIME_H;
-	hk_definition[10] = ABS_TIME_H;
-	hk_definition[9] = ABS_TIME_M;
-	hk_definition[8] = ABS_TIME_M;
-	hk_definition[7] = ABS_TIME_S;
-	hk_definition[6] = ABS_TIME_S;
-	hk_definition[5] = SPI_CHIP_1;
-	hk_definition[4] = SPI_CHIP_1;
-	hk_definition[3] = SPI_CHIP_2;
-	hk_definition[2] = SPI_CHIP_2;
-	hk_definition[1] = SPI_CHIP_3;
-	hk_definition[0] = SPI_CHIP_3;
+	hk_definition0[75] = PANELX_V;
+	hk_definition0[74] = PANELX_V;
+	hk_definition0[73] = PANELX_I;
+	hk_definition0[72] = PANELX_I;
+	hk_definition0[71] = PANELY_V;
+	hk_definition0[70] = PANELY_V;
+	hk_definition0[69] = PANELY_I;
+	hk_definition0[68] = PANELY_I;
+	hk_definition0[67] = BATTM_V;
+	hk_definition0[66] = BATTM_V;
+	hk_definition0[65] = BATT_V;
+	hk_definition0[64] = BATT_V;
+	hk_definition0[63] = BATTIN_I;
+	hk_definition0[62] = BATTIN_I;
+	hk_definition0[61] = BATTOUT_I;
+	hk_definition0[60] = BATTOUT_I;
+	hk_definition0[59] = BATT_TEMP;
+	hk_definition0[58] = BATT_TEMP;	//
+	hk_definition0[57] = EPS_TEMP;
+	hk_definition0[56] = EPS_TEMP;	//
+	hk_definition0[55] = COMS_V;
+	hk_definition0[54] = COMS_V;
+	hk_definition0[53] = COMS_I;
+	hk_definition0[52] = COMS_I;
+	hk_definition0[51] = PAY_V;
+	hk_definition0[50] = PAY_V;
+	hk_definition0[49] = PAY_I;
+	hk_definition0[48] = PAY_I;
+	hk_definition0[47] = OBC_V;
+	hk_definition0[46] = OBC_V;
+	hk_definition0[45] = OBC_I;
+	hk_definition0[44] = OBC_I;
+	hk_definition0[43] = BATT_I;
+	hk_definition0[42] = BATT_I;
+	hk_definition0[41] = EPS_MODE;	//
+	hk_definition0[40] = EPS_MODE;
+	hk_definition0[39] = COMS_TEMP;	//
+	hk_definition0[38] = COMS_TEMP;
+	hk_definition0[37] = COMS_MODE;	//
+	hk_definition0[36] = COMS_MODE;
+	hk_definition0[35] = PAY_TEMP0;
+	hk_definition0[34] = PAY_TEMP0;
+	hk_definition0[33] = PAY_TEMP1;
+	hk_definition0[32] = PAY_TEMP1;
+	hk_definition0[31] = PAY_TEMP2;
+	hk_definition0[30] = PAY_TEMP2;
+	hk_definition0[29] = PAY_TEMP3;
+	hk_definition0[28] = PAY_TEMP3;
+	hk_definition0[27] = PAY_TEMP4;
+	hk_definition0[26] = PAY_TEMP4;
+	hk_definition0[25] = PAY_HUM;
+	hk_definition0[24] = PAY_HUM;
+	hk_definition0[23] = PAY_PRESS;
+	hk_definition0[22] = PAY_PRESS;
+	hk_definition0[21] = PAY_MODE;
+	hk_definition0[20] = PAY_MODE;
+	hk_definition0[19] = PAY_STATE;
+	hk_definition0[18] = PAY_STATE;
+	hk_definition0[17] = OBC_TEMP;
+	hk_definition0[16] = OBC_TEMP;
+	hk_definition0[15] = OBC_MODE;
+	hk_definition0[14] = OBC_MODE;
+	hk_definition0[13] = ABS_TIME_D;
+	hk_definition0[12] = ABS_TIME_D;
+	hk_definition0[11] = ABS_TIME_H;
+	hk_definition0[10] = ABS_TIME_H;
+	hk_definition0[9] = ABS_TIME_M;
+	hk_definition0[8] = ABS_TIME_M;
+	hk_definition0[7] = ABS_TIME_S;
+	hk_definition0[6] = ABS_TIME_S;
+	hk_definition0[5] = SPI_CHIP_1;
+	hk_definition0[4] = SPI_CHIP_1;
+	hk_definition0[3] = SPI_CHIP_2;
+	hk_definition0[2] = SPI_CHIP_2;
+	hk_definition0[1] = SPI_CHIP_3;
+	hk_definition0[0] = SPI_CHIP_3;
 	return;
 }
 
+static void set_definition(uint8_t sID)
+{
+	uint8_t i;
+	if(!sID)
+	{
+		for(i = 0; i < DATA_LENGTH; i++)
+		{
+			current_hk_definition[i] = hk_definition0[i];		
+		}
+		current_hk_definitionf = 0;
+	}
+	if(sID == 1)
+	{
+		for(i = 0; i < DATA_LENGTH; i++)
+		{
+			current_hk_definition[i] = hk_definition1[i];
+		}
+		current_hk_definitionf = 1;
+	}
+	return;
+}

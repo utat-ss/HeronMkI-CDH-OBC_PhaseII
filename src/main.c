@@ -257,7 +257,7 @@ static void safe_mode(void)
 	//size_t SIZE = 10;
 	
 	//uint32_t a;
-	//a = fletcher32(MEM_LOCATION, SIZE);
+	a = fletcher32(MEM_LOCATION, SIZE);
 	
 	
 	while(SAFE_MODE)

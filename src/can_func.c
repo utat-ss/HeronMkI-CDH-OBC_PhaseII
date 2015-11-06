@@ -814,6 +814,13 @@ void can_initialize(void)
 
 		/* This corresponds to 256 bytes, or 2 HK Collections */
 		hk_to_tm_fifo = xQueueCreate(fifo_length, item_size);
+		
+		/* Initialize global Command FIFOs				*/
+		fifo_length = 256;
+		item_size = 1;
+		
+		/* This corresponds to 256 bytes	   		    */
+		obc_to_hk_fifo = xQueueCreate(fifo_length, item_size);
 
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
 	}

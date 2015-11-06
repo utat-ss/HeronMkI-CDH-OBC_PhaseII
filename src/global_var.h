@@ -61,6 +61,10 @@ QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
 /* Initialized in can_initialize()	*/
 QueueHandle_t hk_to_tm_fifo;			// housekeep	-->		obc_packet_router
 
+/* GLOBAL COMMAND FIFOS				*/
+/* Initializes in can_initialize()	*/
+QueueHandle_t obc_to_hk_fifo;			// housekeep	-->		obc_packet_router
+
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize
 uint8_t glob_comsf;

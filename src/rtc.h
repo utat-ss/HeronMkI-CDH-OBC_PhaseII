@@ -24,7 +24,10 @@
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*
 	*	DEVELOPMENT HISTORY:		
-	*	07/018/2015		Created.
+	*	07/18/2015		O:Created.
+	*
+	*	11/07/2015		K:I am making a change to rtc_init so that we first check if there
+	*					is a time stored in SPI memory before proceeding to reset the RTC.
 	*
 	*	DESCRIPTION:	
 	*					Includes and definitions for rtc.c	
@@ -32,6 +35,8 @@
 	*	
  */
 #include "spi_func.h"
+#include "spimem.h"
+#include "global_var.h"
 
 /*		Timestamp Struct			*/
 struct timestamp

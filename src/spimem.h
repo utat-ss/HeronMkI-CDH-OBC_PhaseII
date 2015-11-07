@@ -56,6 +56,15 @@ SemaphoreHandle_t	Spi0_Mutex;
 #define		SE		0x20		// Sector Erase (4kB)
 #define		CE		0xC7		// Chip Erase
 
+/* SPI MEMORY BASE ADDRESSES	*/
+#define		COMS_BASE		0x00000		// COMS = 20kB: 0x00000 - 0x01FFF
+#define		EPS_BASE		0x02000		// EPS = 20kB: 0x02000 - 0x03FFF
+#define		PAY_BASE		0x04000		// PAY = 20kB: 0x04000 - 0x05FFF
+#define		HK_BASE			0x06000		// HK = 10kB: 0x06000 - 0x06FFF
+#define		EVENT_BASE		0x07000		// EVENT = 10kB: 0x07000 - 0x07FFF
+#define		TIME_BASE		0xFFFFC		// TIME = 4B: 0xFFFFC - 0xFFFFF
+#define		SCHEDULE_BASE	0x08000		// SCHEDULE = 1kB: 0x08000 - 0x08FFF
+
 /*		Global Variable Definitions		*/
 uint32_t spi_bit_map[128];		// Bit-Map to pages (256B) within SPI Memory.
 uint8_t	spi_mem_buff[4096];		// Buffer required when erasing a sector
@@ -64,7 +73,8 @@ uint16_t msg_buff[260];			// Temporary buffer used by the read and write tasks t
 
 /*		Fuction Prototypes				*/
 void spimem_initialize(void);																	// Driver
-int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
+int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 3 TICK
+int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
 int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
 uint32_t check_page(uint32_t page_num);															// Helper
 uint32_t check_if_wip(uint32_t spi_chip);														// Helper

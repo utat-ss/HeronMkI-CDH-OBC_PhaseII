@@ -57,6 +57,10 @@
 *						making a simple API for other space systems to use. It will also be used in the functions
 *						I mentioned above.
 *
+*	11/07/2015			I am changing spimem_write so that it writes to all 3 SSMs (one after the other).
+*						That way the user of this API function doesn't have to worry about spi_chip numbers or executing it 3 times.
+*
+*
 *	DESCRIPTION:
 *
 *			spimem_initialize gets the chip ready for communication with the OBC.
@@ -119,8 +123,22 @@ void spimem_initialize(void)
 	return;
 }
 
+
+int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
+{
+	int x = -1;
+	x = spimem_write_h(1, addr, data_buff, size);
+	if(x < 0)
+		return x;
+	x = spimem_write_h(2, addr, data_buff, size);
+	if(x < 0)
+		return x;
+	x = spimem_write_h(3, addr, data_buff, size);
+	return x;
+}
+
 /************************************************************************/
-/* SPIMEM_WRITE                                                         */
+/* SPIMEM_WRITE_H                                                         */
 /*																		*/
 /* @param: spi_chip: This indicates which chip/chip_select you would	*/
 /* like to communicate with. Ex:1, 2, or 3.								*/
@@ -138,7 +156,7 @@ void spimem_initialize(void)
 /* @Note: This function is an atomic operation and hence suspends		*/
 /* interrupts temporarily.												*/
 /************************************************************************/
-int spimem_write(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
+int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
 	uint32_t size1, size2, low, dirty = 0, page, sect_num, check;
 		

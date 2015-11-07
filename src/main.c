@@ -166,7 +166,7 @@ extern void my_blink(void);
 extern void command_loop(void);
 extern void housekeep(void);
 extern void data_test(void);
-extern void time_update(void);
+extern void time_manage(void);
 extern void eps(void);
 extern void coms(void);
 extern void payload(void);
@@ -257,7 +257,7 @@ static void safe_mode(void)
 	//size_t SIZE = 10;
 	
 	//uint32_t a;
-	a = fletcher32(MEM_LOCATION, SIZE);
+	//a = fletcher32(MEM_LOCATION, SIZE);
 	
 	
 	while(SAFE_MODE)

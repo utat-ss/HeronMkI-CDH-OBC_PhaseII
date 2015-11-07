@@ -23,8 +23,6 @@
 	*
 	*			Consider thinking about how to guarantee that every time housekeeping is downlinked those
 	*			values are fresh.
-	*
-	*			Remember to have TC verification for execution completion.
 	*	
 	*	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:			
 	*	New tasks should be written to use as much of CMSIS as possible. The ASF and 
@@ -48,8 +46,11 @@
 	*
 	*					These functions include: store_housekeeping(), send_hk_as_tm(), send_params_report(), and exec_commands().
 	*
-	*					I am also adding some functionality into store_housekeeping() so that it keeps a certain number of 
+	*	11/07/2015		I am also adding some functionality into store_housekeeping() so that it keeps a certain number of
 	*					old housekeeping packets in SPI memory.
+	*
+	*					The current offset of the housekeeping log needs to be stored in SPI memory just in case the main
+	*					computer gets reset (we would lose track of how much housekeeping is currently in memory)
 	*
 	*	DESCRIPTION:
 	*	
@@ -71,6 +72,9 @@
 
 /* CAN Function includes */
 #include "can_func.h"
+
+/* SPI memory includes	 */
+#include "spimem.h"
 
 /* Priorities at which the tasks are created. */
 #define Housekeep_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
@@ -109,6 +113,7 @@ static void clear_current_command(void);
 static void send_hk_as_tm(void);
 static void send_param_report(void);
 static void exec_commands(void);
+static int store_hk_in_spimem(void);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -122,6 +127,8 @@ static uint32_t new_kh_msg_high, new_hk_msg_low;
 static uint8_t current_hk_fullf, param_report_requiredf;
 static uint8_t collection_interval0, collection_interval1;		// How to wait for the next collection (in minutes)
 static TickType_t xTimeToWait;				// Number entered here corresponds to the number of ticks we should wait.
+static uint8_t current_hk_mem_offset[4];
+static TickType_t	xLastWakeTime;
 
 /************************************************************************/
 /* HOUSEKEEPING (Function) 												*/
@@ -154,7 +161,6 @@ void housekeep( void )
 static void prvHouseKeepTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER );
-	TickType_t	xLastWakeTime;
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	int x;
 	uint8_t i;
@@ -166,7 +172,8 @@ static void prvHouseKeepTask(void *pvParameters )
 	current_hk_definitionf = 0;		// Default definition
 	param_report_requiredf = 0;
 	collection_interval0 = 30;
-	collection_interval1 = 30;	
+	collection_interval1 = 30;
+
 	clear_current_hk();
 	clear_current_command();
 	setup_default_definition();
@@ -176,7 +183,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		x = exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
+		exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
 		request_housekeeping_all();
 		store_housekeeping();
 		send_hk_as_tm();
@@ -194,6 +201,7 @@ static void prvHouseKeepTask(void *pvParameters )
 // <collection_interval> minutes. 
 static void exec_commands(void)
 {
+	uint8_t i, command;
 	if( xQueueReceive(obc_to_hk_fifo, current_command[0], xTimeToWait) == pdTRUE)
 	{
 		command = current_command[137];
@@ -241,6 +249,23 @@ static void clear_current_hk(void)
 	return;
 }
 
+// Sets the memory offset for HK's reading/writing to SPI memory.
+static void set_hk_mem_offset(void)
+{
+	uint32_t offset;
+	spimem_read(1, HK_BASE, current_hk_mem_offset, 4);	// Get the current HK memory offset.
+	offset += (uint32_t)(current_hk_mem_offset[0] << 24);
+	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
+	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
+	offset += (uint32_t)current_hk_mem_offset[3];
+	
+	if(offset == 0)
+		current_hk_mem_offset[3] = 4;
+		spimem_write(HK_BASE + 3, current_hk_mem_offset + 3, 1);
+	
+	return;
+}
+
 static void clear_current_command(void)
 {
 	uint8_t i;
@@ -254,7 +279,7 @@ static void clear_current_command(void)
 static void clear_alternate_hk_definition(void)
 {
 	uint8_t i;
-	for(i = 0; I < DATA_LENGTH; i++)
+	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		hk_definition1[i] = 0;
 	}
@@ -265,7 +290,7 @@ static int request_housekeeping_all(void)
 {			
 	if(request_housekeeping(EPS_ID) > 1)							// Request housekeeping from COMS.
 		return -1;
-	if(request_housekeeping(COMS_ID > 1)							// Request housekeeping from EPS.
+	if(request_housekeeping(COMS_ID) > 1)							// Request housekeeping from EPS.
 		return -1;
 	if(request_housekeeping(PAY_ID) > 1)							// Request housekeeping from PAY.
 		return -1;
@@ -280,11 +305,12 @@ static int request_housekeeping_all(void)
 static int store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
+	int x = -1;
 	uint8_t parameter_name = 0, i;
 	if(current_hk_fullf)
 		return -1;
 	
-	while(read_can_hk(&new_kh_msg_high, &new_hk_msg_low, passkey) == 1)
+	while(read_can_hk(&new_kh_msg_high, &new_hk_msg_low, 1234) == 1)
 	{
 		sender = (new_kh_msg_high & 0xF0000000) >> 28;			// Can be EPS_ID/COMS_ID/PAY_ID/OBC_ID
 		parameter_name = (new_kh_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
@@ -305,9 +331,30 @@ static int store_housekeeping(void)
 		// Reacquire values if they haven't been.
 		
 	// Store the new housekeeping in SPI memory.
+	x = store_hk_in_spimem();
 	
 	current_hk_fullf = 1;
 	return 1;
+}
+
+static int store_hk_in_spimem(void)
+{
+	uint32_t offset;
+	int x;
+	offset += (uint32_t)(current_hk_mem_offset[0] << 24);
+	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
+	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
+	offset += (uint32_t)current_hk_mem_offset[3];
+	
+	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	x = spimem_write((HK_BASE + offset + 4), current_hk, 128);		// FAILURE_RECOVERY if x < 0
+	offset += 132;
+	current_hk_mem_offset[3] = (uint8_t)offset;
+	current_hk_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
+	current_hk_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
+	current_hk_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
+	x = spimem_write(HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
+	return;
 }
 
 // This function sets the default definition that is used upon
@@ -436,7 +483,7 @@ static void send_hk_as_tm(void)
 	{
 		current_command[i] = current_hk[i];
 	}
-	xQueueSendToBack(hk_to_tm_fifo, current_command[0], (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	xQueueSendToBack(hk_to_tm_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
 	return;
 }
 
@@ -449,6 +496,6 @@ static void send_param_report(void)
 	{
 		current_command[i] = current_hk_definition[i];
 	}
-	xQueueSendToBack(hk_to_tm_fifo, current_command[0], (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	xQueueSendToBack(hk_to_tm_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
 	return;
 }

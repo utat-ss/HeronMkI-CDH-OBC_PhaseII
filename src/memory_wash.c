@@ -153,7 +153,7 @@ static void prvMemoryWashTask(void *pvParameters )
 				}
 				
 				if(write_required)
-					spimem_write(write_required, (addr + byte), &correct_val, 1);
+					spimem_write_h(write_required, (addr + byte), &correct_val, 1);
 			}
 			
 		}

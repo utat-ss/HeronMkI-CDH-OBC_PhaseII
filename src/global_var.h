@@ -95,10 +95,14 @@ uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 
 uint32_t  SAFE_MODE;					// Condition which will initially hold the system in safe_mode.
 
-uint8_t CURRENT_MINUTE;
-
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;
 uint8_t start_tm_transferf;
 uint8_t current_tc_fullf, receiving_tcf;
 
+/* Global variables for time management	*/
+uint8_t ABSOLUTE_DAY;
+uint8_t CURRENT_HOUR;
+uint8_t CURRENT_MINUTE;
+uint8_t CURRENT_SECOND;
+uint8_t absolute_time_arr[4];

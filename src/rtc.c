@@ -77,14 +77,21 @@ static uint8_t bcdtodec(uint8_t val)
  * \param ctrl_reg_val The byte to set the control register to
  */
 void rtc_init(uint16_t ctrl_reg_val)
-{			
-    rtc_set_creg(ctrl_reg_val);
+{	
+    int x;
+	rtc_set_creg(ctrl_reg_val);
 	
+	x = spimem_read(1, TIME_BASE, absolute_time_arr[0], 4);	// Get the absolute time which may be stored in memory.
+	ABSOLUTE_DAY = absolute_time_arr[0];
+	CURRENT_HOUR = absolute_time_arr[1];
+	CURRENT_MINUTE = absolute_time_arr[2];
+	CURRENT_SECOND = absolute_time_arr[3];
+	// FAILURE_RECOVERY if this function returns -1.
 	struct timestamp initial_time;
 
-	initial_time.sec = 0x00;
-	initial_time.minute = 0x00;
-	initial_time.hour = 0x00;
+	initial_time.sec = CURRENT_SECOND;
+	initial_time.minute = CURRENT_MINUTE;
+	initial_time.hour = CURRENT_HOUR;
 	initial_time.mday = 0x01;
 	initial_time.wday = 0x01;
 	initial_time.mon = 0x01;

@@ -97,10 +97,7 @@ static void prvComsTask(void *pvParameters )
 	TickType_t xLastWakeTime;
 	const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
-
-	/* Declare Variables Here */
-	sequence_count = 0;
-
+	
 	/* @non-terminating@ */	
 	for( ;; )
 	{

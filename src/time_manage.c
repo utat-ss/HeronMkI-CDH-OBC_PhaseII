@@ -1,7 +1,7 @@
 /*
 Author: Keenan Burnett, Omar Abdeldayem
 ***********************************************************************
-* FILE NAME: time_update
+* FILE NAME: time_manage
 *
 * PURPOSE:
 * This file is to be used to house the time-management task (which shall manage
@@ -19,9 +19,7 @@ Author: Keenan Burnett, Omar Abdeldayem
 *
 * NOTES:
 *
-*				This task is soon going to turn into the "time management" task.
-*
-*				How to keep track of absolute time on the spacecraft?
+*				Absolute time is now being stored in spi memory.
 *
 * REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
 *
@@ -33,6 +31,9 @@ Author: Keenan Burnett, Omar Abdeldayem
 *
 *				I also added in the code here so that it sends out a CAN message to all the SSMs
 *				every minute (in order to update CURRENT_MINUTE).
+*
+* 11/07/2015	I changed the name of this file from time_manage.c to time_manage.c to better indicate
+*				what this file is meant for.
 *
 * DESCRIPTION:
 */
@@ -59,48 +60,50 @@ Author: Keenan Burnett, Omar Abdeldayem
 #include "global_var.h"
 
 /* Priorities at which the tasks are created. */
-#define TIME_UPDATE_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
+#define TIME_MANAGE_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
-#define TIME_UPDATE_PARAMETER			( 0xABCD )
+#define TIME_MANAGE_PARAMETER			( 0xABCD )
 
 /*
  * Functions Prototypes.
  */
-static void prvTimeUpdateTask( void *pvParameters );
-void time_update(void);
+static void prvTimeManageTask( void *pvParameters );
+void time_manage(void);
+static void broadcast_minute(void);
+static void update_absolute_time(void);
 
+/* Local Variables for Time Management */
 struct timestamp time;
 
 /************************************************************************/
-/* TIME_UPDATE (Function)												*/
+/* time_manage (Function)												*/
 /* @Purpose: This function is used to create the time update task.		*/
 /************************************************************************/
-void time_update( void )
+void time_manage( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
-		xTaskCreate( prvTimeUpdateTask,					/* The function that implements the task. */
+		xTaskCreate( prvTimeManageTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
-					( void * ) TIME_UPDATE_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
-					TIME_UPDATE_PRIORITY, 			/* The priority assigned to the task. */
+					( void * ) TIME_MANAGE_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
+					TIME_MANAGE_PRIORITY, 			/* The priority assigned to the task. */
 					NULL );								/* The task handle is not required, so NULL is passed. */
 	return;
 }
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
-/*				TIME UPDATE TASK		                                */
+/*				TIME MANAGE TASK		                                */
 /*	The sole purpose of this task is to send a single CAN containing	*/
 /*	the current minute from the RTC, every minute						*/
 /************************************************************************/
-static void prvTimeUpdateTask( void *pvParameters )
+static void prvTimeManageTask( void *pvParameters )
 {
-	configASSERT( ( ( unsigned long ) pvParameters ) == TIME_UPDATE_PARAMETER );
-	uint32_t high;
-
+	configASSERT( ( ( unsigned long ) pvParameters ) == TIME_MANAGE_PARAMETER );
+	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -108,17 +111,44 @@ static void prvTimeUpdateTask( void *pvParameters )
 		{
 			rtc_get(&time);
 			
-			CURRENT_MINUTE = time.minute;
-			
-			high = high_command_generator(TC_TASK_ID, EPS_ID, MT_TC, SET_TIME);
-			send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB1_ID0, DEF_PRIO);
-			high = high_command_generator(TC_TASK_ID, COMS_ID, MT_TC, SET_TIME);
-			send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB0_ID0, DEF_PRIO);
-			high = high_command_generator(TC_TASK_ID, PAY_ID, MT_TC, SET_TIME);
-			send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB2_ID0, DEF_PRIO);
-			
+			update_absolute_time();
+			broadcast_minute();
+
 			rtc_reset_a2();
 		}
 	}
 }
 /*-----------------------------------------------------------*/
+
+static void broadcast_minute(void)
+{
+	uint32_t high;
+	high = high_command_generator(TC_TASK_ID, EPS_ID, MT_TC, SET_TIME);
+	send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB1_ID0, DEF_PRIO);
+	high = high_command_generator(TC_TASK_ID, COMS_ID, MT_TC, SET_TIME);
+	send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB0_ID0, DEF_PRIO);
+	high = high_command_generator(TC_TASK_ID, PAY_ID, MT_TC, SET_TIME);
+	send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB2_ID0, DEF_PRIO);
+	return;
+}
+
+// Updates the global variables which store absolute time and stores it in SPI memory every minute.
+static void update_absolute_time(void)
+{
+	CURRENT_MINUTE = time.minute;
+	if(time.hour != CURRENT_HOUR)
+	{
+		if(CURRENT_HOUR == 23)
+			ABSOLUTE_DAY++;
+		CURRENT_HOUR = time.hour;
+	}
+	CURRENT_SECOND = time.sec;
+	
+	absolute_time_arr[0] = ABSOLUTE_DAY;
+	absolute_time_arr[1] = CURRENT_HOUR;
+	absolute_time_arr[2] = CURRENT_MINUTE;
+	absolute_time_arr[3] = CURRENT_SECOND;
+	
+	spimem_write(TIME_BASE, absolute_time_arr, 4);	// Writes the absolute time to SPI memory.
+	return;
+}

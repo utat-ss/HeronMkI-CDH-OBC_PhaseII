@@ -145,6 +145,7 @@
 #include "can_func.h"
 
 volatile uint32_t g_ul_recv_status = 0;
+static void start_tc_packet(void);
 
 /************************************************************************/
 /* Interrupt Handler for CAN1								    		*/
@@ -784,14 +785,7 @@ void can_initialize(void)
 			hk_read_receive[i] = 0;
 			hk_write_receive[i] = 0;
 		}
-		
-		/* Initialize Global variables and buffers related to PUS packts */
-		for (i = 0; i < 143; i++)
-		{
-			current_tc[i] = 0;
-			current_tm[i] = 0;
-			tc_to_decode[i] = 0;
-		}
+
 		tm_transfer_completef = 0;
 		start_tm_transferf = 0;
 		current_tc_fullf = 0;

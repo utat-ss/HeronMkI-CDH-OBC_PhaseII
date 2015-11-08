@@ -101,26 +101,18 @@ static void prvDataTask( void *pvParameters )
 	const TickType_t xTimeToWait = 1;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t low, high, ID, PRIORITY, i;
+	uint32_t low, high, PRIORITY, i;
+	uint8_t byte_four = 0;
 	int x;
-	
-	ID = SUB0_ID0;
 	PRIORITY = DATA_PRIO;
 	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
 		low = DATA_REQUEST;
-		high = high_command_generator(OBC_ID, MT_COM, REQ_DATA);
-		
-		ID = EPS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request data from COMS.
-			
-		ID = COMS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request data from EPS.
-
-		ID = PAY_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request data from PAY.						
+		x = send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_DATA, PRIORITY);				// Request response from COMS.
+		x = send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_DATA, PRIORITY);				// Request response from EPS.
+		x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_DATA, PRIORITY);				// Request response from PAY.					
 
 		if(glob_drf)		// data reception flag;
 		{
@@ -148,6 +140,6 @@ static void prvDataTask( void *pvParameters )
 	}
 	
 	//xLastWakeTime = xTaskGetTickCount();						// Delay for 100 ticks.
-	//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+	vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 }
 

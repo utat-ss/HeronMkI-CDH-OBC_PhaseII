@@ -30,11 +30,6 @@ Author: Keenan Burnett
 * 07/06/2015 	K: Created.
 *
 * 10/09/2015	K: Updated comments and a few lines to make things neater.
-*
-* DESCRIPTION:
-*
-* Current this file is set up as a template and shall be used by members of the coms subsystem
-* for their own development purposes.
 */
 
 /* Standard includes.										*/
@@ -49,6 +44,9 @@ Author: Keenan Burnett
 #include "partest.h"
 /* CAN Function includes */
 #include "can_func.h"
+/* Global variable includes */
+#include "global_var.h"
+
 /* Priorities at which the tasks are created. */
 #define Coms_PRIORITY	( tskIDLE_PRIORITY + 1 ) // Lower the # means lower the priority
 /* Values passed to the two tasks just to check the task parameter
@@ -89,7 +87,9 @@ void coms( void )
 /* COMS TASK */
 /* This task encapsulates the high-level software functionality of the	*/
 /* communication subsystem on this satellite.							*/
-/*																		*/
+/* @Note: The current telemetry packet that needs to be downlinked is	*/
+/* placed in current_tm[] and the current and next telecommand that were*/
+/* received are placed in current_tc[] and next_tc[] respectively.		*/
 /************************************************************************/
 static void prvComsTask(void *pvParameters )
 {
@@ -97,18 +97,15 @@ static void prvComsTask(void *pvParameters )
 	TickType_t xLastWakeTime;
 	const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
-
-	/* Declare Variables Here */
-
-
+	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
 		// Write your application here.
+		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.
 	}
 }
 
 // Static helper functions may be defined below.
-	

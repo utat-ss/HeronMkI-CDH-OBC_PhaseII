@@ -124,6 +124,17 @@
 	*					I also took the time to edit all the headers for the functions to make them all proper.
 	*
 	*					I got rid of the "transmit_complete" flags as they were a terrible idea.
+	*
+	*	10/31/2015		I am adding a few API functions for sending and receiving PUS packets. PUS packets are 143 Bytes long
+	*					and hence need a form of sequence control so that they can be sent/received in 4B chunks.
+	*
+	*					I'm making a slight modification to the high_command_generator function so that it takes in the
+	*					ssm_id as well as the sender ID. Byte 7 = (sender_id << 4) & ssm_id;
+	*
+	*					I'm no longer using CURRENT_MINUTE in high_command_generator().
+	*
+	*					I am putting the functionality of high_command_generator() inside of send_can_command() so that
+	*					users have one less API to worry about.
 	*					
 	*
 	*	DESCRIPTION:	
@@ -134,6 +145,7 @@
 #include "can_func.h"
 
 volatile uint32_t g_ul_recv_status = 0;
+static void start_tc_packet(void);
 
 /************************************************************************/
 /* Interrupt Handler for CAN1								    		*/
@@ -243,6 +255,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
 	uint8_t sender, destination, big_type, small_type;
+	BaseType_t wake_task;	// Not needed here.
 
 	sender = (uint8_t)(uh_data_incom >> 28);
 	destination = (uint8_t)((uh_data_incom & 0x0F000000)>>24);
@@ -283,6 +296,17 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				default :
 					break;
 			}
+			break;
+		case SEND_TC:
+			xQueueSendToBackFromISR(tc_msg_fifo, &ul_data_incom, &wake_task);		// Telecommand reception FIFO.
+			xQueueSendToBackFromISR(tc_msg_fifo, &uh_data_incom, &wake_task);
+		case TC_PACKET_READY:
+			start_tc_packet();
+		case TM_TRANSACTION_RESP:
+			tm_transfer_completef = (uint8_t)(ul_data_incom & 0x000000FF);
+			break;
+		case OK_START_TM_PACKET:
+			start_tm_transferf = 1;
 			break;
 		default :
 			break;
@@ -351,7 +375,7 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 {
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
-	BaseType_t wake_task;	// Not needed, we won't block on queue reads.
+	BaseType_t wake_task;	// Not needed here.
 
 	/* UPDATE THE GLOBAL CAN REGS		*/
 	switch(mb)
@@ -417,7 +441,7 @@ void reset_mailbox_conf(can_mb_conf_t *p_mailbox)
 /* @NOTE: This is a helper function, it is only to be used in sections  */
 /* of code where the Can0_Mutex has been acquired.						*/
 /************************************************************************/
-static uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY)
+uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY)
 {	
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
 	/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
@@ -453,10 +477,10 @@ static uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uin
 /* @return: 1 == completed, (<=0) == failure.							*/
 /* @NOTE: 1 != Success (Necessarily) 									*/
 /************************************************************************/
-int send_can_command(uint32_t low, uint32_t high, uint32_t ssm_id, uint32_t PRIORITY)
+int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {	
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
-	uint32_t id, ret_val;
+	uint32_t id, ret_val, high;
 	
 	if(ssm_id == COMS_ID)
 		id = SUB0_ID0;
@@ -464,10 +488,14 @@ int send_can_command(uint32_t low, uint32_t high, uint32_t ssm_id, uint32_t PRIO
 		id = SUB1_ID0;
 	if(ssm_id == PAY_ID)
 		id = SUB2_ID0;
+		
+	high = high_command_generator(sender_id, ssm_id, MT_COM, smalltype);
+	if(byte_four)
+		high &= (uint32_t)byte_four;
 
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		ret_val = send_can_command_h(low, high, id, PRIORITY);
+		ret_val = send_can_command_h(low, high, id, priority);
 		xSemaphoreGive(Can0_Mutex);
 		return (int)ret_val;
 	}
@@ -489,15 +517,21 @@ int send_can_command(uint32_t low, uint32_t high, uint32_t ssm_id, uint32_t PRIO
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_data_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_data_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_data_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_data_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+				return -1;
+		}
+		else
+			return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -513,15 +547,21 @@ uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t a
 uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_msg_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_msg_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_msg_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_msg_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+				return -1;
+		}
+		else
+			return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -533,19 +573,26 @@ uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t ac
 /* @Purpose: This function returns a CAN message curerntly residing in 	*/
 /* the can_hk_fifo queue. 												*/
 /* @return: 1 == successful, 0 == failure.								*/
+/* @Note: This function will block for a maximum of 2 ticks.			*/
 /************************************************************************/
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_hk_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_hk_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_hk_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_hk_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+			return -1;
+		}
+		else
+		return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -561,15 +608,21 @@ uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t acc
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code)
 {
 	// *** Implement an assert here on access_code.
-
 	if (access_code == 1234)
 	{
-		xQueueReceive(can_com_fifo, message_low, (TickType_t) 1);
-		xQueueReceive(can_com_fifo, message_high, (TickType_t) 1);
-		return 1;
+		if(xQueueReceive(can_com_fifo, message_low, (TickType_t) 1) == pdTRUE)
+		{
+			if(xQueueReceive(can_com_fifo, message_high, (TickType_t) 1) == pdTRUE)
+			{
+				return 1;
+			}
+			else
+			return -1;
+		}
+		else
+		return -1;
 	}
-
-	return 0;
+	return -1;
 }
 
 /************************************************************************/
@@ -582,11 +635,17 @@ uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t a
 /* @return: 1 == complete, 0 == incomplete.								*/
 /* @NOTE: 1 != successful (necessarily)									*/
 /************************************************************************/
-uint32_t request_housekeeping(uint32_t ID)
+uint32_t request_housekeeping(uint32_t ssm_id)
 {
-	uint32_t high;
-	uint8_t dest = (uint8_t)ID;
+	uint32_t high, id;
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID5;				// Housekeeping request mailbox in the SSM.
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID5;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID5;
 
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
@@ -599,10 +658,10 @@ uint32_t request_housekeeping(uint32_t ID)
 		can0_mailbox.ul_id_msk = 0;
 		can_mailbox_init(CAN0, &can0_mailbox);
 
-		high = high_command_generator(HK_TASK_ID, MT_COM, REQ_HK);
+		high = high_command_generator(HK_TASK_ID, ssm_id, MT_COM, REQ_HK);
 
 		/* Write transmit information into mailbox. */
-		can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
+		can0_mailbox.ul_id = CAN_MID_MIDvA(id);			// ID of the message being sent,
 		can0_mailbox.ul_datal = 0x00;				// shifted over to the standard frame position.
 		can0_mailbox.ul_datah = high;
 		can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
@@ -685,20 +744,6 @@ void can_initialize(void)
 	uint32_t x = 1, i = 0;
 	UBaseType_t fifo_length, item_size;
 
-	/* Initialize CAN0 Transceiver. */
-	sn65hvd234_set_rs(&can0_transceiver, PIN_CAN0_TR_RS_IDX);
-	sn65hvd234_set_en(&can0_transceiver, PIN_CAN0_TR_EN_IDX);
-	/* Enable CAN0 Transceiver. */
-	sn65hvd234_disable_low_power(&can0_transceiver);
-	sn65hvd234_enable(&can0_transceiver);
-
-	/* Initialize CAN1 Transceiver. */
-	sn65hvd234_set_rs(&can1_transceiver, PIN_CAN1_TR_RS_IDX);
-	sn65hvd234_set_en(&can1_transceiver, PIN_CAN1_TR_EN_IDX);
-	/* Enable CAN1 Transceiver. */
-	sn65hvd234_disable_low_power(&can1_transceiver);
-	sn65hvd234_enable(&can1_transceiver);
-
 	/* Enable CAN0 & CAN1 clock. */
 	pmc_enable_periph_clk(ID_CAN0);
 	pmc_enable_periph_clk(ID_CAN1);
@@ -740,16 +785,41 @@ void can_initialize(void)
 			hk_read_receive[i] = 0;
 			hk_write_receive[i] = 0;
 		}
+
+		tm_transfer_completef = 0;
+		start_tm_transferf = 0;
+		current_tc_fullf = 0;
+		receiving_tcf = 0;
 		
-		/* Initialize global CAN FIFOs			*/
+		/* Initialize global CAN FIFOs					*/
 		fifo_length = 100;		// Max number of items in the FIFO.
-		item_size = 4;			// Number of bytes in the items (4 bytes).
+		item_size = 4;			// Number of bytes in the items.
 		
 		/* This corresponds to 400 bytes, or 50 CAN messages */
 		can_data_fifo = xQueueCreate(fifo_length, item_size);
 		can_msg_fifo = xQueueCreate(fifo_length, item_size);
 		can_hk_fifo = xQueueCreate(fifo_length, item_size);
 		can_com_fifo = xQueueCreate(fifo_length, item_size);
+		tc_msg_fifo = xQueueCreate(fifo_length, item_size);
+
+		/* Initialize global PUS Packet FIFOs			*/
+		fifo_length = 4;			// Max number of items in the FIFO.
+		item_size = 147;			// Number of bytes in the items
+		hk_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+		mem_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+		fifo_length = 4;
+		item_size = 4;
+		time_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+
+		/* Initialize global Command FIFOs				*/
+		fifo_length = 4;
+		item_size = 147;
+		obc_to_hk_fifo = xQueueCreate(fifo_length, item_size);
+		obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
+		fifo_length	 = 4;
+		item_size = 2;
+		obc_to_time_fifo = xQueueCreate(fifo_length, item_size);
+
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
 	}
 	return;
@@ -835,13 +905,15 @@ uint32_t can_init_mailboxes(uint32_t x)
 /* @Purpose: This function is used to generate the upper 4 bytes of all */
 /* CAN messages as per the new structure. 								*/
 /************************************************************************/
-uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t smalltype)
+uint32_t high_command_generator(uint8_t sender_id, uint8_t ssm_id, uint8_t MessageType, uint8_t smalltype)
 {
-	uint8_t dummy_time=0x00; //Should be replaced once RTC is ready.
-	uint32_t sender, m_type, s_type;
+	uint32_t sender, m_type, s_type, destination;
 	
 	sender = (uint32_t)sender_id;
-	sender = sender << 24;
+	sender = sender << 28;
+	
+	destination = (uint32_t)ssm_id;
+	ssm_id = ssm_id << 24;
 		
 	m_type = (uint32_t)MessageType;
 	m_type = m_type << 16;
@@ -849,7 +921,7 @@ uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t 
 	s_type = (uint32_t)smalltype;
 	s_type = s_type << 8;
 	
-	return sender + m_type + s_type + dummy_time;
+	return sender + destination + m_type + s_type;
 }
 
 /************************************************************************/
@@ -869,11 +941,18 @@ uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t 
 uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr)
 {
 	uint32_t high, low, timeout;
-	uint8_t pk, ret_val, p, a;
+	uint8_t pk, ret_val, p, a, id;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 	
 	timeout = 8000000;		// Maximum wait time of 100 ms.
 	
-	high = high_command_generator(sender_id, MT_COM, REQ_READ);
+	high = high_command_generator(sender_id, ssm_id, MT_COM, REQ_READ);
 	p = (uint32_t)passkey;
 	p = p << 24;
 	a = (uint32_t)addr;
@@ -883,7 +962,7 @@ uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_
 	{
 		hk_read_requestedf = 1;
 
-		if (send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		if (send_can_command_h(low, high, id, DEF_PRIO) < 1)
 		{
 			xSemaphoreGive(Can0_Mutex);
 			return -1;
@@ -940,12 +1019,19 @@ uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_
 uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data)
 {
 	uint32_t high, low, timeout, p, a, d;
-	uint8_t pk, ret_val;
+	uint8_t pk, ret_val, id;
 	timeout = 8000000;		// Maximum wait time of 100 ms.
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
-		high = high_command_generator(sender_id, MT_COM, REQ_WRITE);
+		high = high_command_generator(sender_id, ssm_id, MT_COM, REQ_WRITE);
 		p = (uint32_t)passkey;
 		p = p << 24;
 		a = (uint32_t)addr;
@@ -955,7 +1041,7 @@ uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t
 		
 		hk_write_requestedf = 1;
 
-		if(send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+		if(send_can_command_h(low, high, id, DEF_PRIO) < 1)
 		{
 			xSemaphoreGive(Can0_Mutex);
 			return -1;
@@ -1017,12 +1103,20 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 {
 	uint32_t high, low, timeout, s, ret_val;
 	timeout = 2000000;		// Maximum wait time of 25ms.
+	uint8_t id;
 	
-	high = high_command_generator(sender_id, MT_COM, REQ_DATA);
+	high = high_command_generator(sender_id, ssm_id, MT_COM, REQ_DATA);
 	low = (uint32_t)sensor_name;
 	low = low << 24;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
 
-	if (send_can_command_h(low, high, ssm_id, DEF_PRIO) < 1)
+	if (send_can_command_h(low, high, id, DEF_PRIO) < 1)
 	{
 		*status = -1;
 		return -1;
@@ -1166,7 +1260,7 @@ int set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint
 	if(ssm_id == PAY_ID)
 		id = SUB2_ID0;
 	
-	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_HIGH);
+	high = high_command_generator(sender_id, ssm_id, MT_COM, SET_SENSOR_HIGH);
 	low = (uint32_t)sensor_name;
 	low = low << 24;
 	low |= boundary;
@@ -1210,7 +1304,7 @@ int set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint1
 	if(ssm_id == PAY_ID)
 		id = SUB2_ID0;
 	
-	high = high_command_generator(sender_id, MT_COM, SET_SENSOR_LOW);
+	high = high_command_generator(sender_id, ssm_id, MT_COM, SET_SENSOR_LOW);
 	low = (uint32_t)sensor_name;
 	low = low << 24;
 	low |= boundary;
@@ -1266,7 +1360,7 @@ int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t v
 	if(ssm_id == PAY_ID)
 		id = SUB2_ID0;
 	
-	high = high_command_generator(sender_id, MT_COM, SET_VAR);
+	high = high_command_generator(sender_id, ssm_id, MT_COM, SET_VAR);
 	low = (uint32_t)var_name;
 	low = low << 24;
 	low |= value;
@@ -1290,5 +1384,16 @@ int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t v
 	}
 	else
 		return -1;					// CAN0 is currently busy or something has gone wrong.
+}
+
+// Let the SSM know that you're ready for a TC packet.
+static void start_tc_packet(void)
+{
+	if((!receiving_tcf) && (!current_tc_fullf))
+	{
+		send_can_command(0x00, 0x00, OBC_PACKET_ROUTER_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);		
+	}
+	receiving_tcf = 1;
+	return;
 }
 

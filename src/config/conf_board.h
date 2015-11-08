@@ -45,7 +45,7 @@ All rights reserved
 #define CONF_BOARD_H_INCLUDED
 
 /* Enabled Watchdog */
-//#define CONF_BOARD_KEEP_WATCHDOG_AT_INIT
+#define CONF_BOARD_KEEP_WATCHDOG_AT_INIT
 
 /* Enabled CAN Controllers*/
 #define CONF_BOARD_CAN0
@@ -146,6 +146,7 @@ All rights reserved
 #define CONF_BOARD_SPI0_NPCS0
 #define CONF_BOARD_SPI0_NPCS1
 #define CONF_BOARD_SPI0_NPCS2
+#define CONF_BOARD_SPI0_NPCS3
 
 /** Spi Hw ID . */
 #define SPI_ID          ID_SPI0
@@ -155,13 +156,17 @@ All rights reserved
 /** SPI base address for SPI slave mode, (on different board) */
 #define SPI_SLAVE_BASE       SPI0
 
-/*	Slave Select CS1 Configuration		*/
+/*	SPI0 Slave Select CS1 Configuration		*/
 #define CONF_BOARD_SPI0_NPCS1_GPIO SPI0_NPCS1_PB20_GPIO
 #define CONF_BOARD_SPI0_NPCS1_FLAGS SPI0_NPCS1_PB20_FLAGS
 
-/*	Slave Select CS2 Configuration		*/
+/*	SPI0 Slave Select CS2 Configuration		*/
 #define CONF_BOARD_SPI0_NPCS2_GPIO SPI0_NPCS2_PB21_GPIO
 #define CONF_BOARD_SPI0_NPCS2_FLAGS SPI0_NPCS2_PB21_FLAGS
+
+/*	SPI0 Slave Select CS3 Configuration		*/
+#define CONF_BOARD_SPI0_NPCS3_GPIO SPI0_NPCS3_PB23_GPIO
+#define CONF_BOARD_SPI0_NPCS3_FLAGS SPI0_NPCS3_PB23_FLAGS
 
 /*  SPI Memory 2						*/
 #define CONF_SPI_MEM1

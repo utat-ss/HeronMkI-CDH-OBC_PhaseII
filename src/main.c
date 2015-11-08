@@ -106,15 +106,17 @@ Author: Keenan Burnett
 *
 *	10/15/2015		memory_wash and wdt_reset are being added as tasks which are to be created in main.c
 *
+*	11/07/2015		time_update and memory_wash are now called time_manage and memory_manage.
+*
+*					I have added the task obc_packet_router in order to handle the routing/creation/decoding of PUS packets
+*					This task will have a priority of 5 (same as the soon to be FDIR task)
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
 *	create tasks and initialize interrupts.
 *	The creation of tasks is segregated into separate files so that
 *	logically related tasks are separated.
-*	main_full and main_blink are demos files created by ATMEL.
-*	my_blink is a demo that I created myself for periodically checking system
-*	functionality with the use of LEDs (changes frequently)
 *
 */
 
@@ -166,12 +168,14 @@ extern void my_blink(void);
 extern void command_loop(void);
 extern void housekeep(void);
 extern void data_test(void);
-extern void time_update(void);
+extern void time_manage(void);
 extern void eps(void);
 extern void coms(void);
 extern void payload(void);
-extern void memory_wash(void);
+extern void memory_manage(void);
 extern void	spi_initialize(void);
+
+extern void wdt_reset(void);
 
 extern uint32_t fletcher32( uint16_t const *data, size_t words );
 
@@ -211,6 +215,7 @@ int main(void)
 	//time_update();
 	//memory_wash();
 	eps();
+	//wdt_reset();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

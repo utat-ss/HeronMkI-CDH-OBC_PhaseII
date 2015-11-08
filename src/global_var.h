@@ -39,17 +39,37 @@
 	*
 	*	08/07/2015			Changed glob_comf to glob_comsf as that's less confusing.
 	*
+	*	11/05/2015			Adding lots of FIFOs for intertask communication
+	*
 */
 
 #include <stdio.h>
 #include "FreeRTOS.h"
 #include "queue.h"
 
-/*  CAN GLOBAL FIFOS			   */
-QueueHandle_t can_data_fifo;			// Initialized in can_initialize
-QueueHandle_t can_msg_fifo;
-QueueHandle_t can_hk_fifo;
-QueueHandle_t can_com_fifo;
+/*		PUS DEFINITIONS HERE			*/
+#define PACKET_LENGTH	152
+#define DATA_LENGTH		137
+
+/*  CAN GLOBAL FIFOS				*/
+/* Initialized in can_initialize()	*/
+QueueHandle_t can_data_fifo;			// CAN Handler	-->		data_collect
+QueueHandle_t can_msg_fifo;				// CAN Handler	-->		data_collect
+QueueHandle_t can_hk_fifo;				// CAN Handler	-->		housekeep
+QueueHandle_t can_com_fifo;				// CAN Handler	-->		command_test
+QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
+
+/* PUS PACKET FIFOS					*/
+/* Initialized in can_initialize()	*/
+QueueHandle_t hk_to_obc_fifo;			// housekeep	-->		obc_packet_router
+QueueHandle_t time_to_obc_fifo;			// time_manage	-->		obc_packet_router
+QueueHandle_t mem_to_obc_fifo;			// memory		-->		obc_packet_router
+
+/* GLOBAL COMMAND FIFOS				*/
+/* Initializes in can_initialize()	*/
+QueueHandle_t obc_to_hk_fifo;			// obc_packet_router	-->		housekeep
+QueueHandle_t obc_to_time_fifo;			// obc_packet_router	-->		time_manage
+QueueHandle_t obc_to_mem_fifo;			// obc_packet_router	-->		memory
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize
@@ -80,3 +100,15 @@ uint32_t  glob_stored_data[2];			// Initialized in can_initialize
 uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 
 uint32_t  SAFE_MODE;					// Condition which will initially hold the system in safe_mode.
+
+/* TC/TM Packet flags									*/
+uint8_t tm_transfer_completef;
+uint8_t start_tm_transferf;
+uint8_t current_tc_fullf, receiving_tcf;
+
+/* Global variables for time management	*/
+uint8_t ABSOLUTE_DAY;
+uint8_t CURRENT_HOUR;
+uint8_t CURRENT_MINUTE;
+uint8_t CURRENT_SECOND;
+uint8_t absolute_time_arr[4];

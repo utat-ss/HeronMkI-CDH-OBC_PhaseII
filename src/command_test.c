@@ -114,23 +114,18 @@ static void prvCommandTask( void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t low, high, ID, PRIORITY;
+	uint8_t byte_four = 0;
 	int x;
 	
 	low = DUMMY_COMMAND;
-	high = high_command_generator(OBC_ID, MT_COM, REQ_RESPONSE);
 	PRIORITY = COMMAND_PRIO;
 	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		ID = EPS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request response from COMS.
-			
-		ID = COMS_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request response from EPS.
-
-		ID = PAY_ID;
-		x = send_can_command(low, high, ID, PRIORITY);				// Request response from PAY.
+		x = send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_RESPONSE, PRIORITY);				// Request response from COMS.
+		x = send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_RESPONSE, PRIORITY);				// Request response from EPS.
+		x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_RESPONSE, PRIORITY);				// Request response from PAY.
 		
 		//xLastWakeTime = xTaskGetTickCount();
 		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);

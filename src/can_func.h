@@ -49,7 +49,7 @@
 	*
 */
 
-#include <asf/sam/components/can/sn65hvd234.h>
+//#include <asf/sam/components/can/sn65hvd234.h>
 #include <asf/sam/drivers/can/can.h>
 
 #include <stdio.h>
@@ -69,7 +69,6 @@
 
 #include "global_var.h"		// Contains convenient global variables.
 
-SemaphoreHandle_t	Can0_Mutex;
 
 typedef struct {
 	uint32_t ul_mb_idx;
@@ -90,8 +89,7 @@ typedef struct {
 } can_temp_t;
 
 /*		CAN MUTEXES DEFINED HERE		*/
-
-
+SemaphoreHandle_t	Can0_Mutex;
 
 /*		CURRENT PRIORITY LEVELS			
 	Note: ID and priority are two different things.
@@ -183,10 +181,19 @@ typedef struct {
 #define OBC_ID					0x03
 #define HK_TASK_ID				0x04
 #define DATA_TASK_ID			0x05
-#define TC_TASK_ID				0x06
+#define TIME_TASK_ID			0x06
 #define COMS_TASK_ID			0x07
 #define EPS_TASK_ID				0x08
 #define PAY_TASK_ID				0x09
+#define OBC_PACKET_ROUTER_ID	0x0A
+#define SCHEDULING_TASK_ID		0x0B
+#define FDIR_TASK_ID			0x0C
+#define WD_RESET_TASK_ID		0x0D
+#define MEMORY_TASK_ID			0x0E
+#define TIME_TASK_ID			0x0F
+#define HK_GROUND_ID			0x10
+#define TIME_GROUND_ID			0x11
+#define MEM_GROUND_ID			0x12
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01
@@ -200,6 +207,15 @@ typedef struct {
 #define SET_SENSOR_HIGH			0x09	// Remember to put SENSOR_NAME into Byte 3.
 #define SET_SENSOR_LOW			0x0A
 #define SET_VAR					0x0B	// Remember to put VAR_NAME into Byte 3.
+#define SET_TIME				0x0C
+#define SEND_TM					0x0D
+#define SEND_TC					0x0E
+#define TM_PACKET_READY			0x0F
+#define OK_START_TM_PACKET		0x10
+#define TC_PACKET_READY			0x11
+#define OK_START_TC_PACKET		0x12
+#define TM_TRANSACTION_RESP		0x13
+#define TC_TRANSACTION_RESP		0x14
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09
@@ -236,19 +252,40 @@ typedef struct {
 #define OBC_V					0x0F
 #define OBC_I					0x10
 #define BATT_I					0x11
+#define COMS_TEMP				0x12
+#define OBC_TEMP				0x13
+#define PAY_TEMP0				0x14
+#define PAY_TEMP1				0x15
+#define PAY_TEMP2				0x16
+#define PAY_TEMP3				0x17
+#define PAY_TEMP4				0x18
+#define PAY_HUM					0x19
+#define PAY_PRESS				0x1A
 
 /* VARIABLE NAMES		*/
-#define MPPTA					0x01
-#define MPPTB					0x02	
+#define MPPTA					0xFF
+#define MPPTB					0xFE
+#define COMS_MODE				0xFD
+#define EPS_MODE				0xFC
+#define PAY_MODE				0xFB
+#define OBC_MODE				0xFA
+#define PAY_STATE				0xF9
+#define ABS_TIME_D				0xF8
+#define ABS_TIME_H				0xF7
+#define ABS_TIME_M				0xF6
+#define ABS_TIME_S				0xF5
+#define SPI_CHIP_1				0xF4
+#define SPI_CHIP_2				0xF3
+#define SPI_CHIP_3				0xF2	
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8
 
 /* CAN0 Transceiver */
-sn65hvd234_ctrl_t can0_transceiver;
+//sn65hvd234_ctrl_t can0_transceiver;
 
 /* CAN1 Transceiver */
-sn65hvd234_ctrl_t can1_transceiver;
+//sn65hvd234_ctrl_t can1_transceiver;
 
 /* CAN0 Transfer mailbox structure */
 can_mb_conf_t can0_mailbox;
@@ -270,19 +307,20 @@ uint32_t can_init_mailboxes(uint32_t x);
 void save_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void restore_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb);
-int send_can_command(uint32_t low, uint32_t high, uint32_t ssm_id, uint32_t PRIORITY);				// API Function.
+int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);	// API Function.
+uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);			// API and Helper.
 uint32_t request_housekeeping(uint32_t ID);															// API Function.
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
 uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
-uint32_t high_command_generator(uint8_t sender_id, uint8_t MessageType, uint8_t smalltype);			// API Function.
+uint32_t high_command_generator(uint8_t sender_id, uint8_t ssm_id, uint8_t MessageType, uint8_t smalltype);	// API Function.
 void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller);
 void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller);
 uint8_t read_from_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr);			// API Function.
 uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t addr, uint8_t data);	// API Function.
 uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, int* status);	// API Function.
-int set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);	// API Function.
+int set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);		// API Function.
 int set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);		// API Function.
 int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value);				// API Function.
 

@@ -262,7 +262,7 @@ static uint32_t get_sensor_data(uint8_t sensor_id)
 	//Declare testing variables
 	int* status = 0;
 	uint8_t tries;
-	uint32_t sensor_value;
+	uint32_t sensor_value = 0;
 	tries = 0;
 	
 	sensor_value = request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//request a value
@@ -271,7 +271,7 @@ static uint32_t get_sensor_data(uint8_t sensor_id)
 		if (tries++ > MAX_NUM_TRIES)
 			return 0xFFFFFFFF;							// FAILURE_RECOVERY
 		else
-			request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//Otherwise try again
+			sensor_value = request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//Otherwise try again
 	}
 	return sensor_value;
 }

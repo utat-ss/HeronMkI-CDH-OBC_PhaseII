@@ -81,7 +81,7 @@ void rtc_init(uint16_t ctrl_reg_val)
     int x;
 	rtc_set_creg(ctrl_reg_val);
 	
-	x = spimem_read(1, TIME_BASE, absolute_time_arr[0], 4);	// Get the absolute time which may be stored in memory.
+	x = spimem_read(1, TIME_BASE, absolute_time_arr, 4);	// Get the absolute time which may be stored in memory.
 	ABSOLUTE_DAY = absolute_time_arr[0];
 	CURRENT_HOUR = absolute_time_arr[1];
 	CURRENT_MINUTE = absolute_time_arr[2];

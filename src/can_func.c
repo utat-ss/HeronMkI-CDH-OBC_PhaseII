@@ -803,18 +803,22 @@ void can_initialize(void)
 		tc_msg_fifo = xQueueCreate(fifo_length, item_size);
 
 		/* Initialize global PUS Packet FIFOs			*/
-		fifo_length = 2;			// Max number of items in the FIFO.
-		item_size = 138;			// Number of bytes in the items
+		fifo_length = 4;			// Max number of items in the FIFO.
+		item_size = 147;			// Number of bytes in the items
+		hk_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+		mem_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+		fifo_length = 4;
+		item_size = 4;
+		time_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 
-		/* This corresponds to 266 bytes, or 2 HK Commands. */
-		hk_to_tm_fifo = xQueueCreate(fifo_length, item_size);
-		
 		/* Initialize global Command FIFOs				*/
-		fifo_length = 2;
-		item_size = 138;
-		
-		/* This corresponds to 256 bytes	   		    */
+		fifo_length = 4;
+		item_size = 147;
 		obc_to_hk_fifo = xQueueCreate(fifo_length, item_size);
+		obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
+		fifo_length	 = 4;
+		item_size = 2;
+		obc_to_time_fifo = xQueueCreate(fifo_length, item_size);
 
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
 	}

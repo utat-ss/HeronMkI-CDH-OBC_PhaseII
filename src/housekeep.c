@@ -204,18 +204,18 @@ static void exec_commands(void)
 	uint8_t i, command;
 	if( xQueueReceive(obc_to_hk_fifo, current_command[0], xTimeToWait) == pdTRUE)
 	{
-		command = current_command[137];
+		command = current_command[146];
 		switch(command)
 		{
 			case	NEW_HK_DEFINITION:
-				collection_interval1 = current_command[136];
+				collection_interval1 = current_command[145];
 				for(i = 0; i < DATA_LENGTH; i++)
 				{
 					hk_definition1[i] = current_command[i];
 				}
-				hk_definition1[127] = 1;		//sID = 1
-				hk_definition1[126] = collection_interval1;
-				hk_definition1[125] = current_command[135];
+				hk_definition1[136] = 1;		//sID = 1
+				hk_definition1[135] = collection_interval1;
+				hk_definition1[134] = current_command[146];
 				set_definition(ALTERNATE);
 			case	CLEAR_HK_DEFINITION:
 				collection_interval1 = 30;
@@ -348,7 +348,9 @@ static int store_hk_in_spimem(void)
 	
 	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
 	x = spimem_write((HK_BASE + offset + 4), current_hk, 128);		// FAILURE_RECOVERY if x < 0
-	offset += 132;
+	offset = (offset + 132) % 10240;								// Make sure HK doesn't overflow into the next section.
+	if(offset == 0)
+		offset = 4;
 	current_hk_mem_offset[3] = (uint8_t)offset;
 	current_hk_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
 	current_hk_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
@@ -368,9 +370,9 @@ static void setup_default_definition(void)
 		hk_definition0[i] = 0;
 	}
 	
-	hk_definition0[127] = 0;							// sID = 0
-	hk_definition0[126] = collection_interval0;			// Collection interval = 30 min
-	hk_definition0[125] = 36;							// Number of parameters (2B each)
+	hk_definition0[136] = 0;							// sID = 0
+	hk_definition0[135] = collection_interval0;			// Collection interval = 30 min
+	hk_definition0[134] = 36;							// Number of parameters (2B each)
 	hk_definition0[75] = PANELX_V;
 	hk_definition0[74] = PANELX_V;
 	hk_definition0[73] = PANELX_I;
@@ -478,12 +480,12 @@ static void send_hk_as_tm(void)
 {
 	uint8_t i;
 	clear_current_command();
-	current_command[137] = HK_REPORT;
+	current_command[146] = HK_REPORT;
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_command[i] = current_hk[i];
 	}
-	xQueueSendToBack(hk_to_tm_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
 	return;
 }
 
@@ -491,11 +493,11 @@ static void send_param_report(void)
 {
 	uint8_t i;
 	clear_current_command();
-	current_command[137] = HK_DEFINITON_REPORT;
+	current_command[146] = HK_DEFINITON_REPORT;
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_command[i] = current_hk_definition[i];
 	}
-	xQueueSendToBack(hk_to_tm_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
 	return;
 }

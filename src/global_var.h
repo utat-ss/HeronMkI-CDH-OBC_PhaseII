@@ -39,6 +39,8 @@
 	*
 	*	08/07/2015			Changed glob_comf to glob_comsf as that's less confusing.
 	*
+	*	11/05/2015			Adding lots of FIFOs for intertask communication
+	*
 */
 
 #include <stdio.h>
@@ -46,8 +48,8 @@
 #include "queue.h"
 
 /*		PUS DEFINITIONS HERE			*/
-#define PACKET_LENGTH	143
-#define DATA_LENGTH		128
+#define PACKET_LENGTH	152
+#define DATA_LENGTH		137
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in can_initialize()	*/
@@ -59,11 +61,15 @@ QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
 
 /* PUS PACKET FIFOS					*/
 /* Initialized in can_initialize()	*/
-QueueHandle_t hk_to_tm_fifo;			// housekeep	-->		obc_packet_router
+QueueHandle_t hk_to_obc_fifo;			// housekeep	-->		obc_packet_router
+QueueHandle_t time_to_obc_fifo;			// time_manage	-->		obc_packet_router
+QueueHandle_t mem_to_obc_fifo;			// memory		-->		obc_packet_router
 
 /* GLOBAL COMMAND FIFOS				*/
 /* Initializes in can_initialize()	*/
-QueueHandle_t obc_to_hk_fifo;			// housekeep	-->		obc_packet_router
+QueueHandle_t obc_to_hk_fifo;			// obc_packet_router	-->		housekeep
+QueueHandle_t obc_to_time_fifo;			// obc_packet_router	-->		time_manage
+QueueHandle_t obc_to_mem_fifo;			// obc_packet_router	-->		memory
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize

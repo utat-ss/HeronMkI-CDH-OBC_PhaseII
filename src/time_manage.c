@@ -66,16 +66,24 @@ Author: Keenan Burnett, Omar Abdeldayem
 functionality. */
 #define TIME_MANAGE_PARAMETER			( 0xABCD )
 
-/*
- * Functions Prototypes.
- */
+/* Definitions to clarify which service subtypes represent what	*/
+/* Time									*/
+#define UPDATE_REPORT_FREQ				1
+#define TIME_REPORT						2
+
+/*		Functions Prototypes.		*/
 static void prvTimeManageTask( void *pvParameters );
 void time_manage(void);
 static void broadcast_minute(void);
 static void update_absolute_time(void);
+static void report_time(void);
+static void exec_commands(void);
 
 /* Local Variables for Time Management */
-struct timestamp time;
+static struct timestamp time;
+static uint32_t minute_count;
+static uint32_t report_timeout;
+static uint8_t current_command[2];
 
 /************************************************************************/
 /* time_manage (Function)												*/
@@ -103,6 +111,8 @@ void time_manage( void )
 static void prvTimeManageTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == TIME_MANAGE_PARAMETER );
+	minute_count = 0;
+	report_timeout = 60;	// Produce a time report once every 60 minutes.
 	
 	/* @non-terminating@ */	
 	for( ;; )
@@ -110,12 +120,16 @@ static void prvTimeManageTask( void *pvParameters )
 		if (rtc_triggered_a2())
 		{
 			rtc_get(&time);
+			minute_count++;
+			if(minute_count == report_timeout)
+				report_time();
 			
 			update_absolute_time();
 			broadcast_minute();
 
 			rtc_reset_a2();
 		}
+		exec_commands();
 	}
 }
 /*-----------------------------------------------------------*/
@@ -123,16 +137,17 @@ static void prvTimeManageTask( void *pvParameters )
 static void broadcast_minute(void)
 {
 	uint32_t high;
-	high = high_command_generator(TC_TASK_ID, EPS_ID, MT_TC, SET_TIME);
+	high = high_command_generator(TIME_TASK_ID, EPS_ID, MT_TC, SET_TIME);
 	send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB1_ID0, DEF_PRIO);
-	high = high_command_generator(TC_TASK_ID, COMS_ID, MT_TC, SET_TIME);
+	high = high_command_generator(TIME_TASK_ID, COMS_ID, MT_TC, SET_TIME);
 	send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB0_ID0, DEF_PRIO);
-	high = high_command_generator(TC_TASK_ID, PAY_ID, MT_TC, SET_TIME);
+	high = high_command_generator(TIME_TASK_ID, PAY_ID, MT_TC, SET_TIME);
 	send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB2_ID0, DEF_PRIO);
 	return;
 }
 
 // Updates the global variables which store absolute time and stores it in SPI memory every minute.
+// This function updates absolute time, and stores it in SPI memory for safe keeping.
 static void update_absolute_time(void)
 {
 	CURRENT_MINUTE = time.minute;
@@ -150,5 +165,22 @@ static void update_absolute_time(void)
 	absolute_time_arr[3] = CURRENT_SECOND;
 	
 	spimem_write(TIME_BASE, absolute_time_arr, 4);	// Writes the absolute time to SPI memory.
+	return;
+}
+
+static void report_time(void)
+{
+	xQueueSendToBack(time_to_obc_fifo, absolute_time_arr, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	minute_count = 0;
+	return;
+}
+
+// Execute commands that are sent from the obc_packet_router
+static void exec_commands(void)
+{
+	if(xQueueReceive(obc_to_time_fifo, current_command, (TickType_t)10) == pdTRUE)
+	{
+		report_timeout = current_command[0];
+	}
 	return;
 }

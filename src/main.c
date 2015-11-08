@@ -209,13 +209,13 @@ int main(void)
 	prvSetupHardware();
 		
 	/* Create Tasks */
-	//my_blink();
-	command_loop();
-	housekeep();
-	data_test();
+	//command_loop();
+	//housekeep();
+	//data_test();
 	//time_update();
 	//memory_wash();
-	wdt_reset();
+	eps();
+	//wdt_reset();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();
@@ -298,7 +298,7 @@ static void prvSetupHardware(void)
 	//rtc_init(DS3234_INTCN);
 	
 	/* Initialize the SPI memory chips	*/
-	spimem_initialize();
+	//spimem_initialize();
 	
 }
 /*-----------------------------------------------------------*/

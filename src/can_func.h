@@ -309,7 +309,7 @@ void restore_can_object(can_mb_conf_t *original, can_temp_t *temp);
 void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb);
 int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);	// API Function.
 uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY);			// API and Helper.
-uint32_t request_housekeeping(uint32_t ID);															// API Function.
+uint32_t request_housekeeping(uint32_t ssm_id);															// API Function.
 uint32_t read_can_data(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);		// API Function.
 uint32_t read_can_msg(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.
 uint32_t read_can_hk(uint32_t* message_high, uint32_t* message_low, uint32_t access_code);			// API Function.

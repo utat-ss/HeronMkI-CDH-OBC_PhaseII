@@ -1,4 +1,4 @@
-src/eps.d src/eps.o: ../src/eps.c \
+src/scheduling.d src/scheduling.o: ../src/scheduling.c \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\_ansi.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\newlib.h \
@@ -132,13 +132,15 @@ src/eps.d src/eps.o: ../src/eps.c \
  ../src/asf/sam/drivers/pio/pio_handler.h \
  ../src/asf/sam/drivers/rtt/rtt.h ../src/asf/sam/drivers/tc/tc.h \
  ../src/asf/sam/drivers/spi/spi.h \
- ../src/Common-Demo-Source/include/partest.h ../src/can_func.h \
+ ../src/Common-Demo-Source/include/partest.h ../src/rtc.h \
+ ../src/spi_func.h ../src/config/conf_board.h \
+ ../src/asf/sam/drivers/spi/conf_spi.h ../src/spimem.h ../src/time.h \
+ ../src/atomic.h ../src/global_var.h \
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/can_func.h \
  ../src/asf/sam/drivers/can/can.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h \
- c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h \
- ../src/config/conf_board.h \
- ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/global_var.h
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h:
 
@@ -422,6 +424,24 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 
 ../src/Common-Demo-Source/include/partest.h:
 
+../src/rtc.h:
+
+../src/spi_func.h:
+
+../src/config/conf_board.h:
+
+../src/asf/sam/drivers/spi/conf_spi.h:
+
+../src/spimem.h:
+
+../src/time.h:
+
+../src/atomic.h:
+
+../src/global_var.h:
+
+../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
 ../src/can_func.h:
 
 ../src/asf/sam/drivers/can/can.h:
@@ -431,9 +451,3 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h:
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h:
-
-../src/config/conf_board.h:
-
-../src/asf/thirdparty/FreeRTOS/include/queue.h:
-
-../src/global_var.h:

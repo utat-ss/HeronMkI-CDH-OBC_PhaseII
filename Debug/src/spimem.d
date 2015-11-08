@@ -131,7 +131,9 @@ src/spimem.d src/spimem.o: ../src/spimem.c ../src/spimem.h \
  ../src/asf/thirdparty/FreeRTOS/portable/GCC/ARM_CM3/portmacro.h \
  ../src/asf/thirdparty/FreeRTOS/include/mpu_wrappers.h \
  ../src/asf/thirdparty/FreeRTOS/include/semphr.h \
- ../src/asf/thirdparty/FreeRTOS/include/queue.h
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/atomic.h \
+ ../src/asf/thirdparty/FreeRTOS/include/task.h \
+ ../src/asf/thirdparty/FreeRTOS/include/list.h
 
 ../src/spimem.h:
 
@@ -418,3 +420,9 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/thirdparty/FreeRTOS/include/semphr.h:
 
 ../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
+../src/atomic.h:
+
+../src/asf/thirdparty/FreeRTOS/include/task.h:
+
+../src/asf/thirdparty/FreeRTOS/include/list.h:

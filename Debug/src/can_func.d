@@ -1,6 +1,5 @@
 src/can_func.d src/can_func.o: ../src/can_func.c ../src/can_func.h \
- ../src/asf/sam/components/can/sn65hvd234.h \
- ../src/asf/common/boards/board.h ../src/asf/sam/utils/compiler.h \
+ ../src/asf/sam/drivers/can/can.h ../src/asf/sam/utils/compiler.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include\stddef.h \
  ../src/asf/common/utils/parts.h \
  ../src/asf/sam/utils/preprocessor/preprocessor.h \
@@ -106,12 +105,12 @@ src/can_func.d src/can_func.o: ../src/can_func.c ../src/can_func.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\alloca.h \
  ../src/asf/common/utils/interrupt.h \
  ../src/asf/common/utils/interrupt/interrupt_sam_nvic.h \
- ../src/asf/sam/boards/sam3x_ek/sam3x_ek.h \
- ../src/asf/sam/utils/cmsis/sam3x/source/templates/exceptions.h \
- ../src/asf/sam/drivers/can/can.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h \
+ ../src/asf/common/boards/board.h \
+ ../src/asf/sam/boards/sam3x_ek/sam3x_ek.h \
+ ../src/asf/sam/utils/cmsis/sam3x/source/templates/exceptions.h \
  ../src/asf/common/services/clock/sysclk.h ../src/config/conf_clock.h \
  ../src/asf/common/services/clock/sam3x/sysclk.h \
  ../src/asf/common/services/clock/osc.h \
@@ -133,9 +132,7 @@ src/can_func.d src/can_func.o: ../src/can_func.c ../src/can_func.h \
 
 ../src/can_func.h:
 
-../src/asf/sam/components/can/sn65hvd234.h:
-
-../src/asf/common/boards/board.h:
+../src/asf/sam/drivers/can/can.h:
 
 ../src/asf/sam/utils/compiler.h:
 
@@ -349,17 +346,17 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 
 ../src/asf/common/utils/interrupt/interrupt_sam_nvic.h:
 
-../src/asf/sam/boards/sam3x_ek/sam3x_ek.h:
-
-../src/asf/sam/utils/cmsis/sam3x/source/templates/exceptions.h:
-
-../src/asf/sam/drivers/can/can.h:
-
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h:
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h:
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h:
+
+../src/asf/common/boards/board.h:
+
+../src/asf/sam/boards/sam3x_ek/sam3x_ek.h:
+
+../src/asf/sam/utils/cmsis/sam3x/source/templates/exceptions.h:
 
 ../src/asf/common/services/clock/sysclk.h:
 

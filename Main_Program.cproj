@@ -424,6 +424,30 @@
     <Compile Include="src\asf\sam\drivers\uart\uart.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\atomic.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\atomic.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\checksum.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\eps.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\memory_manage.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\obc_packet_router.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\scheduling.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\time_manage.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\wdt_reset.c">
       <SubType>compile</SubType>
     </Compile>
@@ -440,9 +464,6 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\data_collect.c">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\eps.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\global_var.h">
@@ -479,9 +500,6 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\time.h">
-      <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\time_update.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\usart_func.c">

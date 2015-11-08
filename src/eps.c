@@ -62,18 +62,22 @@ functionality. */
 /* Function Prototypes										 */
 static void prvEpsTask( void *pvParameters );
 void eps(void);
-static uint8_t getxDirection(void);
-static uint8_t getyDirection(void);
-static uint8_t setxDuty(void);
-static uint8_t setyDuty(void);
-static int32_t get_sensor_data(uint8_t sensor_id);
-static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
+static void getxDirection(void);
+static void getyDirection(void);
+static void setxDuty(void);
+static void setyDuty(void);
+static uint32_t get_sensor_data(uint8_t sensor_id);
+static void set_variable_value(uint8_t variable_name, uint8_t new_var_value);
+static void setUpMPPT(void);
 /*-----------------------------------------------------------*/
 
 
 /* Global Variables Prototypes								*/
 static uint8_t xDirection, yDirection, xDuty, yDuty;
 static uint32_t pxp_last, pyp_last;
+static uint32_t battmv, battv, batti, battemp;
+static uint32_t epstemp, comsv, comsi;
+static uint32_t payv, payi, obcv, obci;
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -113,11 +117,8 @@ static void prvEpsTask(void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 
 	/* Declare Variables Here */
-	uint32_t battmv, battv, batti, battemp;
-	uint32_t epstemp, comsv, comsi;
-	uint32_t payv, payi, obcv, obci;
-	
 
+	setUpMPPT();
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -146,17 +147,17 @@ static void prvEpsTask(void *pvParameters )
 /****************************************************************************************/
 static void getxDirection(void)
 {
-	uint32_t pxv, pxi, pxp_new, pxp_last;
+	uint32_t pxv, pxi, pxp_new;
 
 	pxv = get_sensor_data(PANELX_V);
 	pxi = get_sensor_data(PANELX_I);
-	pxp_new = pxi * pxi;
+	pxp_new = pxi * pxv;
 
-	if ((pxp_new < pxp_last) & xDirection == 1)
+	if ((pxp_new < pxp_last) & (xDirection == 1))
 	{
 		xDirection = 0;
 	}
-	else if ((pxp_new < pxp_last) & xDirection == 0)
+	else if ((pxp_new < pxp_last) & (xDirection == 0))
 	{
 		xDirection = 1;
 	}
@@ -175,18 +176,18 @@ static void getxDirection(void)
 /****************************************************************************************/
 static void getyDirection(void)
 {
-	uint32_t pyv, pyi, pyp_new, pyp_last;
+	uint32_t pyv, pyi, pyp_new;
 
 	pyv = get_sensor_data(PANELY_V);
 	pyi = get_sensor_data(PANELY_I);
-	pyp_new = pyi * pyi;
+	pyp_new = pyi * pyv;
 
-	if ((pyp_new < pyp_last) & yDirection == 1)
+	if ((pyp_new < pyp_last) & (yDirection == 1))
 	{
 		yDirection = 0;
 	}
 	
-	else if ((pxp_new < pxp_last) & yDirection == 0)
+	else if ((pyp_new < pyp_last) & (yDirection == 0))
 	{
 		yDirection = 1;
 	}
@@ -200,7 +201,7 @@ static void getyDirection(void)
 			This particular function sets for the X-axis MPPT and sends a CAN message  
 			with the update to the EPS SSM												*/
 /****************************************************************************************/
-static uint8_t setxDuty(void)
+static void setxDuty(void)
 {
 	if (xDirection == 1)
 	{
@@ -220,7 +221,7 @@ static uint8_t setxDuty(void)
 			This particular function sets for the Y-axis MPPT and sends a CAN message  
 			with the update to the EPS SSM												*/
 /****************************************************************************************/
-static uint8_t setyDuty(void)
+static void setyDuty(void)
 {
 	if (yDirection == 1)
 	{
@@ -231,7 +232,7 @@ static uint8_t setyDuty(void)
 	{
 		yDuty = yDuty - DUTY_INCREMENT;
 	}
-	set_variable(MPPTB, yDuty);
+	set_variable_value(MPPTB, yDuty);
 }
 
 
@@ -243,8 +244,8 @@ static uint8_t setyDuty(void)
 /****************************************************************************************/
 static void setUpMPPT(void)
 {
-	pxp_last = 0;
-	pyp_last = 0;
+	pxp_last = 0xFFFFFFFF;
+	pyp_last = 0xFFFFFFFF;
 	xDirection = 0;
 	yDirection = 0;
 	xDuty = 0x3F;
@@ -265,33 +266,20 @@ static void setUpMPPT(void)
 static uint32_t get_sensor_data(uint8_t sensor_id)
 {
 	//Declare testing variables
-	int* status;
+	int* status = 0;
 	uint8_t tries;
 	uint32_t sensor_value;
 	tries = 0;
 	
 	sensor_value = request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//request a value
-	if (*status == -1)								//If there is an error, check the status
+	while (*status == -1)								//If there is an error, check the status
 	{
-		tries++;									//Send an error if we have already tried too many times
-		if (tries > MAX_NUM_TRIES)
-		{
-			tries = 0;
-			//SEND SOME ERROR MESSAGE OF SOME KIND
-		}
+		if (tries++ > MAX_NUM_TRIES)
+			return 0xFFFFFFFF;							// FAILURE_RECOVERY
 		else
-		{
 			request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//Otherwise try again
-		}
 	}
-	if (*status == 1)						//If status is 1 then we are good and we should return the sensor value 
-	{
-		return sensor_value;
-	}
-	else //SEND SOME ERROR MESSAGE OF SOME KIND
-	{
-		//Send error message b/c we shouldn't ever get here
-	}
+	return sensor_value;
 }
 
 /****************************************************************************************/
@@ -312,29 +300,14 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 {
 	//Declare testing variables
 	int status;
-	uint8_t tries;
-	tries = 0;
-	
+	uint8_t tries = 0;
 	status = set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);
-	if (status == -1)								//If there is an error, check the status
+	while (status == -1)								//If there is an error, check the status
 	{
-		tries++;									//Send an error if we have already tried too many times
-		if (tries > MAX_NUM_TRIES)
-		{
-			tries = 0;
-			//SEND SOME ERROR MESSAGE OF SOME KIND
-		}
+		if (tries++ > MAX_NUM_TRIES)
+			return;									// FAILURE_RECOVERY
 		else
-		{
-			set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);		//Otherwise try again
-		}
+			status = set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);		//Otherwise try again
 	}
-	if (status == 1)						//If status is 1 then we are good and we should return the sensor value
-	{
-		return;
-	}
-	else //SEND SOME ERROR MESSAGE OF SOME KIND
-	{
-		//Send error message b/c we shouldn't ever get here
-	}
+	return;						//If status is 1 then we are good and we should return the sensor value
 }

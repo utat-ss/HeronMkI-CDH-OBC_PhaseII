@@ -114,6 +114,7 @@ static void send_hk_as_tm(void);
 static void send_param_report(void);
 static void exec_commands(void);
 static int store_hk_in_spimem(void);
+static void set_hk_mem_offset(void);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -179,6 +180,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	setup_default_definition();
 	set_definition(DEFAULT);
 	clear_alternate_hk_definition();
+	set_hk_mem_offset();
 		
 	/* @non-terminating@ */	
 	for( ;; )
@@ -202,7 +204,7 @@ static void prvHouseKeepTask(void *pvParameters )
 static void exec_commands(void)
 {
 	uint8_t i, command;
-	if( xQueueReceive(obc_to_hk_fifo, current_command[0], xTimeToWait) == pdTRUE)
+	if( xQueueReceive(obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
 	{
 		command = current_command[146];
 		switch(command)
@@ -254,7 +256,7 @@ static void set_hk_mem_offset(void)
 {
 	uint32_t offset;
 	spimem_read(1, HK_BASE, current_hk_mem_offset, 4);	// Get the current HK memory offset.
-	offset += (uint32_t)(current_hk_mem_offset[0] << 24);
+	offset = (uint32_t)(current_hk_mem_offset[0] << 24);
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
@@ -341,7 +343,7 @@ static int store_hk_in_spimem(void)
 {
 	uint32_t offset;
 	int x;
-	offset += (uint32_t)(current_hk_mem_offset[0] << 24);
+	offset = (uint32_t)(current_hk_mem_offset[0] << 24);
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];

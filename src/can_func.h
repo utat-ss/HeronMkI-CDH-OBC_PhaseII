@@ -190,7 +190,6 @@ SemaphoreHandle_t	Can0_Mutex;
 #define FDIR_TASK_ID			0x0C
 #define WD_RESET_TASK_ID		0x0D
 #define MEMORY_TASK_ID			0x0E
-#define TIME_TASK_ID			0x0F
 #define HK_GROUND_ID			0x10
 #define TIME_GROUND_ID			0x11
 #define MEM_GROUND_ID			0x12

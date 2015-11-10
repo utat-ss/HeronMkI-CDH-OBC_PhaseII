@@ -110,9 +110,9 @@ static void prvDataTask( void *pvParameters )
 	for( ;; )
 	{
 		low = DATA_REQUEST;
-		//x = send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_DATA, PRIORITY);				// Request response from COMS.
+		x = send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_DATA, PRIORITY);				// Request response from COMS.
 		x = send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_DATA, PRIORITY);				// Request response from EPS.
-		//x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_DATA, PRIORITY);				// Request response from PAY.					
+		x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_DATA, PRIORITY);				// Request response from PAY.					
 
 		if(glob_drf)		// data reception flag;
 		{

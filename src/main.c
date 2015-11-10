@@ -211,10 +211,10 @@ int main(void)
 	/* Create Tasks */
 	//command_loop();
 	//housekeep();
-	data_test();
+	//data_test();
 	//time_update();
 	//memory_wash();
-	//eps();
+	eps();
 	//wdt_reset();
 	
 	/* Start Scheduler */

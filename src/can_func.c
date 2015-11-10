@@ -468,6 +468,36 @@ uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t P
 }
 
 /************************************************************************/
+/* SEND_CAN_COMMAND_h2 		                                            */
+/* @param: low: The lower 4 bytes that you would like to send.			*/
+/* @param: high: The upper 4 bytes that you would like to send.			*/
+/* @param: ID: The ID of the SSM that you are sending a command to.		*/
+/* @param: PRIORITY: The priority which will be put on the CAN message. */
+/* @Purpose: This function sends an 8 byte message to the SSM chosen. 	*/
+/* @return: 1 == completed, (<=0) == failure.							*/
+/* @NOTE: 1 != Success (Necessarily) 									*/
+/************************************************************************/
+static int send_can_command_h2(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
+{	
+	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	uint32_t id, ret_val, high;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
+		
+	high = high_command_generator(sender_id, ssm_id, MT_COM, smalltype);
+	if(byte_four)
+		high |= (uint32_t)byte_four;
+
+	ret_val = send_can_command_h(low, high, id, priority);
+	return (int)ret_val;
+}
+
+/************************************************************************/
 /* SEND_CAN_COMMAND 		                                            */
 /* @param: low: The lower 4 bytes that you would like to send.			*/
 /* @param: high: The upper 4 bytes that you would like to send.			*/
@@ -491,7 +521,7 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 		
 	high = high_command_generator(sender_id, ssm_id, MT_COM, smalltype);
 	if(byte_four)
-		high &= (uint32_t)byte_four;
+		high |= (uint32_t)byte_four;
 
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
@@ -1105,7 +1135,7 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 	timeout = 2000000;		// Maximum wait time of 25ms.
 	uint8_t id;
 	
-	if (send_can_command(0x00, sensor_name, sender_id, ssm_id, REQ_DATA, COMMAND_PRIO) < 0)
+	if (send_can_command_h2(0x00, sensor_name, sender_id, ssm_id, REQ_DATA, COMMAND_PRIO) < 0)
 	{
 		*status = 0xFF;
 		return 0xFFFFFFFF;
@@ -1121,7 +1151,7 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 				return 0xFFFFFFFF;			// The operation failed.
 			}
 		}
-		s = (uint8_t)((eps_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+		s = (uint32_t)((eps_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
 	
 		if (s != sensor_name)
 		{
@@ -1203,7 +1233,7 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, int* status)
 {
 	uint32_t ret_val = 0;
-	uint8_t* s;
+	uint8_t* s = 0;
 	uint8_t temp = 0;
 	uint32_t temp2 = 0;
 	

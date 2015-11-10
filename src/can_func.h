@@ -222,10 +222,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define SMALLTYPE_DEFAULT		0x00
 
 /* DATA SMALL-TYPE	   */
-#define SPI_TEMP1				0x01
-#define COMS_PACKET				0x02
-#define BATT_TOP				0x03
-#define BATT_BOTTOM				0x04
+#define SPI_TEMP1				0xFF
+#define COMS_PACKET				0xFE
 
 /* MESSAGE PRIORITIES	*/
 #define COMMAND_PRIO			25

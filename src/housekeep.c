@@ -185,12 +185,12 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
+		//exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
 		request_housekeeping_all();
-		store_housekeeping();
-		send_hk_as_tm();
-		if(param_report_requiredf)
-			send_param_report();
+		//store_housekeeping();
+		//send_hk_as_tm();
+		//if(param_report_requiredf)
+		//	send_param_report();
 	}
 }
 /*-----------------------------------------------------------*/

@@ -26,13 +26,8 @@ Author: Keenan Burnett
 *	ASSUMPTIONS, CONSTRAINTS, CONDITIONS:	None
 *
 *	NOTES:
-*	The bootloader is burned onto a ROM which is used to
-*	program the ATMSAM3X on the Arduino DUE. Other than that, you can find
-*	pin assignments in sam3x_ek and sam3x_8e.
-*
 *	Within conf_board.h, CONF_BOARD_KEEP_WATCHDOG_AT_INIT can either be defined
-*	or commented out. If defined, the watchdog timer will be initialized and will
-*	blink a given LED every time the timer times out.
+*	or commented out.
 *
 *	REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
 *	New tasks should be written to use as much of CMSIS as possible. The ASF and
@@ -111,6 +106,8 @@ Author: Keenan Burnett
 *					I have added the task obc_packet_router in order to handle the routing/creation/decoding of PUS packets
 *					This task will have a priority of 5 (same as the soon to be FDIR task)
 *
+*	11/10/2015		I moved the initialization of Queues and Global variables into main.c
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
@@ -127,8 +124,7 @@ Author: Keenan Burnett
 #include "FreeRTOS.h"
 #include "task.h"
 
-/* Standard demo includes - just needed for the LED (ParTest) initialization
-function. */
+/*LED (ParTest) initialization */
 #include "partest.h"
 
 /* Atmel library includes. */
@@ -148,22 +144,22 @@ uint32_t data_reg[2];
 
 #include "spimem.h"
 
-/* MUTEXES and SEMAPHORES */
+#include "checksum.h"
 
 /* Set up the hardware ready to run the program. */
 static void prvSetupHardware(void);
-
 /*	Initialize mutexes and semaphores to be used by the programs  */
 static void prvInitializeMutexes(void);
-
 /*  Initialize the priorities of various interrupts on the Cortex-M3 System */
 static void prvInitializeInterruptPriorities(void);
-
-/*	This is the initial state of operation. Here we wait for go-ahead from a groundstation.*/
+/*	This is the initial state of operation. Here we wait for go-ahead from a groundstation.	*/
 static void safe_mode(void);
+/* Initializes FIFOs which are used for routing CAN messages and/or PUS packets to tasks	*/
+static void prvInitializeFifos(void);
+/* Initializes Global variables used for synchronization and signaling to processes.		*/
+static void prvInitializeGlobalVars(void);
 
 /* External functions used to create and encapsulate different tasks*/
-
 extern void my_blink(void);
 extern void command_loop(void);
 extern void housekeep(void);
@@ -174,10 +170,10 @@ extern void coms(void);
 extern void payload(void);
 extern void memory_manage(void);
 extern void	spi_initialize(void);
-
 extern void wdt_reset(void);
-
-extern uint32_t fletcher32( uint16_t const *data, size_t words );
+extern void obc_packet_router(void);
+extern void scheduling(void);
+extern void fdir(void);
 
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
 within this file. */
@@ -185,11 +181,6 @@ void vApplicationMallocFailedHook(void);
 void vApplicationIdleHook(void);
 void vApplicationStackOverflowHook(TaskHandle_t pxTask, char *pcTaskName);
 void vApplicationTickHook(void);
-
-/*-----------------------------------------------------------*/
-
-/* See the documentation page for this demo on the FreeRTOS.org web site for
-full information - including hardware setup requirements. */
 
 /************************************************************************/
 /*								MAIN                                    */
@@ -207,14 +198,25 @@ int main(void)
 	
 	/* Prepare the hardware */
 	prvSetupHardware();
+	
+	/* Initialize Global FIFOs			*/
+	prvInitializeFifos();
+	
+	/* Initialize Global variables		*/
+	prvInitializeGlobalVars();
 		
 	/* Create Tasks */
+	//fdir();
+	//obc_packet_router();
+	//scheduling();
 	//command_loop();
 	//housekeep();
 	//data_test();
 	//time_update();
 	//memory_wash();
 	eps();
+	//coms();
+	//payload();
 	//wdt_reset();
 	
 	/* Start Scheduler */
@@ -233,7 +235,9 @@ int main(void)
 static void safe_mode(void)
 {
 	extern void SystemCoreClockUpdate(void);
-	
+	uint32_t timeout = 80000000, low=0, high=0;
+	uint32_t MEM_LOCATION = 0x00080000;
+	size_t SIZE = 10;
 	/* ASF function to setup clocking. */
 	sysclk_init();
 	
@@ -243,43 +247,25 @@ static void safe_mode(void)
 	/* Initializes WDT, CAN, and interrupts. */
 	safe_board_init();
 	
-	//uint32_t timeOut, low, high;
-	
-	//timeOut = 80000000;
-	
 	/* Initialize Mutexes */
 	prvInitializeMutexes();
 	
 	/* Initialize CAN-related registers and functions for tests and operation */
 	can_initialize();
-		
-		
-	//Debugging Stuff
-	//uint32_t MEM_LOCATION = 0x00080000;
-	//size_t SIZE = 10;
-	
-	//uint32_t a;
-	//a = fletcher32(MEM_LOCATION, SIZE);
-	
+
+	low = fletcher32(MEM_LOCATION, SIZE);
 	
 	while(SAFE_MODE)
 	{
-		/*
-		if(timeOut--)
+		if(timeout--)
 		{
-			high = high_command_generator(OBC_ID, MT_COM, SAFE_MODE_VAR);
-			low = a;
-			send_can_command(low, high, SUB0_ID0, DEF_PRIO);
-			timeOut = 80000000;
+			send_can_command(low, 0x00, OBC_ID, COMS_ID, SAFE_MODE_TYPE, COMMAND_PRIO);
+			timeout = 80000000;
 		}
-		*/
 	}
 }
 
-
-/**
- * \brief Initializes the hardware.	
- */
+/* Initializes the hardware.	*/
 static void prvSetupHardware(void)
 {
 	/* Perform the remainder of board initialization functions. */
@@ -313,6 +299,42 @@ static void prvInitializeMutexes(void)
 	return;
 }
 
+static void prvInitializeFifos(void)
+{
+	UBaseType_t fifo_length, item_size;
+	/* Initialize global CAN FIFOs					*/
+	fifo_length = 100;		// Max number of items in the FIFO.
+	item_size = 4;			// Number of bytes in the items.
+		
+	/* This corresponds to 400 bytes, or 50 CAN messages */
+	can_data_fifo = xQueueCreate(fifo_length, item_size);
+	can_msg_fifo = xQueueCreate(fifo_length, item_size);
+	can_hk_fifo = xQueueCreate(fifo_length, item_size);
+	can_com_fifo = xQueueCreate(fifo_length, item_size);
+	tc_msg_fifo = xQueueCreate(fifo_length, item_size);
+
+	/* Initialize global PUS Packet FIFOs			*/
+	fifo_length = 4;			// Max number of items in the FIFO.
+	item_size = 147;			// Number of bytes in the items
+	hk_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+	mem_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+	sched_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+	fifo_length = 4;
+	item_size = 4;
+	time_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+
+	/* Initialize global Command FIFOs				*/
+	fifo_length = 4;
+	item_size = 147;
+	obc_to_hk_fifo = xQueueCreate(fifo_length, item_size);
+	obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
+	obc_to_sched_fifo = xQueueCreate(fifo_length, item_size);
+	fifo_length	 = 4;
+	item_size = 2;
+	obc_to_time_fifo = xQueueCreate(fifo_length, item_size);
+	return;
+}
+
 static void prvInitializeInterruptPriorities(void)
 {
 	uint32_t priority = 11;
@@ -326,6 +348,36 @@ static void prvInitializeInterruptPriorities(void)
 	
 	priority = NVIC_GetPriority(can1_int_num);
 	
+	return;
+}
+
+static void prvInitializeGlobalVars(void)
+{
+	/* Initialize the data reception flag	*/
+	glob_drf = 0;
+		
+	/* Initialize the message reception flag */
+	glob_comsf = 0;
+		
+	/* Initialize the HK Command Flags */
+	hk_read_requestedf = 0;
+	hk_read_receivedf = 0;
+	hk_write_requestedf = 0;
+	hk_write_receivedf = 0;
+		
+	/* Initialize the global can regs		*/
+	for (i = 0; i < 2; i++)
+	{
+		glob_stored_data[i] = 0;
+		glob_stored_message[i] = 0;
+		hk_read_receive[i] = 0;
+		hk_write_receive[i] = 0;
+	}
+
+	tm_transfer_completef = 0;
+	start_tm_transferf = 0;
+	current_tc_fullf = 0;
+	receiving_tcf = 0;
 	return;
 }
 
@@ -361,9 +413,6 @@ void vApplicationIdleHook(void)
 }
 /*-----------------------------------------------------------*/
 
-/**
- * \brief 
- */
 void vApplicationStackOverflowHook(TaskHandle_t pxTask, char *pcTaskName)
 {
 	(void)pcTaskName;
@@ -386,21 +435,5 @@ void vApplicationTickHook(void)
 	code must not attempt to block, and only the interrupt safe FreeRTOS API
 	functions can be used (those that end in FromISR()). */
 }
-/*-----------------------------------------------------------*/
-
-/*---------------CUSTOM INTERRUPT HANDLERS-------------------*/
-
-/**
- * \brief Clears watchdog timer status bit and restarts the counter.
- */
-void WDT_Handler(void)
-{
-	/* Clear status bit to acknowledge interrupt by dummy read. */
-	wdt_get_status(WDT);
-	gpio_toggle_pin(LED1_GPIO);
-	/* Restart the WDT counter. */
-	wdt_restart(WDT);
-}
-
 /*-----------------------------------------------------------*/
 

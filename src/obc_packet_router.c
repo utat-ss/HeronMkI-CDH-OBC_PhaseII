@@ -92,7 +92,7 @@ Author: Keenan Burnett
 #include "checksum.h"
 
 /* Priorities at which the tasks are created. */
-#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 5 )	// Shares highest priority with FDIR.
+#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 4 )	// Shares highest priority with FDIR.
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -104,6 +104,7 @@ functionality. */
 #define EVENT_REPORT_SERVICE			5
 #define MEMORY_SERVICE					6
 #define TIME_SERVICE					9
+#define K_SERVICE						69
 
 /* Definitions to clarify which service subtypes represent what	*/
 /* Housekeeping							*/
@@ -123,6 +124,11 @@ functionality. */
 #define MEMORY_DUMP_ABS					6
 #define CHECK_MEM_REQUEST				9
 #define MEMORY_CHECK_ABS				10
+/* K-Service							*/
+#define ADD_SCHEDULE					1
+#define CLEAR_SCHEDULE					2
+#define	SCHED_REPORT_REQUEST			3
+#define SCHED_REPORT					4
 
 /*
  * Functions Prototypes.
@@ -586,14 +592,14 @@ static int decode_telecommand(void)
 	return;
 }
 
-// This function looks at the service type and service substype of the incoming telecommand and turns it into 
+// This function looks at the service type and service subtype of the incoming telecommand and turns it into 
 // either a task command, action, or CAN message.
 static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 {	
 	uint8_t sID = 0xFF;
 	uint8_t collection_interval = 0;
 	uint8_t npar1 = 0;
-	uint8_t i;
+	uint8_t i, apid;
 	
 	clear_current_command();
 	for(i = 0; i < DATA_LENGTH; i++)
@@ -660,6 +666,22 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 		current_command[0] = current_tc[2];			// Report Freq.
 		xQueueSendToBack(obc_to_time_fifo, current_command, (TickType_t)1);
 	}
+	if(service_type == K_SERVICE)
+	{
+		apid = current_tc[150];
+		if(apid == FDIR_TASK_ID)
+		{
+			// Send the command(s) to the FDIR task
+		}
+		if(apid == SCHEDULING_TASK_ID)
+		{
+			// Send the command(s) to the scheduling task
+		}
+		if(apid == OBC_PACKET_ROUTER_ID)
+		{
+			// Execute the required commands here.
+		}
+	}
 	
 	return;
 }
@@ -682,13 +704,13 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		return -1;
 	}
 	
-	if((service_type != 3) && (service_type != 6) && (service_type != 9))
+	if((service_type != 3) && (service_type != 6) && (service_type != 9) && (service_type != 69))
 	{
 		x = send_tc_verification(packet_id, pcs, 0xFF, 3, (uint32_t)service_type);		// TC verify acceptance report, failure, 3 == invalid service type
 		return -1;
 	}
 	
-	if(service_type == 3)
+	if(service_type == HK_SERVICE)
 	{
 		if((service_sub_type != 1) && (service_sub_type != 2) && (service_sub_type != 3) && (service_sub_type != 4) && (service_sub_type != 5) && (service_sub_type != 6)
 		&& (service_sub_type != 7) && (service_sub_type != 8) && (service_sub_type != 9) && (service_sub_type != 11) && (service_sub_type != 17) && (service_sub_type != 18))
@@ -704,7 +726,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		}
 	}
 	
-	if(service_type == 6)
+	if(service_type == MEMORY_SERVICE)
 	{
 		if((service_sub_type != 2) && (service_sub_type != 5) && (service_sub_type != 9))
 		{
@@ -731,9 +753,9 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 			send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);
 	}
 	
-	if(service_type == 9)
+	if(service_type == TIME_SERVICE)
 	{
-		if(service_sub_type != 1)
+		if(service_sub_type != UPDATE_REPORT_FREQ)
 		{
 			x = send_tc_verification(packet_id, pcs, 0xFF, 4, (uint32_t)service_sub_type);		// TC verify acceptance report, failure, 4 == invalid service subtype
 			return -1;			
@@ -745,7 +767,29 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		}
 	}
 	
-	if(!version)
+	if(service_type == K_SERVICE)
+	{
+		if((service_sub_type > 4) || !service_sub_type)
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, 4, (uint32_t)service_sub_type);
+			return -1;
+		}
+		if((apid != SCHEDULING_TASK_ID) && (apid != FDIR_TASK_ID) && (apid != OBC_PACKET_ROUTER_ID))
+		{
+			x = send_tc_verification(packet_id, pcs, 0xFF, (uint32_t)apid);
+			return -1;
+		}
+		if((apid == FDIR_TASK_ID) || (apid == OBC_PACKET_ROUTER_ID))						// Time should be 0 for immediate commands, and SST = 1 only.
+		{
+			if(current_tc[135] || current_tc[134] || current_tc[133] || current_tc[132] || (service_sub_type != 1))
+			{
+				x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);					// Usage error.
+				return -1;
+			}
+		}
+	}
+	
+	if(version != 1)
 	{
 		x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);							// TC verify acceptance repoort, failure, 5 == usage error
 		return -1;

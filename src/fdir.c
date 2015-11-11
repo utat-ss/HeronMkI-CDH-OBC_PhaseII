@@ -1,10 +1,11 @@
 /*
 Author: Keenan Burnett
 ***********************************************************************
-* FILE NAME: obc_packet_router.c
+* FILE NAME: fdir.c
 *
 * PURPOSE:
-* This file is to be used to house the scheduling task and related functions.
+* This file is to be used to house the FDIR task and related functions.
+*	FDIR == "Failure Detection, Isolation, and Recovery"
 *
 * FILE REFERENCES: stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
 *
@@ -23,7 +24,7 @@ Author: Keenan Burnett
 * REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
 *
 * DEVELOPMENT HISTORY:
-* 11/01/2015		Created.
+* 11/10/2015		Created.
 *
 * DESCRIPTION:
 *
@@ -51,63 +52,54 @@ Author: Keenan Burnett
 #include "global_var.h"
 
 /* Priorities at which the tasks are created. */
-#define SCHEDULING_PRIORITY		( tskIDLE_PRIORITY + 3 )
+#define FDIR_PRIORITY		( tskIDLE_PRIORITY + 5 )
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
-#define SCHEDULING_PARAMETER			( 0xABCD )
+#define FDIR_PARAMETER			( 0xABCD )
 
 /*
  * Functions Prototypes.
  */
-static void prvSchedulingTask( void *pvParameters );
-void scheduling(void);
+static void prvFDIRTask( void *pvParameters );
+void fdir(void);
 
 /************************************************************************/
-/* SCHEDULING (Function)												*/
-/* @Purpose: This function is used to create the scheduling task.		*/
+/* FDIR (Function)														*/
+/* @Purpose: This function is used to create the fdir task.				*/
 /************************************************************************/
-void scheduling( void )
+void fdir( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
-		xTaskCreate( prvSchedulingTask,					/* The function that implements the task. */
+		xTaskCreate( prvFDIRTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
-					( void * ) SCHEDULING_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
-					SCHEDULING_PRIORITY, 			/* The priority assigned to the task. */
+					( void * ) FDIR_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
+					FDIR_PRIORITY, 			/* The priority assigned to the task. */
 					NULL );								/* The task handle is not required, so NULL is passed. */
 	return;
 }
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
-/*				SCHEDULING TASK			                                */
-/*	This task receives scheduling requests from obc_packet_router and	*/
-/*  other tasks/ SSMs and then places them in SPI Memory.				*/
-/* This task also periodically checks if a scheduled command needs to	*/
-/* be performed and subsequently carries out required commands.			*/
+/*				FDIR TASK												*/
+/*	This task receives commands from obc_packet_router as well as		*/
+/* failure messages from other tasks. It then proceeds to attempt to	*/
+/* resolve the issue as best it can.									*/
 /************************************************************************/
-static void prvSchedulingTask( void *pvParameters )
+static void prvFDIRTask( void *pvParameters )
 {
-	configASSERT( ( ( unsigned long ) pvParameters ) == SCHEDULING_PARAMETER );
+	configASSERT( ( ( unsigned long ) pvParameters ) == FDIR_PARAMETER );
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
 
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		exec_pus_commands();
-		check_schedule();
+		//
 	}
 }
 /*-----------------------------------------------------------*/
 
-// static helper functions may be defined below.
-static void exec_pus_commands(void)
-{
-	if(xQueueReceive(obc_to_sched_fifo, current_command, (TickType_t)1000) == pdTRUE)
-	{
-		
-	}
-}
+// Static functions defined below.

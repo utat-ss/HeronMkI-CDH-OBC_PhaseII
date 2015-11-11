@@ -215,6 +215,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define OK_START_TC_PACKET		0x12
 #define TM_TRANSACTION_RESP		0x13
 #define TC_TRANSACTION_RESP		0x14
+#define SAFE_MODE_TYPE			0x15
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

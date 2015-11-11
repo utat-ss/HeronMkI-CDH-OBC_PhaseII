@@ -772,7 +772,6 @@ void can_initialize(void)
 {
 	uint32_t ul_sysclk;
 	uint32_t x = 1, i = 0;
-	UBaseType_t fifo_length, item_size;
 
 	/* Enable CAN0 & CAN1 clock. */
 	pmc_enable_periph_clk(ID_CAN0);
@@ -794,62 +793,7 @@ void can_initialize(void)
 		/* Initialize the CAN0 & CAN1 mailboxes */
 		x = can_init_mailboxes(x); // Prevent Random PC jumps to this point.
 		//configASSERT(x);
-		
-		/* Initialize the data reception flag	*/
-		glob_drf = 0;
-		
-		/* Initialize the message reception flag */
-		glob_comsf = 0;
-		
-		/* Initialize the HK Command Flags */
-		hk_read_requestedf = 0;
-		hk_read_receivedf = 0;
-		hk_write_requestedf = 0;
-		hk_write_receivedf = 0;
-		
-		/* Initialize the global can regs		*/
-		for (i = 0; i < 2; i++)
-		{
-			glob_stored_data[i] = 0;
-			glob_stored_message[i] = 0;
-			hk_read_receive[i] = 0;
-			hk_write_receive[i] = 0;
-		}
-
-		tm_transfer_completef = 0;
-		start_tm_transferf = 0;
-		current_tc_fullf = 0;
-		receiving_tcf = 0;
-		
-		/* Initialize global CAN FIFOs					*/
-		fifo_length = 100;		// Max number of items in the FIFO.
-		item_size = 4;			// Number of bytes in the items.
-		
-		/* This corresponds to 400 bytes, or 50 CAN messages */
-		can_data_fifo = xQueueCreate(fifo_length, item_size);
-		can_msg_fifo = xQueueCreate(fifo_length, item_size);
-		can_hk_fifo = xQueueCreate(fifo_length, item_size);
-		can_com_fifo = xQueueCreate(fifo_length, item_size);
-		tc_msg_fifo = xQueueCreate(fifo_length, item_size);
-
-		/* Initialize global PUS Packet FIFOs			*/
-		fifo_length = 4;			// Max number of items in the FIFO.
-		item_size = 147;			// Number of bytes in the items
-		hk_to_obc_fifo = xQueueCreate(fifo_length, item_size);
-		mem_to_obc_fifo = xQueueCreate(fifo_length, item_size);
-		fifo_length = 4;
-		item_size = 4;
-		time_to_obc_fifo = xQueueCreate(fifo_length, item_size);
-
-		/* Initialize global Command FIFOs				*/
-		fifo_length = 4;
-		item_size = 147;
-		obc_to_hk_fifo = xQueueCreate(fifo_length, item_size);
-		obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
-		fifo_length	 = 4;
-		item_size = 2;
-		obc_to_time_fifo = xQueueCreate(fifo_length, item_size);
-
+				
 		/* MAKE SURE TO SEND LOW 4 BYTES FIRST, AND RECEIVE LOW 4 BYTES FIRST. */
 	}
 	return;

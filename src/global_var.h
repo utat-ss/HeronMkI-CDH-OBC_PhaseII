@@ -64,12 +64,14 @@ QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
 QueueHandle_t hk_to_obc_fifo;			// housekeep	-->		obc_packet_router
 QueueHandle_t time_to_obc_fifo;			// time_manage	-->		obc_packet_router
 QueueHandle_t mem_to_obc_fifo;			// memory		-->		obc_packet_router
+QueueHandle_t sched_to_obc_fifo;		// scheduling	-->		obc_packet_router
 
 /* GLOBAL COMMAND FIFOS				*/
 /* Initializes in can_initialize()	*/
 QueueHandle_t obc_to_hk_fifo;			// obc_packet_router	-->		housekeep
 QueueHandle_t obc_to_time_fifo;			// obc_packet_router	-->		time_manage
 QueueHandle_t obc_to_mem_fifo;			// obc_packet_router	-->		memory
+QueueHandle_t obc_to_sched_fifo;		// obc_packet_router	-->		scheduling
 
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize

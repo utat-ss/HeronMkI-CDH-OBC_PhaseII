@@ -57,13 +57,13 @@ SemaphoreHandle_t	Spi0_Mutex;
 #define		CE		0xC7		// Chip Erase
 
 /* SPI MEMORY BASE ADDRESSES	*/
-#define		COMS_BASE		0x00000		// COMS = 20kB: 0x00000 - 0x01FFF
-#define		EPS_BASE		0x02000		// EPS = 20kB: 0x02000 - 0x03FFF
-#define		PAY_BASE		0x04000		// PAY = 20kB: 0x04000 - 0x05FFF
-#define		HK_BASE			0x06000		// HK = 10kB: 0x06000 - 0x06FFF
-#define		EVENT_BASE		0x07000		// EVENT = 10kB: 0x07000 - 0x07FFF
+#define		COMS_BASE		0x00000		// COMS = 16kB: 0x00000 - 0x03FFF
+#define		EPS_BASE		0x04000		// EPS = 16kB: 0x04000 - 0x07FFF
+#define		PAY_BASE		0x08000		// PAY = 16kB: 0x08000 - 0x0BFFF
+#define		HK_BASE			0x0C000		// HK = 8kB: 0x0C000 - 0x0DFFF
+#define		EVENT_BASE		0x0E000		// EVENT = 8kB: 0x0E000 - 0x0FFFF
+#define		SCHEDULE_BASE	0x10000		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
 #define		TIME_BASE		0xFFFFC		// TIME = 4B: 0xFFFFC - 0xFFFFF
-#define		SCHEDULE_BASE	0x08000		// SCHEDULE = 1kB: 0x08000 - 0x08FFF
 
 /*		Global Variable Definitions		*/
 uint32_t spi_bit_map[128];		// Bit-Map to pages (256B) within SPI Memory.

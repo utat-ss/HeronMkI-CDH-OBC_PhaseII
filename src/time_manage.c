@@ -164,13 +164,19 @@ static void update_absolute_time(void)
 	absolute_time_arr[2] = CURRENT_MINUTE;
 	absolute_time_arr[3] = CURRENT_SECOND;
 	
+	CURRENT_TIME = ((uint32_t)ABSOLUTE_DAY) << 24;
+	CURRENT_TIME += ((uint32_t)CURRENT_HOUR) << 16;
+	CURRENT_TIME += ((uint32_t)CURRENT_MINUTE) << 8;
+	CURRENT_TIME += (uint32_t)CURRENT_SECOND;
+	
 	spimem_write(TIME_BASE, absolute_time_arr, 4);	// Writes the absolute time to SPI memory.
 	return;
 }
 
 static void report_time(void)
 {
-	xQueueSendToBack(time_to_obc_fifo, absolute_time_arr, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	if(xQueueSendToBack(time_to_obc_fifo, absolute_time_arr, (TickType_t)1) != pdPASS) 			// FAILURE_RECOVERY if this doesn't return pdPASS
+		return;
 	minute_count = 0;
 	return;
 }

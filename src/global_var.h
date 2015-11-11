@@ -52,7 +52,7 @@
 #define DATA_LENGTH		137
 
 /*  CAN GLOBAL FIFOS				*/
-/* Initialized in can_initialize()	*/
+/* Initialized in prvInitializeFifos() in main.c	*/
 QueueHandle_t can_data_fifo;			// CAN Handler	-->		data_collect
 QueueHandle_t can_msg_fifo;				// CAN Handler	-->		data_collect
 QueueHandle_t can_hk_fifo;				// CAN Handler	-->		housekeep
@@ -60,19 +60,22 @@ QueueHandle_t can_com_fifo;				// CAN Handler	-->		command_test
 QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
 
 /* PUS PACKET FIFOS					*/
-/* Initialized in can_initialize()	*/
+/* Initialized in prvInitializeFifos() in main.c	*/
 QueueHandle_t hk_to_obc_fifo;			// housekeep	-->		obc_packet_router
 QueueHandle_t time_to_obc_fifo;			// time_manage	-->		obc_packet_router
 QueueHandle_t mem_to_obc_fifo;			// memory		-->		obc_packet_router
 QueueHandle_t sched_to_obc_fifo;		// scheduling	-->		obc_packet_router
+QueueHandle_t fdir_to_obc_fifo;			// fdir			-->		obc_packet_router
 
 /* GLOBAL COMMAND FIFOS				*/
-/* Initializes in can_initialize()	*/
+/* Initialized in prvInitializeFifos() in main.c	*/
 QueueHandle_t obc_to_hk_fifo;			// obc_packet_router	-->		housekeep
 QueueHandle_t obc_to_time_fifo;			// obc_packet_router	-->		time_manage
 QueueHandle_t obc_to_mem_fifo;			// obc_packet_router	-->		memory
 QueueHandle_t obc_to_sched_fifo;		// obc_packet_router	-->		scheduling
+QueueHandle_t obc_to_fdir_fifo;			// ob_packet_router		-->		fdir
 
+/* GLOBAL VARIABLES ARE INITIALIZED IN prvInitializeGlobalVars() in main.c */
 /*	DATA RECEPTION FLAG			   */
 uint8_t	glob_drf;							// Initialized in can_initialize
 uint8_t glob_comsf;
@@ -113,4 +116,5 @@ uint8_t ABSOLUTE_DAY;
 uint8_t CURRENT_HOUR;
 uint8_t CURRENT_MINUTE;
 uint8_t CURRENT_SECOND;
+uint32_t CURRENT_TIME;
 uint8_t absolute_time_arr[4];

@@ -599,7 +599,8 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 	uint8_t sID = 0xFF;
 	uint8_t collection_interval = 0;
 	uint8_t npar1 = 0;
-	uint8_t i, apid;
+	uint8_t i, severity=0;
+	uint32_t time = 0;
 	
 	clear_current_command();
 	for(i = 0; i < DATA_LENGTH; i++)
@@ -620,24 +621,15 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				}
 				collection_interval = (uint32_t)current_tc[137];	
 				npar1 = current_tc[136];
-				
 				if(npar1 > 64)
 				{
 					send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);				// Npar1 must be <= 64
 					return -1;
 				}
-				
 				current_command[146] = HK_SERVICE;
 				current_command[145] = collection_interval;
 				current_command[144] = npar1;
-				
-				for (i = 0; i < DATA_LENGTH; i++)
-				{
-					current_command[i] = current_tc[i + 2];
-				}
-				
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue.
-				
 			case	CLEAR_HK_DEFINITION:
 				sID = current_tc[138];
 				if(sID != 1)
@@ -659,27 +651,30 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			default:
 				break;
 		}
+		return;
 	}
 	if(service_type == TIME_SERVICE)
 	{
 		current_command[1] = UPDATE_REPORT_FREQ;
 		current_command[0] = current_tc[2];			// Report Freq.
 		xQueueSendToBack(obc_to_time_fifo, current_command, (TickType_t)1);
+		return;
 	}
 	if(service_type == K_SERVICE)
 	{
-		apid = current_tc[150];
-		if(apid == FDIR_TASK_ID)
+		severity = current_tc[129];
+		time = ((uint32_t)current_tc[135]) << 24;
+		time += ((uint32_t)current_tc[134]) << 16;
+		time += ((uint32_t)current_tc[133]) << 8;
+		time += (uint32_t)current_tc[132];
+		current_command[146] = service_sub_type;
+		if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
+			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
+		if(severity == 1)
+			xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+		if(severity == 2)
 		{
-			// Send the command(s) to the FDIR task
-		}
-		if(apid == SCHEDULING_TASK_ID)
-		{
-			// Send the command(s) to the scheduling task
-		}
-		if(apid == OBC_PACKET_ROUTER_ID)
-		{
-			// Execute the required commands here.
+			// Deal with command here.
 		}
 	}
 	
@@ -692,6 +687,8 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 {
 	int x;
 	uint32_t address = 0, length = 0;
+	uint8_t i;
+	uint32_t new_time = 0, last_time = 0;
 	if(packet_length != PACKET_LENGTH)
 	{
 		x = send_tc_verification(packet_id, pcs, 0xFF, 1, (uint32_t)packet_length);		// TC verify acceptance report, failure, 1 == invalid packet length
@@ -769,6 +766,8 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	
 	if(service_type == K_SERVICE)
 	{
+		length = current_tc[136];
+		
 		if((service_sub_type > 4) || !service_sub_type)
 		{
 			x = send_tc_verification(packet_id, pcs, 0xFF, 4, (uint32_t)service_sub_type);
@@ -779,12 +778,25 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 			x = send_tc_verification(packet_id, pcs, 0xFF, (uint32_t)apid);
 			return -1;
 		}
-		if((apid == FDIR_TASK_ID) || (apid == OBC_PACKET_ROUTER_ID))						// Time should be 0 for immediate commands, and SST = 1 only.
+		if((current_tc[135] || current_tc[134] || current_tc[133] || current_tc[132]) && (service_sub_type != 1))	// Time should be zero for immediate commands
 		{
-			if(current_tc[135] || current_tc[134] || current_tc[133] || current_tc[132] || (service_sub_type != 1))
+			x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);					// Usage error.
+			return -1;
+		}
+		if(current_tc[135] || current_tc[134] || current_tc[133] || current_tc[132])
+		{
+			for(i = 0; i < length; i++)
 			{
-				x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);					// Usage error.
-				return -1;
+				new_time = ((uint32_t)current_tc[135 - (i * 8)]) << 24;
+				new_time += ((uint32_t)current_tc[134 - (i * 8)]) << 16;
+				new_time += ((uint32_t)current_tc[133 - (i * 8)]) << 8;
+				new_time += (uint32_t)current_tc[132 - (i * 8)];
+				if(new_time < last_time)												// Scheduled commands should be in chronological order
+				{
+					x = send_tc_verification(packet_id, pcs, 0xFF, 5, 0x00);			// Usage error.
+					return -1;
+				}
+				last_time = new_time;
 			}
 		}
 	}
@@ -820,8 +832,6 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter)
 {
 	int resp = -1;
-	if (status > 1)
-		return -1;				// Invalid Status inputted.
 	if (code > 5)
 		return -1;				// Invalid code inputted.
 

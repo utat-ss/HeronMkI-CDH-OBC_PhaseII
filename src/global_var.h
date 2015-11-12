@@ -51,6 +51,45 @@
 #define PACKET_LENGTH	152
 #define DATA_LENGTH		137
 
+/* Definitions to clarify which services represent what.		*/
+#define TC_VERIFY_SERVICE				1
+#define HK_SERVICE						3
+#define EVENT_REPORT_SERVICE			5
+#define MEMORY_SERVICE					6
+#define TIME_SERVICE					9
+#define K_SERVICE						69
+
+/* Definitions to clarify which service subtypes represent what	*/
+/* Housekeeping							*/
+#define NEW_HK_DEFINITION				1
+#define CLEAR_HK_DEFINITION				3
+#define ENABLE_PARAM_REPORT				5
+#define DISABLE_PARAM_REPORT			6
+#define REPORT_HK_DEFINITIONS			9
+#define HK_DEFINITON_REPORT				10
+#define HK_REPORT						25
+/* Time									*/
+#define UPDATE_REPORT_FREQ				1
+#define TIME_REPORT						2
+/* Memory Management					*/
+#define MEMORY_LOAD_ABS					2
+#define DUMP_REQUEST_ABS				5
+#define MEMORY_DUMP_ABS					6
+#define CHECK_MEM_REQUEST				9
+#define MEMORY_CHECK_ABS				10
+/* K-Service							*/
+#define ADD_SCHEDULE					1
+#define CLEAR_SCHEDULE					2
+#define	SCHED_REPORT_REQUEST			3
+#define SCHED_REPORT					4
+
+/* Action Requests to the OBC_PACKET_ROUTER */
+#define TASK_TO_OPR_TCV					0xDD
+#define TASK_TO_OPR_EVENT				0xEE
+
+/* EVENT REPORT ID						*/
+#define KICK_COM_FROM_SCHEDULE			0x01
+
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
 QueueHandle_t can_data_fifo;			// CAN Handler	-->		data_collect
@@ -58,6 +97,7 @@ QueueHandle_t can_msg_fifo;				// CAN Handler	-->		data_collect
 QueueHandle_t can_hk_fifo;				// CAN Handler	-->		housekeep
 QueueHandle_t can_com_fifo;				// CAN Handler	-->		command_test
 QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
+QueueHandle_t event_msg_fifo;			// CAN Handler	-->		obc_packet_router
 
 /* PUS PACKET FIFOS					*/
 /* Initialized in prvInitializeFifos() in main.c	*/

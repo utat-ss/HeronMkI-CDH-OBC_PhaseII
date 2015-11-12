@@ -281,7 +281,6 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				default :
 					break;
 			}
-			break;
 		case ACK_WRITE :
 			switch(destination)
 			{
@@ -296,7 +295,6 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				default :
 					break;
 			}
-			break;
 		case SEND_TC:
 			xQueueSendToBackFromISR(tc_msg_fifo, &ul_data_incom, &wake_task);		// Telecommand reception FIFO.
 			xQueueSendToBackFromISR(tc_msg_fifo, &uh_data_incom, &wake_task);
@@ -304,12 +302,13 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			start_tc_packet();
 		case TM_TRANSACTION_RESP:
 			tm_transfer_completef = (uint8_t)(ul_data_incom & 0x000000FF);
-			break;
 		case OK_START_TM_PACKET:
 			start_tm_transferf = 1;
-			break;
+		case SEND_EVENT:
+			xQueueSendToBackFromISR(event_msg_fifo, &ul_data_incom, &wake_task);
+			xQueueSendToBackFromISR(event_msg_fifo, &uh_data_incom, &wake_task);	// Event reception FIFO.
 		default :
-			break;
+			return;
 	}
 	return;
 }

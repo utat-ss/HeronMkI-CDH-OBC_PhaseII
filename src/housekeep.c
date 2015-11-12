@@ -88,16 +88,14 @@ functionality. */
 #define ALTERNATE				1
 
 /* Definitions to clarify which service subtypes represent what	*/
-/* Housekeeping							*/
+/* Housekeeping							
 #define NEW_HK_DEFINITION				1
 #define CLEAR_HK_DEFINITION				3
 #define ENABLE_PARAM_REPORT				5
 #define DISABLE_PARAM_REPORT			6
-#define REPORT_HK_DEFINITIONS			9
 #define HK_DEFINITON_REPORT				10
 #define HK_REPORT						25
-
-/*-----------------------------------------------------------*/
+-----------------------------------------------------------*/
 
 
 /* Function Prototypes */
@@ -115,6 +113,7 @@ static void send_param_report(void);
 static void exec_commands(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -185,12 +184,12 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		//exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
+		exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
 		request_housekeeping_all();
-		//store_housekeeping();
-		//send_hk_as_tm();
-		//if(param_report_requiredf)
-		//	send_param_report();
+		store_housekeeping();
+		send_hk_as_tm();
+		if(param_report_requiredf)
+			send_param_report();
 	}
 }
 /*-----------------------------------------------------------*/
@@ -204,8 +203,14 @@ static void prvHouseKeepTask(void *pvParameters )
 static void exec_commands(void)
 {
 	uint8_t i, command;
+	uint16_t packet_id, pcs;
+	clear_current_command();
 	if( xQueueReceive(obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
 	{
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		pcs = ((uint16_t)current_command[138]) << 8;
+		pcs += (uint16_t)current_command[137];
 		command = current_command[146];
 		switch(command)
 		{
@@ -219,6 +224,7 @@ static void exec_commands(void)
 				hk_definition1[135] = collection_interval1;
 				hk_definition1[134] = current_command[146];
 				set_definition(ALTERNATE);
+				send_tc_execution_verify(1, packet_id, pcs);		// Send TC Execution Verification (Success)
 			case	CLEAR_HK_DEFINITION:
 				collection_interval1 = 30;
 				for(i = 0; i < DATA_LENGTH; i++)
@@ -226,12 +232,16 @@ static void exec_commands(void)
 					hk_definition1[i] = 0;
 				}
 				set_definition(DEFAULT);
+				send_tc_execution_verify(1, packet_id, pcs);
 			case	ENABLE_PARAM_REPORT:
 				param_report_requiredf = 1;
+				send_tc_execution_verify(1, packet_id, pcs);
 			case	DISABLE_PARAM_REPORT:
 				param_report_requiredf = 0;
+				send_tc_execution_verify(1, packet_id, pcs);
 			case	REPORT_HK_DEFINITIONS:
 				param_report_requiredf = 1;
+				send_tc_execution_verify(1, packet_id, pcs);
 			default:
 				break;
 		}
@@ -500,6 +510,22 @@ static void send_param_report(void)
 	{
 		current_command[i] = current_hk_definition[i];
 	}
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
+
+// status = 0x01 for success, 0xFF for failure.
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
+{
+	clear_current_command();
+	current_command[146] = TASK_TO_OPR_TCV;		// Request a TC verification
+	current_command[145] = status;
+	current_command[144] = HK_TASK_ID;			// APID of this task
+	current_command[140] = ((uint8_t)packet_id) >> 8;
+	current_command[139] = (uint8_t)packet_id;
+	current_command[138] = ((uint8_t)pcs) >> 8;
+	current_command[137] = (uint8_t)pcs;
+	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	return;
+}
+

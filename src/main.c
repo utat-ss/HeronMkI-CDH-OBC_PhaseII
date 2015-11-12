@@ -312,6 +312,7 @@ static void prvInitializeFifos(void)
 	can_hk_fifo = xQueueCreate(fifo_length, item_size);
 	can_com_fifo = xQueueCreate(fifo_length, item_size);
 	tc_msg_fifo = xQueueCreate(fifo_length, item_size);
+	event_msg_fifo = xQueueCreate(fifo_length, item_size);
 
 	/* Initialize global PUS Packet FIFOs			*/
 	fifo_length = 4;			// Max number of items in the FIFO.
@@ -320,7 +321,7 @@ static void prvInitializeFifos(void)
 	mem_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 	sched_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 	fifo_length = 4;
-	item_size = 4;
+	item_size = 10;
 	time_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 
 	/* Initialize global Command FIFOs				*/
@@ -330,7 +331,7 @@ static void prvInitializeFifos(void)
 	obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
 	obc_to_sched_fifo = xQueueCreate(fifo_length, item_size);
 	fifo_length	 = 4;
-	item_size = 2;
+	item_size = 10;
 	obc_to_time_fifo = xQueueCreate(fifo_length, item_size);
 	return;
 }

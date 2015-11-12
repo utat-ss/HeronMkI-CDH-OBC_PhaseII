@@ -49,8 +49,6 @@ Author: Keenan Burnett
 #include "rtc.h"
 /*		CAN functionality includes	*/
 #include "can_func.h"
-/*		Global variable includes	*/
-#include "global_var.h"
 /*		SPI MEM includes			*/
 #include "spimem.h"
 
@@ -62,11 +60,11 @@ functionality. */
 #define SCHEDULING_PARAMETER			( 0xABCD )
 
 /* Definitions to clarify which service subtypes represent what	*/
-/* K-Service							*/
+/* K-Service							
 #define ADD_SCHEDULE					1
 #define CLEAR_SCHEDULE					2
 #define	SCHED_REPORT_REQUEST			3
-#define SCHED_REPORT					4
+#define SCHED_REPORT					4*/
 
 #define MAX_COMMANDS					1023
 
@@ -74,7 +72,7 @@ functionality. */
 static void prvSchedulingTask( void *pvParameters );
 void scheduling(void);
 static void exec_pus_commands(void);
-static void modify_schedule(void);
+static int modify_schedule(void);
 static void add_command_to_end(uint32_t new_time, uint8_t position);
 static void add_command_to_beginning(uint32_t new_time, uint8_t position);
 static void add_command_to_middle(uint32_t new_time, uint8_t position);
@@ -82,11 +80,11 @@ static int shift_schedule_right(uint32_t address);
 static int shift_schedule_left(uint32_t address);
 static void clear_schedule_buffers(void);
 static void load_buff1_to_buff0(void);
-static void check_schedule(void);
-static void clear_schedule(void);
+static int check_schedule(void);
+static int clear_schedule(void);
 static void clear_temp_array(void);
 static void clear_current_command(void);
-static void report_schedule(void);
+static int report_schedule(void);
 
 /* Local variables for scheduling */
 static uint32_t num_commands, next_command_time, furthest_command_time;
@@ -158,32 +156,56 @@ static void prvSchedulingTask( void *pvParameters )
 
 static void exec_pus_commands(void)
 {
-	uint8_t command = 0;
+	uint16_t packet_id, pcs;
 	if(xQueueReceive(obc_to_sched_fifo, current_command, (TickType_t)1000) == pdTRUE)	// Only block for a single second.
 	{
-		command = current_command[146];
-		if(command == ADD_SCHEDULE)
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		pcs = ((uint16_t)current_command[138]) << 8;
+		pcs += (uint16_t)current_command[137];
+		switch(current_command[146])
 		{
-			modify_schedule();
-			check_schedule();
+			case ADD_SCHEDULE:
+				x = modify_schedule();
+				if(x == -1)
+					send_tc_execution_verify(0xFF, packet_id, pcs);
+				if(x == -2)
+					// Send Event report on a command being kicked out.
+				if(x == 1)
+					send_tc_execution_verify(1, packet_id, pcs);
+				check_schedule();
+			case CLEAR_SCHEDULE:
+				if(clear_schedule() < 0)
+					send_tc_execution_verify(0xFF, packet_id, pcs);
+				else
+					send_tc_execution_verify(1, packet_id, pcs);
+			case SCHED_REPORT_REQUEST:
+				if(report_schedule() < 0)
+					send_tc_execution_verify(0xFF, packet_id, pcs);
+				else
+					send_tc_execution_verify(1, packet_id, pcs);			
+			default:
+				return;
 		}
-		if(command == CLEAR_SCHEDULE)
-			clear_schedule();
-		if(command == SCHED_REPORT_REQUEST)
-			report_schedule();
 	}
 	return;
 }
 
-static void modify_schedule(void)
+static int modify_schedule(void)
 {
 	uint8_t num_new_commands = current_command[136];
 	uint8_t i;
 	uint32_t new_time;
+	new_time = ((uint32_t)current_command[135]) << 24;
+	new_time += ((uint32_t)current_command[134]) << 16;
+	new_time += ((uint32_t)current_command[133]) << 8;
+	new_time += (uint32_t)current_command[132];
+	
 	if((num_commands == MAX_COMMANDS) && (new_time > furthest_command_time))
-		// Send an ERROR report to ground (usage error of schedule)
+		return -1;
 	if((num_commands == MAX_COMMANDS) && (new_time <= furthest_command_time))
-		// Send a EVENT REPORT to ground letting them know that a command is being kicked out of the schedule.
+		return -2;
+		
 	for(i = 0; i < num_new_commands; i++)			// out of the schedule.
 	{
 		new_time = ((uint32_t)current_command[135 - (i * 8)]) << 24;
@@ -205,7 +227,7 @@ static void modify_schedule(void)
 	temp_arr[2] = (uint8_t)(num_commands >> 16);
 	temp_arr[3] = (uint8_t))(num_commands >> 24);
 	x = spimem_write(SCHEDULE_BASE, temp_arr, 4);				// update the num_commands within spi memory.
-	return;
+	return 1;
 }
 
 // position is meant to be the position in the current_command[] array.
@@ -313,7 +335,7 @@ static void load_buff1_to_buff0(void)
 	return;
 }
 
-static void check_schedule(void)
+static int check_schedule(void)
 {
 	if(next_command_time >= CURRENT_TIME)
 	{
@@ -325,20 +347,24 @@ static void check_schedule(void)
 		temp_arr[2] = (uint8_t)(num_commands >> 16);
 		temp_arr[3] = (uint8_t))(num_commands >> 24);
 		x = spimem_write(SCHEDULE_BASE, temp_arr, 4);				// update the num_commands within SPI memory.
+		if(x < 0)
+			return -1;												// FAILURE_RECOVERY
 	}
-	return;
+	return 1;
 }
 
-static void clear_schedule(void)
+static int clear_schedule(void)
 {
 	uint8_t i;
 	clear_temp_array();
 	for(i = 0; i < 32; i++)
 	{
 		x = spimem_write(SCHEDULE_BASE + i * 256, temp_arr, 256);			// FAILURE_RECOVERY
+		if(x < 0)
+			return -1;
 	}
 	num_commands = 0;
-	return;
+	return 1;
 }
 
 static void clear_temp_array(void)
@@ -361,7 +387,7 @@ static void clear_current_command(void)
 	return;
 }
 
-static void report_schedule(void)
+static int report_schedule(void)
 {
 	uint8_t i, num_pages;
 	num_pages = (4 + num_commands * 8) /256;
@@ -369,13 +395,40 @@ static void report_schedule(void)
 		num_pages++;
 	clear_current_command();
 	current_command[146] = SCHED_REPORT;
-	current_command[145] = num_pages * 2;
 	for(i = 0; i < (num_pages * 2); i++)
 	{
+		current_command[145] = (num_pages * 2) - i;
 		current_command[144] = i;
 		spimem_read(1, SCHEDULE_BASE + i * 128, temp_arr, 128);
 		if(xQueueSendToBack(sched_to_obc_fifo, temp_arr, (TickType_t)10) != pdPASS)
-			return;						// FAILURE_RECOVERY
+			return -1;						// FAILURE_RECOVERY
 	}
+	return 1;
+}
+
+// status = 0x01 for success, 0xFF for failure.
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
+{
+	clear_current_command();
+	current_command[146] = TASK_TO_OPR_TCV;		// Request a TC verification
+	current_command[145] = status;
+	current_command[144] = SCHEDULING_TASK_ID;			// APID of this task
+	current_command[140] = ((uint8_t)packet_id) >> 8;
+	current_command[139] = (uint8_t)packet_id;
+	current_command[138] = ((uint8_t)pcs) >> 8;
+	current_command[137] = (uint8_t)pcs;
+	xQueueSendToBack(sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	return;
+}
+
+static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0)
+{
+	clear_current_command();
+	current_command[146] = TASK_TO_OPR_EVENT;
+	current_command[3] = severity;
+	current_command[2] = report_id;
+	current_command[1] = param1;
+	current_command[0] = param0;
+	xQueueSendToBack(sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }

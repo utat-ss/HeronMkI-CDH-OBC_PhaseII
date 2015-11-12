@@ -49,7 +49,6 @@
 	*
 */
 
-//#include <asf/sam/components/can/sn65hvd234.h>
 #include <asf/sam/drivers/can/can.h>
 
 #include <stdio.h>
@@ -193,6 +192,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define HK_GROUND_ID			0x10
 #define TIME_GROUND_ID			0x11
 #define MEM_GROUND_ID			0x12
+#define GROUND_PACKET_ROUTER_ID 0x13
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01
@@ -216,6 +216,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define TM_TRANSACTION_RESP		0x13
 #define TC_TRANSACTION_RESP		0x14
 #define SAFE_MODE_TYPE			0x15
+#define SEND_EVENT				0x16
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09
@@ -278,12 +279,6 @@ SemaphoreHandle_t	Can0_Mutex;
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8
-
-/* CAN0 Transceiver */
-//sn65hvd234_ctrl_t can0_transceiver;
-
-/* CAN1 Transceiver */
-//sn65hvd234_ctrl_t can1_transceiver;
 
 /* CAN0 Transfer mailbox structure */
 can_mb_conf_t can0_mailbox;

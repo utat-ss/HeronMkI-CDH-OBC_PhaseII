@@ -89,6 +89,8 @@
 
 /* EVENT REPORT ID						*/
 #define KICK_COM_FROM_SCHEDULE			0x01
+#define BIT_FLIP_DETECTED				0x02
+#define MEMORY_WASH_FINISHED			0x03
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -158,3 +160,6 @@ uint8_t CURRENT_MINUTE;
 uint8_t CURRENT_SECOND;
 uint32_t CURRENT_TIME;
 uint8_t absolute_time_arr[4];
+
+/* Global variables for indicating SPI Chip health */
+uint8_t SPI_HEALTH1, SPI_HEALTH2, SPI_HEALTH3;

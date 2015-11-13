@@ -72,7 +72,7 @@ functionality. */
 static void prvSchedulingTask( void *pvParameters );
 void scheduling(void);
 static void exec_pus_commands(void);
-static int modify_schedule(void);
+static int modify_schedule(uint8_t* status, uint8_t* kicked_count);
 static void add_command_to_end(uint32_t new_time, uint8_t position);
 static void add_command_to_beginning(uint32_t new_time, uint8_t position);
 static void add_command_to_middle(uint32_t new_time, uint8_t position);
@@ -157,6 +157,7 @@ static void prvSchedulingTask( void *pvParameters )
 static void exec_pus_commands(void)
 {
 	uint16_t packet_id, pcs;
+	uint8_t status, kicked_count;
 	if(xQueueReceive(obc_to_sched_fifo, current_command, (TickType_t)1000) == pdTRUE)	// Only block for a single second.
 	{
 		packet_id = ((uint16_t)current_command[140]) << 8;
@@ -166,13 +167,13 @@ static void exec_pus_commands(void)
 		switch(current_command[146])
 		{
 			case ADD_SCHEDULE:
-				x = modify_schedule();
-				if(x == -1)
-					send_tc_execution_verify(0xFF, packet_id, pcs);
-				if(x == -2)
-					// Send Event report on a command being kicked out.
-				if(x == 1)
-					send_tc_execution_verify(1, packet_id, pcs);
+				x = modify_schedule(&status, &kicked_count);
+				if(status == -1)
+					send_tc_execution_verify(0xFF, packet_id, pcs);			// The Schedule modification failed
+				if(status == 2)
+					send_event_report(1, KICK_COM_FROM_SCHEDULE, kicked_count, 0);		// the modification kicked out commands.
+				if(status == 1)
+					send_tc_execution_verify(1, packet_id, pcs);			// modification succeeded without a hitch
 				check_schedule();
 			case CLEAR_SCHEDULE:
 				if(clear_schedule() < 0)
@@ -191,20 +192,12 @@ static void exec_pus_commands(void)
 	return;
 }
 
-static int modify_schedule(void)
+static int modify_schedule(uint8_t* status, uint8_t* kicked_count);
 {
 	uint8_t num_new_commands = current_command[136];
 	uint8_t i;
 	uint32_t new_time;
-	new_time = ((uint32_t)current_command[135]) << 24;
-	new_time += ((uint32_t)current_command[134]) << 16;
-	new_time += ((uint32_t)current_command[133]) << 8;
-	new_time += (uint32_t)current_command[132];
-	
-	if((num_commands == MAX_COMMANDS) && (new_time > furthest_command_time))
-		return -1;
-	if((num_commands == MAX_COMMANDS) && (new_time <= furthest_command_time))
-		return -2;
+	*kicked_count = 0;
 		
 	for(i = 0; i < num_new_commands; i++)			// out of the schedule.
 	{
@@ -213,6 +206,16 @@ static int modify_schedule(void)
 		new_time += ((uint32_t)current_command[133 - (i * 8)]) << 8;
 		new_time += (uint32_t)current_command[132 - (i * 8)];
 		
+		if((num_commands == MAX_COMMANDS) && (new_time >= furthest_command_time))
+		{
+			*status = -1;		// Indicates failure
+			return i;			// Number of command which was successfully placed in the schedule.
+		}
+		if((num_commands == MAX_COMMANDS) && (new_time <= furthest_command_time))
+		{
+			*status = 2;		// Indicates a command was kicked out of the schedule, but no failure.
+			(*kicked_count)++;
+		}
 		if(new_time >= furthest_command_time)
 			add_command_to_end(new_time, 135 - (i * 8));
 		if(new_time < next_command_time)
@@ -227,6 +230,7 @@ static int modify_schedule(void)
 	temp_arr[2] = (uint8_t)(num_commands >> 16);
 	temp_arr[3] = (uint8_t))(num_commands >> 24);
 	x = spimem_write(SCHEDULE_BASE, temp_arr, 4);				// update the num_commands within spi memory.
+	*status = 1
 	return 1;
 }
 
@@ -242,6 +246,7 @@ static void add_command_to_end(uint32_t new_time, uint8_t position)
 
 static void add_command_to_beginning(uint32_t new_time, uint8_t position)
 {
+	next_command_time = new_time;
 	x = shift_schedule_right(SCHEDULE_BASE + 4);														// FAILURE_RECOVERY
 	x = spimem_write(SCHEDULE_BASE + 4, current_command + position, 8);
 	return;
@@ -259,7 +264,8 @@ static void add_command_to_middle(uint32_t new_time, uint8_t position)
 		stored_time = ((uint32_t)time_arr[0]) << 24;
 		stored_time += ((uint32_t)time_arr[1]) << 16;
 		stored_time += ((uint32_t)time_arr[2]) << 8;
-		stored_time += (uint32_t)time_
+		stored_time += (uint32_t)time_arr[3]);
+		if(new_time >= stored_time)
 		{
 			shift_schedule_right(SCHEDULE_BASE + 4 + (i + 1) * 8);
 			x = spimem_write(SCHEDULE_BASE + 4 + (i + 1) * 8, current_command + position, 8);

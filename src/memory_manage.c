@@ -35,6 +35,8 @@
 	*
 	*					I am adding the bulk of the required PUS service functionality with the use of exec_commands().
 	*
+	*	11/12/2015		Adding in functionality for TC execution verification, and event reporting to ground.
+	*
 	*	DESCRIPTION:	
 	*
 	*	This task is meant to fulfill the PUS Memory Management Service.
@@ -133,6 +135,10 @@ static void prvMemoryManageTask(void *pvParameters )
 	configASSERT( ( ( unsigned long ) pvParameters ) == MM_PARAMETER );
 	minute_count = 0;
 	clear_current_command();
+	SPI_HEALTH1 = 1;
+	SPI_HEALTH2 = 1;
+	SPI_HEALTH3 = 1;
+	memory_wash();					// This will cause the SPI health variables to be updated immediately.
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -148,6 +154,7 @@ static void memory_wash(void)
 {
 	int x, y, z;
 	uint8_t spi_chip, write_required = 0, sum, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
+	uint8_t check_val = 0;
 	uint32_t page, addr, byte;
 	
 	for(page = 0; page < 4096; page++)	// Loop through each page in memory.
@@ -188,11 +195,20 @@ static void memory_wash(void)
 					correct_val = page_buff1[byte];
 				}
 			}
-				
 			if(write_required)
-			spimem_write_h(write_required, (addr + byte), &correct_val, 1);
+			{
+				spimem_write_h(write_required, (addr + byte), &correct_val, 1);		// FAILURE_RECOVERY if this returns a number less than zero.
+				send_event_report(1, BIT_FLIP_DETECTED, 0, 0);		
+			}
+			spimem_read(write_required, (addr + byte), &check_val, 1);
+			if(check_val != correct_val)
+			{
+				// SPI_CHIP: write_required has something wrong with it
+				// Send an error report to the FDIR task.
+				// Mark SPI_CHIP: write_required as dysfunctional
+			}
 		}
-			
+		send_event_report(1, MEMORY_WASH_FINISHED, 0, 0);
 	}
 	minute_count = 0;
 	return;
@@ -286,6 +302,16 @@ static void exec_commands(void)
 					}
 					send_tc_execution_verify(1, packet_id, pcs);
 				}
+				current_command[146] = MEMORY_CHECK_ABS;
+				current_command[7] = ((uint8_t)(check & 0xFF00000000000000)) >> 56;
+				current_command[6] = ((uint8_t)(check & 0xFF00000000000000)) >> 48;
+				current_command[5] = ((uint8_t)(check & 0xFF00000000000000)) >> 40;
+				current_command[4] = ((uint8_t)(check & 0xFF00000000000000)) >> 32;
+				current_command[3] = ((uint8_t)(check & 0xFF00000000000000)) >> 24;
+				current_command[2] = ((uint8_t)(check & 0xFF00000000000000)) >> 26;
+				current_command[1] = ((uint8_t)(check & 0xFF00000000000000)) >> 8;
+				current_command[0] = (uint8_t)(check & 0xFF00000000000000);
+				xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);
 			default:
 				return;
 		}
@@ -296,7 +322,7 @@ static void exec_commands(void)
 static void clear_current_command(void)
 {
 	uint8_t i;
-	for(i = 0; i < 128; i++)
+	for(i = 0; i < (DATA_LENGTH + 10); i++)
 	{
 		current_command[i] = 0;
 	}

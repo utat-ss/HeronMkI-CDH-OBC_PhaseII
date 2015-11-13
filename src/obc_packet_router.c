@@ -125,7 +125,7 @@ static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 uint16_t packet_id, pcs;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
-static uint8_t tc_exec_success_count, tc_exec_fail_count;
+static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count;
 static uint8_t current_data[DATA_LENGTH];
@@ -185,6 +185,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	mem_dump_count = 0;
 	event_report_count = 0;
 	sched_report_count = 0;
+	mem_check_count = 0;
 	clear_current_data();
 	clear_current_command();
 
@@ -249,9 +250,7 @@ static void exec_commands(void)
 			packetize_send_telemetry(TIME_TASK_ID, TIME_GROUND_ID, TIME_SERVICE, TIME_REPORT, time_report_count, 1, current_command);		
 		}
 		if(current_command[9] == TASK_TO_OPR_TCV)
-		{
 			send_tc_verification(packet_id, pcs, current_command[8], current_command[7], 0, 2);
-		}
 	}
 	if(xQueueReceive(mem_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
 	{
@@ -261,8 +260,20 @@ static void exec_commands(void)
 			packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, MEMORY_DUMP_ABS, mem_dump_count, current_command[145], current_command);
 		}
 		if(current_command[146] == TASK_TO_OPR_TCV)
-		{
 			send_tc_verification(packet_id, current_command[145], current_command[144], 0, 2);
+		if(current_command[146] == MEMORY_CHECK_ABS)
+		{
+			mem_check_count++;
+			packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, MEMORY_CHECK_ABS, mem_check_count, 1, current_command);
+		}
+		if(current_command[146] == TASK_TO_OPR_EVENT)
+		{
+			high = (MEMORY_TASK_ID) << 28;
+			low = ((uint8_t)current_command[3]) << 24;
+			low = ((uint8_t)current_command[2]) << 16;
+			low = ((uint8_t)current_command[1]) << 8;
+			low = (uint8_t)current_command[0];
+			send_event_packet(high, low);
 		}
 	}
 	if(xQueueReceive(sched_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
@@ -277,12 +288,15 @@ static void exec_commands(void)
 			x = packetize_send_telemetry(SCHEDULING_TASK_ID, MEM_GROUND_ID, 6, SCHED_REPORT, sched_report_count, current_command[145], current_command);
 		}
 		if(current_command[146] == TASK_TO_OPR_TCV)
-		{
 			send_tc_verification(packet_id, pcs, current_command[145], current_command[144], 0, 2);
-		}
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			send_event_packet()
+			high = (SCHEDULING_TASK_ID) << 28;
+			low = ((uint8_t)current_command[3]) << 24;
+			low = ((uint8_t)current_command[2]) << 16;
+			low = ((uint8_t)current_command[1]) << 8;
+			low = (uint8_t)current_command[0];
+			send_event_packet(high, low);
 		}
 	}
 	if(xQueueReceive(event_msg_fifo, &low, (TickType_t)1) == pdTRUE)

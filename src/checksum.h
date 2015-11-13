@@ -29,6 +29,12 @@
 /* Standard includes */
 #include <stdio.h>
 #include <stdint.h>
+#include "spimem.h"
 
+/* Array required for hashing SPI memory */
+uint8_t check_arr[256];
+
+uint64_t fletcher64(uint32_t* data, int count);
+uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status);
 uint32_t fletcher32( uint16_t const *data, size_t words );
 uint16_t fletcher16(uint8_t* data, int count);

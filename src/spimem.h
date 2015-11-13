@@ -71,9 +71,9 @@ uint8_t	spi_mem_buff[4096];		// Buffer required when erasing a sector
 uint32_t spi_mem_buff_sect_num;	// Current sector number of what is loaded into the SPI Memory Buffer.
 uint16_t msg_buff[260];			// Temporary buffer used by the read and write tasks to store data.
 
-/*		Fuction Prototypes				*/
+/*		Function Prototypes				*/
 void spimem_initialize(void);																	// Driver
-int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 3 TICK
+int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);								// API, BLOCKS FOR 3 TICK
 int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
 int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
 uint32_t check_page(uint32_t page_num);															// Helper

@@ -30,6 +30,8 @@
 	*
 	*					K:Added the function fletcher16()
 	*
+	*	11/12/2015		K:I added functions fletcher64() and fletcher64_on_spimem()
+	*
 	*	DESCRIPTION: 
 	*	An optimized version of Fletcher32 checksum to be used to verify data consistency
 	*	after deployment. To be run during the initial boot process in kernel mode. 
@@ -37,6 +39,51 @@
 
 /* Standard includes */
 #include "checksum.h"
+
+//Function header needed
+uint64_t fletcher64(uint32_t* data, int count)
+{
+	uint64_t sum1 = 0, sum2 = 0;
+	int i;
+	for(i = 0; i < count; i++)
+	{
+		sum1 = (sum1 + data[i]) % (uint64_t)0x100000000;
+		sum2 = (sum2 + sum1) % (uint64_t)0x100000000;
+	}
+	return (sum2 << 32) | sum1;
+}
+
+
+uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status)
+{
+	uint8_t i, j;
+	int num = 0;
+	uint64_t sum1 = 0, sum2 = 0;
+	uint8_t num_pages = (count / 256);
+	if(count % 256)
+		num_pages++;
+	clear_check_array();
+	for(i = 0; i < num_pages; i++)
+	{
+		if(spimem_read(1, (address + i * 256), check_arr, (count - i * 256)) < 0)
+		{
+			*status = 0xFF;
+			return 0;
+		}
+		for(j = 0; j < 256; j+=4)
+		{
+			num = (int)check_arr[j];
+			num += ((int)check_arr[j + 1]) << 8;
+			num += ((int)check_arr[j + 2]) << 16;
+			num += ((int)check_arr[j + 3]) << 24;
+			
+			sum1 = (sum1 + num) % (uint64_t)0x100000000;
+			sum2 = (sum2 + sum1) % (uint64_t)0x100000000;
+		}
+	}
+	*status = 1;
+	return (sum2 << 32) | sum1;
+}
 
 // Function header needed
 uint32_t fletcher32( uint16_t const *data, size_t words )
@@ -80,4 +127,14 @@ uint16_t fletcher16(uint8_t* data, int count)
 	}
 	
 	return (sum2 << 8) | sum1;
+}
+
+static void clear_check_array(void)
+{
+	uint16_t i;
+	for(i = 0; i < 256, i++)
+	{
+		check_arr[i] = 0;
+	}
+	return;
 }

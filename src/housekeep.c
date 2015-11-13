@@ -120,6 +120,7 @@ static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeepin
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
 static uint8_t hk_definition0[DATA_LENGTH];			// Used to store the current housekeeping format definition.
 static uint8_t hk_definition1[DATA_LENGTH];			// Used to store an alternate housekeeping definition.
+static uint8_t hk_updated[DATA_LENGTH];
 static uint8_t current_hk_definition[DATA_LENGTH];
 static uint8_t current_hk_definitionf;					// Unique identifier for the housekeeping format definition.
 static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
@@ -257,6 +258,7 @@ static void clear_current_hk(void)
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_hk[i] = 0;
+		hk_updated[i] = 0;
 	}
 	return;
 }
@@ -317,38 +319,45 @@ static int request_housekeeping_all(void)
 static int store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
+	uint8_t num_parameters = current_hk_definition[134];
 	int x = -1;
 	uint8_t parameter_name = 0, i;
 	if(current_hk_fullf)
 		return -1;
-	
+	clear_current_hk();
 	while(read_can_hk(&new_kh_msg_high, &new_hk_msg_low, 1234) == 1)
 	{
 		sender = (new_kh_msg_high & 0xF0000000) >> 28;			// Can be EPS_ID/COMS_ID/PAY_ID/OBC_ID
 		parameter_name = (new_kh_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
-		for(i = 0; i < DATA_LENGTH; i += 2)
+		for(i = 0; i < num_parameters; i+=2)
 		{
-			if(hk_definition0[i] == parameter_name)
+			if(current_hk_definition[i] == parameter_name)
 			{
 				current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
 				current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
+				hk_updated[i] = 1;
+				hk_updated[i + 1] = 1;
 			}
 		}
 		taskYIELD();		// Allows for more messages to come in.
 	}
 	
-	// Collect variable values
-	
-	// Make sure that all values have been updated.
-		// Reacquire values if they haven't been.
-		
-	// Store the new housekeeping in SPI memory.
+	for(i = 0; i < num_parameters; i+=2)
+	{
+		if(!hk_updated[i])
+		{
+			// FAILURE_RECOVERY (Let the FDIR task that a sensor/variable may be unresponsive.
+		}
+	}
+	/* Store the new housekeeping in SPI memory */
 	x = store_hk_in_spimem();
 	
 	current_hk_fullf = 1;
 	return 1;
 }
 
+// Note: When Housekeeping fills up, this function simply wraps back around 
+// to the beginning of housekeeping in memory.
 static int store_hk_in_spimem(void)
 {
 	uint32_t offset;
@@ -357,10 +366,9 @@ static int store_hk_in_spimem(void)
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
-	
 	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
 	x = spimem_write((HK_BASE + offset + 4), current_hk, 128);		// FAILURE_RECOVERY if x < 0
-	offset = (offset + 132) % 10240;								// Make sure HK doesn't overflow into the next section.
+	offset = (offset + 137) % 8192;								// Make sure HK doesn't overflow into the next section.
 	if(offset == 0)
 		offset = 4;
 	current_hk_mem_offset[3] = (uint8_t)offset;

@@ -65,6 +65,8 @@
 
 #include "global_var.h"
 
+#include "checksum.h"
+
 /* Priorities at which the tasks are created. */
 #define MEMORY_MANAGE_PRIORITY	( tskIDLE_PRIORITY + 4 )		// Lower the # means lower the priority
 
@@ -89,6 +91,8 @@ void menory_manage(void);
 static void memory_wash(void);
 static void exec_commands(void);
 static void clear_current_command(void);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs);
+static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 
 /* Local variables for memory management */
 static uint8_t minute_count;
@@ -198,14 +202,20 @@ static void memory_wash(void)
 // Otherwise it waits for a maximum of 1 minute.
 static void exec_commands(void)
 {
-	uint8_t command, memid;
+	uint8_t command, memid, status;
 	uint16_t i, j;
+	uint16_t packet_id, pcs;
 	uint8_t* mem_ptr = 0;
 	uint32_t address, length, last_len = 0, num_transfers = 0;
+	uint64_t check = 0;
 	clear_current_command();
 	if(xQueueReceive(obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
 	{
 		command = current_command[146];
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		pcs = ((uint16_t)current_command[138]) << 8;
+		pcs += (uint16_t)current_command[137];
 		memid = current_command[136];
 		address =  ((uint32_t)current_command[135]) << 24;
 		address += ((uint32_t)current_command[134]) << 16;
@@ -228,8 +238,10 @@ static void exec_commands(void)
 				}
 				else
 				{
-					spimem_write(address, current_command, length);
+					if(spimem_write(address, current_command, length) < 0)				// FAILURE_RECOVERY
+						send_tc_execution_verify(0xFF, packet_id, pcs);
 				}
+				send_tc_execution_verify(1, packet_id, pcs);
 			case	DUMP_REQUEST_ABS:
 				clear_current_command();		// Only clears lower data section.
 				last_len = 0;
@@ -249,15 +261,33 @@ static void exec_commands(void)
 					}
 					else
 					{
-						spimem_read(1, address, current_command, length);
+						if(spimem_read(1, address, current_command, length) < 0)		// FAILURE_RECOVERY
+							send_tc_execution_verify(0xFF, packet_id, pcs);
 					}
 					current_command[146] = MEMORY_DUMP_ABS;
 					current_command[145] = num_transfers - j;
 					xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
 					taskYIELD();	// Give the packet router a chance to downlink the dump packet.				
 				}
+				send_tc_execution_verify(1, packet_id, pcs);
 			case	CHECK_MEM_REQUEST:
-				break;		// To be implemented later.
+				if(!memid)
+				{
+					check = fletcher64(address, length);
+					send_tc_execution_verify(1, packet_id, pcs);
+				}
+				else
+				{
+					check = fletcher64_on_spimem(address, length, &status);
+					if(status > 1)
+					{
+						send_tc_execution_verify(0xFF, packet_id, pcs);
+						return;
+					}
+					send_tc_execution_verify(1, packet_id, pcs);
+				}
+			default:
+				return;
 		}
 	}
 	return;
@@ -270,5 +300,31 @@ static void clear_current_command(void)
 	{
 		current_command[i] = 0;
 	}
+	return;
+}
+
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
+{
+	clear_current_command();
+	current_command[146] = TASK_TO_OPR_TCV;		// Request a TC verification
+	current_command[145] = status;
+	current_command[144] = MEMORY_TASK_ID;		// APID of this task
+	current_command[140] = ((uint8_t)packet_id) >> 8;
+	current_command[139] = (uint8_t)packet_id;
+	current_command[138] = ((uint8_t)pcs) >> 8;
+	current_command[137] = (uint8_t)pcs;
+	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	return;
+}
+
+static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0)
+{
+	clear_current_command();
+	current_command[146] = TASK_TO_OPR_EVENT;
+	current_command[3] = severity;
+	current_command[2] = report_id;
+	current_command[1] = param1;
+	current_command[0] = param0;
+	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }

@@ -85,6 +85,9 @@ static int clear_schedule(void);
 static void clear_temp_array(void);
 static void clear_current_command(void);
 static int report_schedule(void);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs);
+static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
+
 
 /* Local variables for scheduling */
 static uint32_t num_commands, next_command_time, furthest_command_time;
@@ -124,17 +127,17 @@ static void prvSchedulingTask( void *pvParameters )
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
 	x = -1;
-	x = spimem_read(1, SCHEDULE_BASE, temp_arr, 4);			// FAILURE_RECOVERY required here.
-	num_commands = ((uin32_t)temp_arr[3]) << 24;
-	num_commands = ((uin32_t)temp_arr[2]) << 16;
-	num_commands = ((uin32_t)temp_arr[1]) << 8;
-	num_commands = (uin32_t)temp_arr[0];
-	x = spimem_read(1, SCHEDULE_BASE+4, temp_arr, 4);
-	next_command_time = ((uin32_t)temp_arr[3]) << 24;
-	next_command_time = ((uin32_t)temp_arr[2]) << 16;
-	next_command_time = ((uin32_t)temp_arr[1]) << 8;
-	next_command_time = (uin32_t)temp_arr[0];
-	x = spimem_read(1, SCHEDULE_BASE + 4 + ((num_commands - 1) * 8), temp_arr, 4);
+	x = spimem_read(SCHEDULE_BASE, temp_arr, 4);			// FAILURE_RECOVERY required here.
+	num_commands = ((uint32_t)temp_arr[3]) << 24;
+	num_commands = ((uint32_t)temp_arr[2]) << 16;
+	num_commands = ((uint32_t)temp_arr[1]) << 8;
+	num_commands = (uint32_t)temp_arr[0];
+	x = spimem_read(SCHEDULE_BASE+4, temp_arr, 4);
+	next_command_time = ((uint32_t)temp_arr[3]) << 24;
+	next_command_time = ((uint32_t)temp_arr[2]) << 16;
+	next_command_time = ((uint32_t)temp_arr[1]) << 8;
+	next_command_time = (uint32_t)temp_arr[0];
+	x = spimem_read(SCHEDULE_BASE + 4 + ((num_commands - 1) * 8), temp_arr, 4);
 	furthest_command_time = ((uint32_t)temp_arr[3]) << 24;
 	furthest_command_time = ((uint32_t)temp_arr[2]) << 16;
 	furthest_command_time = ((uint32_t)temp_arr[1]) << 8;
@@ -192,7 +195,7 @@ static void exec_pus_commands(void)
 	return;
 }
 
-static int modify_schedule(uint8_t* status, uint8_t* kicked_count);
+static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 {
 	uint8_t num_new_commands = current_command[136];
 	uint8_t i;
@@ -228,9 +231,9 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count);
 	temp_arr[0] = (uint8_t)num_commands;
 	temp_arr[1] = (uint8_t)(num_commands >> 8);
 	temp_arr[2] = (uint8_t)(num_commands >> 16);
-	temp_arr[3] = (uint8_t))(num_commands >> 24);
+	temp_arr[3] = (uint8_t)(num_commands >> 24);
 	x = spimem_write(SCHEDULE_BASE, temp_arr, 4);				// update the num_commands within spi memory.
-	*status = 1
+	*status = 1;
 	return 1;
 }
 
@@ -257,14 +260,14 @@ static void add_command_to_middle(uint32_t new_time, uint8_t position)
 	uint16_t i;
 	uint32_t stored_time = 0;
 	uint8_t time_arr[4];
-	for(i = 0; i < num_commands; ++)
+	for(i = 0; i < num_commands; i++)
 	{
-		if(spimem_read(1, (SCHEDULE_BASE + 4 + num_commands * 8), time_arr, 4) < 0)						// FAILURE_RECOVERY
+		if(spimem_read((SCHEDULE_BASE + 4 + num_commands * 8), time_arr, 4) < 0)						// FAILURE_RECOVERY
 			return;
 		stored_time = ((uint32_t)time_arr[0]) << 24;
 		stored_time += ((uint32_t)time_arr[1]) << 16;
 		stored_time += ((uint32_t)time_arr[2]) << 8;
-		stored_time += (uint32_t)time_arr[3]);
+		stored_time += (uint32_t)time_arr[3];
 		if(new_time >= stored_time)
 		{
 			shift_schedule_right(SCHEDULE_BASE + 4 + (i + 1) * 8);
@@ -283,18 +286,18 @@ static int shift_schedule_right(uint32_t address)
 	if(((num_commands * 8) - (address - (SCHEDULE_BASE + 4))) % 256)
 		num_pages++;
 
-	if(spimem_read(1, SCHEDULE_BASE + 8096, temp_arr, 256) < 0)				// Store the page of memory which may be overwritten.
+	if(spimem_read(SCHEDULE_BASE + 8096, temp_arr, 256) < 0)				// Store the page of memory which may be overwritten.
 		return -1;
-	if(spimem_read(1, address, sched_buff0, 256) < 0)
+	if(spimem_read(address, sched_buff0, 256) < 0)
 		return -1;
-	if(spimem_read(1, address + 256, sched_buff1, 256) < 0)
+	if(spimem_read(address + 256, sched_buff1, 256) < 0)
 		return -1;
 	for(i = 0; i < num_pages; i++)
 	{
 		if(spimem_write((address + (i * 256) + 8), sched_buff0, 256) < 0)
 			return -1;
 		load_buff1_to_buff0();
-		if(spimem_read(1, (address + (i + 1) * 256), sched_buff1, 256) < 0)
+		if(spimem_read((address + (i + 1) * 256), sched_buff1, 256) < 0)
 			return -1;
 	}
 
@@ -312,7 +315,7 @@ static int shift_schedule_left(uint32_t address)
 
 	for(i = 0; i < num_pages; i++)
 	{
-		if(spimem_read(1, (address + (i * 256) - 8), sched_buff0, 256) < 0)
+		if(spimem_read((address + (i * 256) - 8), sched_buff0, 256) < 0)
 			return -1;
 		if(spimem_write((address + (i * 256) - 8), sched_buff0, 256) < 0)
 			return -1;
@@ -351,7 +354,7 @@ static int check_schedule(void)
 		temp_arr[0] = (uint8_t)num_commands;
 		temp_arr[1] = (uint8_t)(num_commands >> 8);
 		temp_arr[2] = (uint8_t)(num_commands >> 16);
-		temp_arr[3] = (uint8_t))(num_commands >> 24);
+		temp_arr[3] = (uint8_t)(num_commands >> 24);
 		x = spimem_write(SCHEDULE_BASE, temp_arr, 4);				// update the num_commands within SPI memory.
 		if(x < 0)
 			return -1;												// FAILURE_RECOVERY
@@ -405,7 +408,7 @@ static int report_schedule(void)
 	{
 		current_command[145] = (num_pages * 2) - i;
 		current_command[144] = i;
-		spimem_read(1, SCHEDULE_BASE + i * 128, temp_arr, 128);
+		spimem_read(SCHEDULE_BASE + i * 128, temp_arr, 128);
 		if(xQueueSendToBack(sched_to_obc_fifo, temp_arr, (TickType_t)10) != pdPASS)
 			return -1;						// FAILURE_RECOVERY
 	}

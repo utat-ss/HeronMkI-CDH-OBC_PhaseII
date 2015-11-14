@@ -180,9 +180,9 @@ void CAN1_Handler(void)
 				/* Decode CAN Message 	*/
 				if (i == 7)
 					decode_can_command(&can1_mailbox, CAN1);
-
-				if (i == 0)
+				if (i < 5)
 					alert_can_data(&can1_mailbox, CAN1);
+					
 				/*assert(g_ul_recv_status); ***Implement assert here.*/
 				
 				/* Restore the can1 mailbox object */
@@ -382,15 +382,24 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 	case 0 :
 		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
 		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
-		
+	case 1 :
+		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
+		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+	case 2 :
+		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
+		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+	case 3 :
+		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
+		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+	case 4 :
+		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
+		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
 	case 5 :
-		xQueueSendToBackFromISR(can_msg_fifo, &ul_data_incom, &wake_task);		// Global CAN Message FIFO
-		xQueueSendToBackFromISR(can_msg_fifo, &uh_data_incom, &wake_task);
-	
+		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
+		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
 	case 6 :
 		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
 		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
-	
 	case 7 :
 		xQueueSendToBackFromISR(can_com_fifo, &ul_data_incom, &wake_task);		// Global CAN Command FIFO
 		xQueueSendToBackFromISR(can_com_fifo, &uh_data_incom, &wake_task);
@@ -827,12 +836,52 @@ uint32_t can_init_mailboxes(uint32_t x)
 	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB0);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
 	can_mailbox_init(CAN1, &can1_mailbox);
 	
+	/* Init CAN1 Mailbox 1 to Data Reception Mailbox. */
+	reset_mailbox_conf(&can1_mailbox);
+	can1_mailbox.ul_mb_idx = 1;				// Mailbox 1
+	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
+	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
+	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB1);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
+	can_mailbox_init(CAN1, &can1_mailbox);
+	
+	/* Init CAN1 Mailbox 2 to Data Reception Mailbox. */
+	reset_mailbox_conf(&can1_mailbox);
+	can1_mailbox.ul_mb_idx = 2;				// Mailbox 2
+	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
+	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
+	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB2);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
+	can_mailbox_init(CAN1, &can1_mailbox);
+
+	/* Init CAN1 Mailbox 3 to Data Reception Mailbox. */
+	reset_mailbox_conf(&can1_mailbox);
+	can1_mailbox.ul_mb_idx = 3;				// Mailbox 3
+	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
+	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
+	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB3);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
+	can_mailbox_init(CAN1, &can1_mailbox);
+	
 	/* Init CAN1 Mailbox 5 to Message Reception Mailbox. */
 	reset_mailbox_conf(&can1_mailbox);
 	can1_mailbox.ul_mb_idx = 5;				// Mailbox 5
 	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
 	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
 	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB5);					  // The ID of CAN1 MB0 is currently CAN1_MB0 (standard).
+	can_mailbox_init(CAN1, &can1_mailbox);
+	
+	/* Init CAN1 Mailbox 4 to HK Reception Mailbox. */
+	reset_mailbox_conf(&can1_mailbox);
+	can1_mailbox.ul_mb_idx = 4;				// Mailbox 6
+	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
+	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
+	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB4);					  // The ID of CAN1 MB6 is currently CAN1_MB6 (standard).
+	can_mailbox_init(CAN1, &can1_mailbox);
+	
+	/* Init CAN1 Mailbox 5 to HK Reception Mailbox. */
+	reset_mailbox_conf(&can1_mailbox);
+	can1_mailbox.ul_mb_idx = 5;				// Mailbox 5
+	can1_mailbox.uc_obj_type = CAN_MB_RX_MODE;
+	can1_mailbox.ul_id_msk = CAN_MID_MIDvA_Msk | CAN_MID_MIDvB_Msk;	  // Compare the full 11 bits of the ID in both standard and extended.
+	can1_mailbox.ul_id = CAN_MID_MIDvA(CAN1_MB5);					  // The ID of CAN1 MB6 is currently CAN1_MB6 (standard).
 	can_mailbox_init(CAN1, &can1_mailbox);
 	
 	/* Init CAN1 Mailbox 6 to HK Reception Mailbox. */

@@ -69,6 +69,8 @@
 
 #include "checksum.h"
 
+#include "can_func.h"
+
 /* Priorities at which the tasks are created. */
 #define MEMORY_MANAGE_PRIORITY	( tskIDLE_PRIORITY + 4 )		// Lower the # means lower the priority
 
@@ -157,15 +159,21 @@ static void memory_wash(void)
 	uint8_t check_val = 0;
 	uint32_t page, addr, byte;
 	
+	if(!SPI_HEALTH1 || !SPI_HEALTH2 || !SPI_HEALTH3)
+	{
+		// If one of the chips is dead, we can't do any memory washing.
+		return;
+	}
+	
 	for(page = 0; page < 4096; page++)	// Loop through each page in memory.
 	{
 		addr = page << 8;
 			
 		for(spi_chip = 1; spi_chip < 4; spi_chip++)
 		{
-			x = spimem_read(spi_chip, addr, page_buff1, 256);
-			y = spimem_read(spi_chip, addr, page_buff2, 256);
-			z = spimem_read(spi_chip, addr, page_buff3, 256);
+			x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
+			y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
+			z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
 				
 			if((x < 0) || (y < 0) || (z < 0))
 			x = x;									// FAILURE_RECOVERY.
@@ -200,12 +208,18 @@ static void memory_wash(void)
 				spimem_write_h(write_required, (addr + byte), &correct_val, 1);		// FAILURE_RECOVERY if this returns a number less than zero.
 				send_event_report(1, BIT_FLIP_DETECTED, 0, 0);		
 			}
-			spimem_read(write_required, (addr + byte), &check_val, 1);
+			spimem_read_alt(write_required, (addr + byte), &check_val, 1);
 			if(check_val != correct_val)
 			{
 				// SPI_CHIP: write_required has something wrong with it
-				// Send an error report to the FDIR task.
-				// Mark SPI_CHIP: write_required as dysfunctional
+				if(write_required == 1)
+					SPI_HEALTH1 = 0;
+				if(write_required == 2)
+					SPI_HEALTH2 = 0;
+				if(write_required == 3)
+					SPI_HEALTH3 = 0;
+				// Send an error report to the FDIR task. (The FDIR task will send the event report)
+				return;
 			}
 		}
 		send_event_report(1, MEMORY_WASH_FINISHED, 0, 0);
@@ -277,7 +291,7 @@ static void exec_commands(void)
 					}
 					else
 					{
-						if(spimem_read(1, address, current_command, length) < 0)		// FAILURE_RECOVERY
+						if(spimem_read(address, current_command, length) < 0)		// FAILURE_RECOVERY
 							send_tc_execution_verify(0xFF, packet_id, pcs);
 					}
 					current_command[146] = MEMORY_DUMP_ABS;

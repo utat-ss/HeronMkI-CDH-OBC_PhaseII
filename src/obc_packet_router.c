@@ -115,7 +115,7 @@ static void clear_current_command(void);
 static void store_current_tc(void);
 static int decode_telecommand(void);
 static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type);
-static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter, uint8_t tc_type)
+static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter, uint8_t tc_type);
 static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type, uint8_t version, uint8_t ccsds_flag, uint8_t packet_version);
 static void exec_commands(void);
 static void send_event_packet(uint32_t high, uint32_t low);
@@ -254,13 +254,17 @@ static void exec_commands(void)
 	}
 	if(xQueueReceive(mem_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
 	{
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		pcs = ((uint16_t)current_command[138]) << 8;
+		pcs += (uint16_t)current_command[137];
 		if(current_command[146] == MEMORY_DUMP_ABS)
 		{
 			mem_dump_count++;
 			packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, MEMORY_DUMP_ABS, mem_dump_count, current_command[145], current_command);
 		}
 		if(current_command[146] == TASK_TO_OPR_TCV)
-			send_tc_verification(packet_id, current_command[145], current_command[144], 0, 2);
+			send_tc_verification(packet_id, pcs, current_command[145], current_command[144], 0, 2);
 		if(current_command[146] == MEMORY_CHECK_ABS)
 		{
 			mem_check_count++;
@@ -820,11 +824,6 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		if((service_sub_type > 4) || !service_sub_type)
 		{
 			x = send_tc_verification(packet_id, pcs, 0xFF, 4, (uint32_t)service_sub_type, 1);
-			return -1;
-		}
-		if((apid != SCHEDULING_TASK_ID) && (apid != FDIR_TASK_ID) && (apid != OBC_PACKET_ROUTER_ID))
-		{
-			x = send_tc_verification(packet_id, pcs, 0xFF, (uint32_t)apid, 1);
 			return -1;
 		}
 		if((current_tc[135] || current_tc[134] || current_tc[133] || current_tc[132]) && (service_sub_type != 1))	// Time should be zero for immediate commands

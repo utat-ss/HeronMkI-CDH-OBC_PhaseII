@@ -267,7 +267,7 @@ static void clear_current_hk(void)
 static void set_hk_mem_offset(void)
 {
 	uint32_t offset;
-	spimem_read(1, HK_BASE, current_hk_mem_offset, 4);	// Get the current HK memory offset.
+	spimem_read(HK_BASE, current_hk_mem_offset, 4);	// Get the current HK memory offset.
 	offset = (uint32_t)(current_hk_mem_offset[0] << 24);
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);

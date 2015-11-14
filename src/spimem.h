@@ -43,6 +43,7 @@
 #include "FreeRTOS.h"
 #include "semphr.h"
 #include "atomic.h"
+#include "global_var.h"
 
 SemaphoreHandle_t	Spi0_Mutex;
 
@@ -75,7 +76,8 @@ uint16_t msg_buff[260];			// Temporary buffer used by the read and write tasks t
 void spimem_initialize(void);																	// Driver
 int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);								// API, BLOCKS FOR 3 TICK
 int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
-int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
+int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size);								// API, BLOCKS FOR 1 TICK
+int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);		// API, BLOCKS FOR 1 TICK
 uint32_t check_page(uint32_t page_num);															// Helper
 uint32_t check_if_wip(uint32_t spi_chip);														// Helper
 uint32_t get_page(uint32_t addr);																// Helper

@@ -1,5 +1,5 @@
 /*
-	Author: Albert Xie
+	Author: Albert Xie, Keenan Burnett
 	
 	***********************************************************************
 	*	FILE NAME:		checksum.c
@@ -40,6 +40,8 @@
 /* Standard includes */
 #include "checksum.h"
 
+static void clear_check_array(void);
+
 //Function header needed
 uint64_t fletcher64(uint32_t* data, int count)
 {
@@ -65,7 +67,7 @@ uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status)
 	clear_check_array();
 	for(i = 0; i < num_pages; i++)
 	{
-		if(spimem_read(1, (address + i * 256), check_arr, (count - i * 256)) < 0)
+		if(spimem_read((address + i * 256), check_arr, (count - i * 256)) < 0)
 		{
 			*status = 0xFF;
 			return 0;
@@ -132,7 +134,7 @@ uint16_t fletcher16(uint8_t* data, int count)
 static void clear_check_array(void)
 {
 	uint16_t i;
-	for(i = 0; i < 256, i++)
+	for(i = 0; i < 256; i++)
 	{
 		check_arr[i] = 0;
 	}

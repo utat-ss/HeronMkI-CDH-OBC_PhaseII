@@ -354,6 +354,7 @@ static void prvInitializeInterruptPriorities(void)
 
 static void prvInitializeGlobalVars(void)
 {
+	uint8_t i;
 	/* Initialize the data reception flag	*/
 	glob_drf = 0;
 		

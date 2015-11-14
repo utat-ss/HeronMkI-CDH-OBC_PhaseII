@@ -315,9 +315,22 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 /* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
 /* after that, the function returns -1.									*/
 /************************************************************************/
-int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
+int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
 	uint32_t i;
+	uint32_t spi_chip;
+	if(SPI_HEALTH1)
+		spi_chip = 1;
+	else if(SPI_HEALTH2)
+		spi_chip = 2;
+	else if(SPI_HEALTH3)
+		spi_chip = 3;
+	else
+	{
+		// Something has gone horribly wrong, let the FDIR task know.
+		// FAILURE_RECOVERY
+		return -1;
+	}
 	
 	if (addr > 0xFFFFF)										// Invalid address to write to.
 		return -1;
@@ -358,6 +371,67 @@ int spimem_read(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t s
 	}
 	else
 		return -1;												// SPI0 is currently being used or there is an error.
+}
+
+/************************************************************************/
+/* SPIMEM_READ 		                                                    */
+/* 																		*/
+/* @param: spi_chip: Indicates which SPI CHIP we are communicating with */
+/* which is either 1, 2, or 3.											*/
+/* @param: addr: indicates the address on the SPI_CHIP we would like to */
+/* read from.															*/
+/* @param: read_buff: Buffer in which the read bytes will be placed.	*/
+/* @param: size: How many bytes we would like to read into memory.		*/
+/* @return: -1 == Failure, otherwise returns the number of pages which	*/
+/* were read into the buffer.											*/
+/* @purpose: Read from the SPI memory chip.								*/
+/* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
+/* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
+/* after that, the function returns -1.									*/
+/************************************************************************/
+int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
+{
+	uint32_t i;
+	
+	if (addr > 0xFFFFF)										// Invalid address to write to.
+	return -1;
+	if ((addr + size - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
+	size = 0xFFFFF - size;
+
+	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
+	{
+		enter_atomic();											// Atomic operation begins.
+		
+		msg_buff[0] = RD;
+		msg_buff[1] = (uint16_t)((addr & 0x000F0000) >> 16);
+		msg_buff[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
+		msg_buff[3] = (uint16_t)(addr & 0x000000FF);
+		
+		for(i = 4; i < 260; i++)
+		{
+			msg_buff[i] = 0;
+		}
+
+		if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
+		{
+			exit_atomic();
+			xSemaphoreGive(Spi0_Mutex);
+			return -1;
+		}
+		
+		spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
+
+		for(i = 4; i < 260; i++)
+		{
+			*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
+		}
+
+		exit_atomic();
+		xSemaphoreGive(Spi0_Mutex);
+		return size;
+	}
+	else
+	return -1;												// SPI0 is currently being used or there is an error.
 }
 
 /************************************************************************/

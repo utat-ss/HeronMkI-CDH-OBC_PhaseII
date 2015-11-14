@@ -135,12 +135,12 @@ SemaphoreHandle_t	Can0_Mutex;
 #define CAN0_MB7				8
 
 #define CAN1_MB0				10
-#define CAN1_MB1				11
-#define CAN1_MB2				12
-#define CAN1_MB3				13
+#define CAN1_MB1				10
+#define CAN1_MB2				10
+#define CAN1_MB3				10
 #define CAN1_MB4				14
-#define CAN1_MB5				15
-#define CAN1_MB6				16
+#define CAN1_MB5				14
+#define CAN1_MB6				14
 #define CAN1_MB7				17
 
 /* IDs for COMS/SUB0 mailboxes */
@@ -203,9 +203,9 @@ SemaphoreHandle_t	Can0_Mutex;
 #define ACK_READ				0x06
 #define REQ_WRITE				0x07
 #define ACK_WRITE				0x08
-#define SET_SENSOR_HIGH			0x09	// Remember to put SENSOR_NAME into Byte 3.
+#define SET_SENSOR_HIGH			0x09
 #define SET_SENSOR_LOW			0x0A
-#define SET_VAR					0x0B	// Remember to put VAR_NAME into Byte 3.
+#define SET_VAR					0x0B
 #define SET_TIME				0x0C
 #define SEND_TM					0x0D
 #define SEND_TC					0x0E

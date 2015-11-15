@@ -3,7 +3,7 @@
 	Available from:  https://github.com/rodan/ds3234
 	License:         GNU GPLv3
 	
-    Modified by: Omar Abdeldayem
+    Modified by: Omar Abdeldayem, Keenan Burnett
 	***********************************************************************
 	*	FILE NAME:		rtc.c
 	*
@@ -42,6 +42,8 @@
 	*					Because of this, the RTC is currently connected to CS1, and I am currently using
 	*					SPIMEM2 on CS2 for my testing. I changed all the spi_master_transfer calls as such.
 	*
+	*	11/15/2015		K: I changed all the function headers to the proper format.
+	*
 	*	DESCRIPTION:	
 	*			
 	*					Provides the functionality to use the DS3234 as an external RTC using SPI. 
@@ -54,28 +56,30 @@
  */
 #include "rtc.h"
 
-/** 
- * \brief Decimal to binary coded decimal conversion
- */
+/************************************************************************/
+/* DECTOBCD			 		                                            */
+/* @Purpose: Decimal to binary code decimal conversion					*/
+/************************************************************************/
 static uint8_t dectobcd(uint8_t val)
 {
 	return ((val / 10 * 16) + (val % 10));
 }
 
-/** 
- * \brief Binary coded decimal to decimal conversion
- */
+/************************************************************************/
+/* BCDTODEC			 		                                            */
+/* @Purpose: Binary coded decimal to decimal conversion					*/
+/************************************************************************/
 static uint8_t bcdtodec(uint8_t val)
 {
 	return ((val / 16 * 10) + (val % 16));
 }
 
-/**
- * \brief Initialize the RTC by configuring the control register and 
- *  setting the time-date to 00:00:00 01/01/0000
- *
- * \param ctrl_reg_val The byte to set the control register to
- */
+/************************************************************************/
+/* RTC_INIT			 		                                            */
+/* @Purpose: Initializes the RTC by configuring the control register and*/
+/* setting the time-date to 00:00:00 01/01/0000							*/
+/* @param: crtl_reg_val: The byte to set the control register to.		*/
+/************************************************************************/
 void rtc_init(uint16_t ctrl_reg_val)
 {	
     int x;
@@ -103,11 +107,11 @@ void rtc_init(uint16_t ctrl_reg_val)
 	rtc_clear_a2_flag();
 }
 
-/**
- * \brief Set the time and date of the RTC to a specified value.
- *
- * \param t The time struct containing the new time/date to update to.
- */
+/************************************************************************/
+/* RTC_SET																*/
+/* @Purpose: Set the time and date of the RTC to a specified value.		*/
+/* @param: t: the time struct containing the new time/date to update to	*/
+/************************************************************************/
 void rtc_set(struct timestamp t)
 {
 	uint8_t time_date[7] = { t.sec, t.minute, t.hour, t.wday, t.mday, t.mon, t.year };
@@ -125,12 +129,12 @@ void rtc_set(struct timestamp t)
     }
 }
 
-/** 
- * \brief Retrieves the current time and date from the RTC.
- *
- * \param t Pointer to an empty timestamp struct that will contain
- *  the values retrieved from the RTC. 
- */
+/************************************************************************/
+/* RTC_GET			 		                                            */
+/* @Purpose: Retrieves the current time and date from the RTC.			*/
+/* @param: t: pointer to an empty timestamp struct that will contain	*/
+/* the values retrieved from the RTC.									*/
+/************************************************************************/
 void rtc_get(struct timestamp *t)
 {	
     uint8_t time_date[7];        // second, minute, hour, day of week, day of month, month, year
@@ -160,25 +164,23 @@ void rtc_get(struct timestamp *t)
     t->year = time_date[6]; 
 }
 
-/** 
- * \brief Sets an RTC register to a specified value.
- *
- * \param addr RTC register address
- * \param val  New register value
- */
+/************************************************************************/
+/* RTC_SET_ADDR		 		                                            */
+/* @Purpose: Sets an RTC register to a specfied value.					*/
+/* @param: addr: RTC register address									*/
+/* @param: val: New register value.										*/
+/************************************************************************/
 void rtc_set_addr(uint16_t addr, uint16_t val)
 {
 	uint16_t message = (addr << 8) | val;
 	spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
 }
 
-/** 
- * \brief Gets the value from a register.
- *
- * \param addr RTC register address
- *
- * \return val Value stored in specified register
- */
+/************************************************************************/
+/* RTC_GET_ADDR		 		                                            */
+/* @Purpose: Gets the value from a register								*/
+/* @return: val: value stored in specified register						*/
+/************************************************************************/
 uint8_t rtc_get_addr(uint16_t addr)
 {
 	uint8_t val;
@@ -209,29 +211,32 @@ void rtc_set_creg(uint16_t val)
     rtc_set_addr(DS3234_CREG_WRITE, val);
 }
 
-/**
- * \brief Sets the status register of the RTC to a specific value.
- *
- * \param val    Value to write to the status register, each bit corresponding to the following:
- * bit7 OSF      Oscillator Stop Flag (if 1 then oscillator has stopped and date might be innacurate)
- * bit6 BB32kHz  Battery Backed 32kHz output (1 if square wave is needed when powered by battery)
- * bit5 CRATE1   Conversion rate 1  temperature compensation rate
- * bit4 CRATE0   Conversion rate 0  temperature compensation rate
- * bit3 EN32kHz  Enable 32kHz output (1 if needed)
- * bit2 BSY      Busy with TCXO functions
- * bit1 A2F      Alarm 1 Flag - (1 if alarm2 was triggered)
- * bit0 A1F      Alarm 0 Flag - (1 if alarm1 was triggered)
- */
+/************************************************************************/
+/* RTC_SET_SREG		 		                                            */
+/* @Purpose: Sets the status register of the RTC to a specific value	*/
+/* @param: Value to write to the status register, each bit correponding	*/
+/* to the following:													*/
+/* bit7 OSF      Oscillator Stop Flag (if 1 then oscillator has stopped */
+/* and date might be innacurate)										*/
+/* bit6 BB32kHz  Battery Backed 32kHz output (1 if square wave is needed*/
+/* when powered by battery)												*/
+/* bit5 CRATE1   Conversion rate 1  temperature compensation rate		*/
+/* bit4 CRATE0   Conversion rate 0  temperature compensation rate		*/
+/* bit3 EN32kHz  Enable 32kHz output (1 if needed)						*/
+/* bit2 BSY      Busy with TCXO functions								*/
+/* bit1 A2F      Alarm 1 Flag - (1 if alarm2 was triggered)				*/
+/* bit0 A1F      Alarm 0 Flag - (1 if alarm1 was triggered)				*/
+/************************************************************************/
 void rtc_set_sreg(uint16_t val)
 {
     rtc_set_addr(DS3234_SREG_WRITE, val);
 }
 
-/** 
- * \brief Get the value of the RTC status register.
- *
- * \return ret_val Value of the RTC status register.
- */
+/************************************************************************/
+/* RTC_GET_SREG		 		                                            */
+/* @Purpose: Get the value of the RTC status register					*/
+/* @return: ret_val: Value of the RTC status register					*/
+/************************************************************************/
 uint8_t rtc_get_sreg(void)
 {
 	uint8_t ret_val;
@@ -239,9 +244,10 @@ uint8_t rtc_get_sreg(void)
 	return ret_val;
 }
 
-/** 
- * \brief Sets the RTC Alarm 2 to trigger every minute.
- */
+/************************************************************************/
+/* RTC_SET_A2		 		                                            */
+/* @Purpose: Sets the RTC Alarm 2 to trigger every minute				*/
+/************************************************************************/
 void rtc_set_a2(void)
 {
 	uint8_t i;
@@ -256,18 +262,20 @@ void rtc_set_a2(void)
 	}
 }
 
-/** 
- * \brief Clears and resets the RTC Alarm 2 to trigger every minute.
- */
+/************************************************************************/
+/* RTC_RESET_A2		 		                                            */
+/* @Purpose: Clears and resets the RTC Alarm 2 to trigger every minute	*/
+/************************************************************************/
 void rtc_reset_a2(void)
 {
 	rtc_set_creg(DS3234_INTCN | DS3234_A2IE);
 	rtc_clear_a2_flag();	
 }
 
-/** 
- * \brief Clears the RTC Alarm 2 Flag
- */
+/************************************************************************/
+/* RTC_CLEAR_A2_FLAG 		                                            */
+/* @Purpose: Clears the RTC Alarm 2 Flag								*/
+/************************************************************************/
 void rtc_clear_a2_flag(void)
 {
 	uint8_t reg_val;
@@ -276,11 +284,11 @@ void rtc_clear_a2_flag(void)
 	rtc_set_sreg(reg_val);
 }
 
-/** 
- * \brief Checks the RTC Alarm 2 flag to see if the alarm has triggered.
- *
- * \return 1 if the alarm is triggered, 0 otherwise.
- */
+/************************************************************************/
+/* RTC_TRIGGERED_A2 		                                            */
+/* @Purpose: Checks the RTC Alarm 2 flag to see if the alarm has trig'd */
+/* @return: 1 == alarm is triggered, 0 == it is not.					*/
+/************************************************************************/
 uint8_t rtc_triggered_a2(void)
 {
 	return  rtc_get_sreg() & DS3234_A2F;

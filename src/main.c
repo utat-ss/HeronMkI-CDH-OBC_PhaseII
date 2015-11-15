@@ -232,6 +232,11 @@ int main(void)
 }
 /*-----------------------------------------------------------*/
 
+/************************************************************************/
+/* SAFE_MODE															*/
+/* @Purpose: Before entering into regular operation mode, the OBC waits	*/
+/* for a CAN message to take it out of safe mode.						*/
+/************************************************************************/
 static void safe_mode(void)
 {
 	extern void SystemCoreClockUpdate(void);
@@ -265,7 +270,10 @@ static void safe_mode(void)
 	}
 }
 
-/* Initializes the hardware.	*/
+/************************************************************************/
+/* PRVSETUPHARDWARE														*/
+/* @Purpose: sets up hardware/pin values and initializes drivers		*/
+/************************************************************************/
 static void prvSetupHardware(void)
 {
 	/* Perform the remainder of board initialization functions. */
@@ -289,6 +297,10 @@ static void prvSetupHardware(void)
 }
 /*-----------------------------------------------------------*/
 
+/************************************************************************/
+/* PRVINITIALIZEMUTEXES													*/
+/* @Purpose: initializes mutexes used for resource management			*/
+/************************************************************************/
 static void prvInitializeMutexes(void)
 {	
 	Can0_Mutex = xSemaphoreCreateBinary();
@@ -299,6 +311,10 @@ static void prvInitializeMutexes(void)
 	return;
 }
 
+/************************************************************************/
+/* PRVINITIALIZEFIFOS													*/
+/* @Purpose: initializes fifos for CAN communication and PUS services	*/
+/************************************************************************/
 static void prvInitializeFifos(void)
 {
 	UBaseType_t fifo_length, item_size;
@@ -336,6 +352,10 @@ static void prvInitializeFifos(void)
 	return;
 }
 
+/************************************************************************/
+/* PRVINITIALIZEINTERRUPTPRIORITIES										*/
+/* @Purpose: initializes relevant interrupt priorities					*/
+/************************************************************************/
 static void prvInitializeInterruptPriorities(void)
 {
 	uint32_t priority = 11;
@@ -352,6 +372,10 @@ static void prvInitializeInterruptPriorities(void)
 	return;
 }
 
+/************************************************************************/
+/* PRVINITIALIZEGLOBALVARS	                                            */
+/* @Purpose: This function initializes all global variables.			*/
+/************************************************************************/
 static void prvInitializeGlobalVars(void)
 {
 	uint8_t i;

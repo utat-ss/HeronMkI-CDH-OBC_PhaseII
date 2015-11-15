@@ -1394,7 +1394,14 @@ int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t v
 		return -1;					// CAN0 is currently busy or something has gone wrong.
 }
 
-// Let the SSM know that you're ready for a TC packet.
+/************************************************************************/
+/* START_TC_PACKET			                                            */
+/*																		*/
+/* @purpose: After the SSM sends a message to the OBC letting it know	*/
+/* that a Telecommand (TC) packet is ready, the OBC needs to send a		*/
+/* message back to the SSM letting it know that it is ready to receive	*/
+/* CAN messages corresponding to that TC packet. This function does that*/
+/************************************************************************/
 static void start_tc_packet(void)
 {
 	if((!receiving_tcf) && (!current_tc_fullf))

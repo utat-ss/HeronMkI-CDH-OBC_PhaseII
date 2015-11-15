@@ -42,12 +42,20 @@
 
 static void clear_check_array(void);
 
-//Function header needed
+/************************************************************************/
+/* FLETCHER64				                                            */
+/* @Purpose: This function runs Fletcher's checksum algorithm on memory	*/
+/* @param: *data: pointer to the point in memory that you would to start*/
+/* hashing.																*/
+/* @param: count: how many BYTES in memory, you would like to hash		*/
+/* @return: the 64-bit checksum value.									*/
+/************************************************************************/
 uint64_t fletcher64(uint32_t* data, int count)
 {
 	uint64_t sum1 = 0, sum2 = 0;
+	int count_ints = count / 4;
 	int i;
-	for(i = 0; i < count; i++)
+	for(i = 0; i < count_ints; i++)
 	{
 		sum1 = (sum1 + data[i]) % (uint64_t)0x100000000;
 		sum2 = (sum2 + sum1) % (uint64_t)0x100000000;
@@ -55,7 +63,15 @@ uint64_t fletcher64(uint32_t* data, int count)
 	return (sum2 << 32) | sum1;
 }
 
-
+/************************************************************************/
+/* FLETCHER64				                                            */
+/* @Purpose: This function runs Fletcher's checksum algorithm on spimem	*/
+/* @param: *data: pointer to the point in memory that you would to start*/
+/* hashing.																*/
+/* @param: count: how many BYTES in memory, you would like to hash		*/
+/* @param: *status: 0xFF = failure, 0x01 = success.						*/	
+/* @return: the 64-bit checksum value.									*/
+/************************************************************************/
 uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status)
 {
 	uint8_t i, j;
@@ -87,7 +103,14 @@ uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status)
 	return (sum2 << 32) | sum1;
 }
 
-// Function header needed
+/************************************************************************/
+/* FLETCHERd32				                                            */
+/* @Purpose: This function runs Fletcher's checksum algorithm on memory	*/
+/* @param: *data: pointer to the point in memory that you would to start*/
+/* hashing.																*/
+/* @param: words: how many WORDS in memory, you would like to hash		*/
+/* @return: the 32-bit checksum value.									*/
+/************************************************************************/
 uint32_t fletcher32( uint16_t const *data, size_t words )
 {
 	/* sum1 and sum2 should never be 0 */
@@ -115,7 +138,14 @@ uint32_t fletcher32( uint16_t const *data, size_t words )
 	return sum2 << 16 | sum1;
 }
 
-// Simpler version of the checkum above, returns a 16-bit checksum.
+/************************************************************************/
+/* FLETCHER16				                                            */
+/* @Purpose: This function runs Fletcher's checksum algorithm on spimem	*/
+/* @param: *data: pointer to the point in memory that you would to start*/
+/* hashing.																*/
+/* @param: count: how many BYTES in memory, you would like to hash		*/
+/* @return: the 16-bit checksum value.									*/
+/************************************************************************/
 uint16_t fletcher16(uint8_t* data, int count)
 {
 	uint16_t sum1 = 0;
@@ -131,6 +161,10 @@ uint16_t fletcher16(uint8_t* data, int count)
 	return (sum2 << 8) | sum1;
 }
 
+/************************************************************************/
+/* CLEAR_CHECK_ARRAY		                                            */
+/* @Purpose: This function clears the check_arr[] array.				*/
+/************************************************************************/
 static void clear_check_array(void)
 {
 	uint16_t i;

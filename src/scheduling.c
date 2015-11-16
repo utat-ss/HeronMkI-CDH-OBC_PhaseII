@@ -154,9 +154,13 @@ static void prvSchedulingTask( void *pvParameters )
 	}
 }
 /*-----------------------------------------------------------*/
+/* static helper functions below */
 
-// static helper functions may be defined below.
-
+/************************************************************************/
+/* EXEC_PUS_COMMANDS													*/
+/* @Purpose: Attempts to receive from obc_to_sched_fifo, executes		*/
+/* different commands depending on what was received.					*/
+/************************************************************************/
 static void exec_pus_commands(void)
 {
 	uint16_t packet_id, pcs;
@@ -195,6 +199,15 @@ static void exec_pus_commands(void)
 	return;
 }
 
+/************************************************************************/
+/* MODIFY_SCHEDULE														*/
+/* @Purpose: When an ADD_SCHEDULE command comes in, we want to add		*/
+/* commands as necessary to SPIMEM.										*/
+/* @param: *status: 1 = success, -1 = failure, 2 = command kicked out.	*/
+/* @param: *kicked_count: if *status == 2, is set to the number of		*/
+/* commands which were kicked out of the schedule.						*/
+/* @return: -1 = something went wrong, 1 = action succeeded.			*/
+/************************************************************************/
 static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 {
 	uint8_t num_new_commands = current_command[136];
@@ -237,7 +250,14 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 	return 1;
 }
 
-// position is meant to be the position in the current_command[] array.
+/************************************************************************/
+/* ADD_COMMAND_TO_...													*/
+/* @Purpose: places a new command in the schedule either at the begin	*/
+/* -ing, middle or end.													*/
+/* @param: new_time: the time that the new command is to be executed.	*/
+/* @param: position: where the command is located in current_command[]	*/
+/* @Note: The furthest command in the schedule gets dropped if necessary*/
+/************************************************************************/
 static void add_command_to_end(uint32_t new_time, uint8_t position)
 {
 	if(num_commands == MAX_COMMANDS)
@@ -278,7 +298,14 @@ static void add_command_to_middle(uint32_t new_time, uint8_t position)
 	return;
 }
 
-// Shifts the entire schedule by 8 B starting @ address. (The furthest command in the schedule gets droppped if necessary)
+/************************************************************************/
+/* SHIFT_SCHEDULE_RIGHT													*/
+/* @Purpose: shifts the schedule stored in spimem right by 8 bytes		*/
+/* starting at "address"												*/
+/* @param: address: the location in memory we want to shift right from	*/
+/* @Note: The furthest command in the schedule gets dropped if necessary*/
+/* @return: -1 = something went wrong, 1 = action succeeded.			*/
+/************************************************************************/
 static int shift_schedule_right(uint32_t address)
 {
 	uint8_t num_pages, i;
@@ -306,6 +333,13 @@ static int shift_schedule_right(uint32_t address)
 	return 1;
 }
 
+/************************************************************************/
+/* SHIFT_SCHEDULE_LEFT													*/
+/* @Purpose: shifts the schedule stored in spimem left by 8 bytes		*/
+/* starting at "address"												*/
+/* @param: address: the location in memory we want to shift left from	*/
+/* @return: -1 = something went wrong, 1 = action succeeded.			*/
+/************************************************************************/
 static int shift_schedule_left(uint32_t address)
 {
 	uint8_t num_pages, i;
@@ -323,6 +357,10 @@ static int shift_schedule_left(uint32_t address)
 	return 1;
 }
 
+/************************************************************************/
+/* CLEAR_SCHEDULE_BUFFERS												*/
+/* @Purpose: clears sched_buff0[] and sched_buff1[]						*/
+/************************************************************************/
 static void clear_schedule_buffers(void)
 {
 	uint16_t i;
@@ -334,6 +372,10 @@ static void clear_schedule_buffers(void)
 	return;
 }
 
+/************************************************************************/
+/* LOAD_BUFF1_TO_BUFF0													*/
+/* @Purpose: copies the contents of sched_buff1 into sched_buff0		*/
+/************************************************************************/
 static void load_buff1_to_buff0(void)
 {
 	uint16_t i;
@@ -344,6 +386,13 @@ static void load_buff1_to_buff0(void)
 	return;
 }
 
+/************************************************************************/
+/* CHECK_SCHEDULE														*/
+/* @Purpose: if next_command_time >= CURRENT_TIME, then a command needs	*/
+/* to be executed or forwarded to the correct task / SSM.				*/
+/* This function will then shift command out of the schedule.			*/
+/* @return: -1 = something went wrong, 1 = action succeeded.			*/
+/************************************************************************/
 static int check_schedule(void)
 {
 	if(next_command_time >= CURRENT_TIME)
@@ -362,6 +411,12 @@ static int check_schedule(void)
 	return 1;
 }
 
+/************************************************************************/
+/* CLEAR_SCHEDULE														*/
+/* @Purpose: Writes 0 to each page in the section of memory allocated	*/
+/* to the schedule.														*/
+/* @return: function succeeded = 1, -1 = something went wrong.			*/
+/************************************************************************/
 static int clear_schedule(void)
 {
 	uint8_t i;
@@ -376,6 +431,10 @@ static int clear_schedule(void)
 	return 1;
 }
 
+/************************************************************************/
+/* CLEAR_TEMP_ARRAY														*/
+/* @Purpose: clears the array temp_array[]								*/
+/************************************************************************/
 static void clear_temp_array(void)
 {
 	uint16_t i;
@@ -386,6 +445,10 @@ static void clear_temp_array(void)
 	return;
 }
 
+/************************************************************************/
+/* CLEAR_CURRENT_COMMAND												*/
+/* @Purpose: clears the array current_command[]							*/
+/************************************************************************/
 static void clear_current_command(void)
 {
 	uint8_t i;
@@ -396,6 +459,12 @@ static void clear_current_command(void)
 	return;
 }
 
+/************************************************************************/
+/* REPORT_SCHEDULE														*/
+/* @Purpose: This function will downlink the entire schedule to ground	*/
+/* by sending 128B chunks to the OBC_PACKET_ROUTER, which in turn will	*/
+/* attempt to downlink the telemetry to ground.							*/
+/************************************************************************/
 static int report_schedule(void)
 {
 	uint8_t i, num_pages;
@@ -415,7 +484,14 @@ static int report_schedule(void)
 	return 1;
 }
 
-// status = 0x01 for success, 0xFF for failure.
+/************************************************************************/
+/* SEND_TC_EXECUTION_VERIFY												*/
+/* @Purpose: sends an execution verification to the OBC_PACKET_ROUTER	*/
+/* which then attempts to downlink the telemetry to ground.				*/
+/* @param: status: 0x01 = Success, 0xFF = failure.						*/
+/* @param: packet_id: The first 2B of the PUS packet.					*/
+/* @param: pcs: the next 2B of the PUS packet.							*/
+/************************************************************************/
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
 {
 	clear_current_command();
@@ -430,6 +506,15 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	return;
 }
 
+/************************************************************************/
+/* SEND_EVENT_REPORT		                                            */
+/* @Purpose: sends a message to the OBC_PACKET_ROUTER using				*/
+/* sched_to_obc_fifo. The intent is to an event report downlinked to	*/
+/* the ground station.													*/
+/* @param: severity: 1 = Normal.										*/
+/* @param: report_id: Unique to the event report, ex: BIT_FLIP_DETECTED */
+/* @param: param1,0 extra information that can be sent to ground.		*/
+/************************************************************************/
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0)
 {
 	clear_current_command();

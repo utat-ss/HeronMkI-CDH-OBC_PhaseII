@@ -301,11 +301,7 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 
 /************************************************************************/
 /* SPIMEM_READ 		                                                    */
-/* 																		*/
-/* @param: spi_chip: Indicates which SPI CHIP we are communicating with */
-/* which is either 1, 2, or 3.											*/
-/* @param: addr: indicates the address on the SPI_CHIP we would like to */
-/* read from.															*/
+/* @param: addr: indicates the address of SPIMEM we want to read from   */
 /* @param: read_buff: Buffer in which the read bytes will be placed.	*/
 /* @param: size: How many bytes we would like to read into memory.		*/
 /* @return: -1 == Failure, otherwise returns the number of pages which	*/
@@ -374,7 +370,7 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 }
 
 /************************************************************************/
-/* SPIMEM_READ 		                                                    */
+/* SPIMEM_READ_ALT                                                      */
 /* 																		*/
 /* @param: spi_chip: Indicates which SPI CHIP we are communicating with */
 /* which is either 1, 2, or 3.											*/
@@ -816,7 +812,6 @@ static uint32_t write_page_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff
 		
 	return 1;
 }
-
 
 /************************************************************************/
 /* READY_FOR_COMMAND                                                    */

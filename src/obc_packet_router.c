@@ -210,7 +210,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	}
 }
 /*-----------------------------------------------------------*/
-// static helper functions may be defined below.
+/* static helper functions below */
 
 /************************************************************************/
 /* EXEC_COMMANDS		                                                */
@@ -617,15 +617,14 @@ static void store_current_tc(void)
 	}
 }
 
-// This function assumes that the telecommand to decode is contained in tc_to_decode[144].
-// current_tc_fullf should also be 1 before executing this function.
 /************************************************************************/
 /* DECODE_TELECOMMAND		                                            */
 /* @Purpose: This function is meant to parse through the telecommand	*/
-/* contained in current_tc[] and then either perform an action or		*/
+/* contained in tc_to_decode[] and then either perform an action or		*/
 /* route a message to a task or send a CAN message to an SSM			*/
 /* @Note: This function assumes that the telecommand to decode is		*/
-/* contained in tc_to_decode[]
+/* contained in tc_to_decode[]											*/
+/* current_tc_fullf should also be 1 before executing this function		*/
 /************************************************************************/
 static int decode_telecommand(void)
 {
@@ -681,8 +680,15 @@ static int decode_telecommand(void)
 	return;
 }
 
-// This function looks at the service type and service subtype of the incoming telecommand and turns it into 
-// either a task command, action, or CAN message.
+/************************************************************************/
+/* DECODE_TELECOMMAND_H		                                            */
+/* @Purpose: helper to decode_telecommand, this function looks at the	*/
+/* service_type and service_sub_type of the telecommand packet stored in*/
+/* tc_to_decode[] and performs the actual routing of messages and		*/
+/* executing of required actions.										*/
+/* @param: service_type: ex: Housekeeping = 3.							*/
+/* @param: service_sub_type: ex: TC Verification, success == 1			*/
+/************************************************************************/
 static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 {	
 	uint8_t sID = 0xFF;
@@ -778,8 +784,20 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 	return;
 }
 
-// This helper function is going to be used to determine whether or not the received telecommand is valid.
-// FAILURE_RECOVERY required if any of the send_tc_verification functions returns -1.
+/************************************************************************/
+/* VERIFY_TELECOMMAND		                                            */
+/* @Purpose: This helper is used to determine whether or not the		*/
+/* @param: apid: The process id of that the TC packet is meant for.		*/
+/* @param: packet_length: length of the packet in bytes.				*/
+/* @param: pec0: The checksum contained in the telecommand packet		*/
+/* @param: pec1: The checksum which was computed by this OBC			*/
+/* @param: service_type: ex: Housekeeping = 3.							*/
+/* @param: service_sub_type: ex: TC Verification, success == 1			*/
+/* @param: version: PUS version as indicated by the TC packet.			*/
+/* @param: ccsds_flag: does packet contain a PUS standard data header?	*/
+/* @param: packet_version: PUS version within the data header.			*/
+/* @return: -1: TC packet failed inspection, 1 == Good to decode		*/
+/************************************************************************/
 static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type, uint8_t version, uint8_t ccsds_flag, uint8_t packet_version)
 {
 	int x;
@@ -916,12 +934,19 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	return 1;
 }
 
-
-// This function turns the parameters into a TC verification packet and proceeds to send it
-// to the COMS SSM so that it can be downlinked.
-// status: 0 = SUCCESS, >0 = FAILURE
-// @return: -1 == FAILURE, 1 == SUCCESS
-// For TC_type == 1, code is the error code, for TC_type == 2, code is the APID which completed the command
+/************************************************************************/
+/* SEND_TC_VERIFICATION		                                            */
+/* @Purpose: turns the parameters into a TC verification packet and		*/
+/* proceeds to send it to the COMS SSM so that it can be downlinked		*/
+/* @param: packet_id: The first 2B of the PUS packet.					*/
+/* @param: sequence_control: the next 2B of the PUS packet.				*/
+/* @param: status: 0 = SUCCESS, >0 = FAILURE							*/
+/* @param: code: For TC_type == 1, code is the error code, for			*/
+/* TC_type == 2, code is the APID which completed the command			*/
+/* @param: parameter: something informational to send to ground.		*/
+/* @param: 1 == acceptance verification, 2 == execution verification	*/
+/* @return: -1 = function failed, 1 = function succeeded.				*/
+/************************************************************************/
 static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter, uint8_t tc_type)
 {
 	int resp = -1;
@@ -978,6 +1003,13 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 		return 1;
 }
 
+/************************************************************************/
+/* SEND_EVENT_PACKET		                                            */
+/* @Purpose: Takes information in high & low and turns them into an		*/
+/* event report which is then downlinked to the ground station.			*/
+/* @param: high: (high & 0xF0000000) is the sender ID.					*/
+/* @param: low: B3 = severity, B2 = reportID, B1,0 = parameters			*/
+/************************************************************************/
 static void send_event_packet(uint32_t high, uint32_t low)
 {
 	uint8_t sender, severity;

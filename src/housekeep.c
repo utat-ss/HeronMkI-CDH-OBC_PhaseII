@@ -194,13 +194,14 @@ static void prvHouseKeepTask(void *pvParameters )
 	}
 }
 /*-----------------------------------------------------------*/
+/* static helper functions below */
 
-// Define Static helper functions below.
-
-// This function attempts to receive a command from the command queue which is 
-// fed by the obc packet router.
-// If there isn't one ready, it waits for a number of ticks that corresponds to
-// <collection_interval> minutes. 
+/************************************************************************/
+/* EXEC_COMMANDS													*/
+/* @Purpose: Attempts to receive from obc_to_hk_fifo, executes			*/
+/* different commands depending on what was received. Otherwise, it		*/
+/* waits for a maximum of <collection_interval> minutes.				*/
+/************************************************************************/
 static void exec_commands(void)
 {
 	uint8_t i, command;
@@ -252,6 +253,10 @@ static void exec_commands(void)
 		return -1;
 }
 
+/************************************************************************/
+/* CLEAR_CURRENT_HK														*/
+/* @Purpose: clears the array current_hk[]								*/
+/************************************************************************/
 static void clear_current_hk(void)
 {
 	uint8_t i;
@@ -263,7 +268,10 @@ static void clear_current_hk(void)
 	return;
 }
 
-// Sets the memory offset for HK's reading/writing to SPI memory.
+/************************************************************************/
+/* CLEAR_CURRENT_COMMAND												*/
+/* @Purpose: sets the memory offset for HK's reading/writing to SPIMEM	*
+/************************************************************************/
 static void set_hk_mem_offset(void)
 {
 	uint32_t offset;
@@ -280,6 +288,10 @@ static void set_hk_mem_offset(void)
 	return;
 }
 
+/************************************************************************/
+/* CLEAR_CURRENT_COMMAND												*/
+/* @Purpose: clears the array current_command[]							*/
+/************************************************************************/
 static void clear_current_command(void)
 {
 	uint8_t i;
@@ -290,6 +302,10 @@ static void clear_current_command(void)
 	return;
 }
 
+/************************************************************************/
+/* CLEAR_ALTERNATE_HK_DEFINITION										*/
+/* @Purpose: clears the array current_hk_definition						*/
+/************************************************************************/
 static void clear_alternate_hk_definition(void)
 {
 	uint8_t i;
@@ -300,6 +316,11 @@ static void clear_alternate_hk_definition(void)
 	return;
 }
 
+/************************************************************************/
+/* REQUEST_HOUSEKEEPING_ALL												*/
+/* @Purpose: Requests for housekeeping from each SSM.					*/
+/* @return: 1 = action succeeded, -1 = something bad happened.			*/
+/************************************************************************/
 static int request_housekeeping_all(void)
 {			
 	if(request_housekeeping(EPS_ID) > 1)							// Request housekeeping from COMS.
@@ -315,7 +336,14 @@ static int request_housekeeping_all(void)
 	return 1;
 }
 
-// This function does not erase old values, it only updates them.
+/************************************************************************/
+/* STORE_HOUSEKEEPING													*/
+/* @Purpose: Reads from the housekeeping fifo, and places incoming		*/
+/* parameters into curren_hk[]											*/
+/* @Note: This function erases old values but also keeps track of values*/
+/* were not updated, and subsequently sends an event report to ground	*/
+/* if one was updated as well as a message to the FDIR task.			*/
+/************************************************************************/
 static int store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
@@ -356,8 +384,13 @@ static int store_housekeeping(void)
 	return 1;
 }
 
-// Note: When Housekeeping fills up, this function simply wraps back around 
-// to the beginning of housekeeping in memory.
+/************************************************************************/
+/* STORE_HK_IN_SPIMEM													*/
+/* @Purpose: stores the housekeeping which was just collected in spimem	*/
+/* along with a timestamp.												*/
+/* @Note: When housekeeping fills up, this function simply wraps back	*/
+/* around to the beginning of housekeeping in memory.					*/
+/************************************************************************/
 static int store_hk_in_spimem(void)
 {
 	uint32_t offset;
@@ -367,7 +400,8 @@ static int store_hk_in_spimem(void)
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
 	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
-	x = spimem_write((HK_BASE + offset + 4), current_hk, 128);		// FAILURE_RECOVERY if x < 0
+	x = spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
+	x = spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
 	offset = (offset + 137) % 8192;								// Make sure HK doesn't overflow into the next section.
 	if(offset == 0)
 		offset = 4;
@@ -379,8 +413,11 @@ static int store_hk_in_spimem(void)
 	return;
 }
 
-// This function sets the default definition that is used upon
-// startup for sending housekeeping packet.
+/************************************************************************/
+/* SETUP_DEFAULT_DEFINITION												*/
+/* @Purpose: This function will set the values stored in the default	*/
+/* housekeeping definition and will also set it as the current hk def	*/
+/************************************************************************/
 static void setup_default_definition(void)
 {
 	uint8_t i;
@@ -472,6 +509,12 @@ static void setup_default_definition(void)
 	return;
 }
 
+/************************************************************************/
+/* SENT_DEFINITION														*/
+/* @Purpose: This function will change which definition is being used	*/
+/* for creating housekeeping reports.									*/
+/* @param: sID: 0 == default, 1 = alternate.							*/
+/************************************************************************/
 static void set_definition(uint8_t sID)
 {
 	uint8_t i;
@@ -496,6 +539,12 @@ static void set_definition(uint8_t sID)
 	return;
 }
 
+/************************************************************************/
+/* SEND_HK_AS_TM														*/
+/* @Purpose: This function will downlink all housekeeping to ground		*/
+/* by sending 128B chunks to the OBC_PACKET_ROUTER, which in turn will	*/
+/* attempt to downlink the telemetry to ground.							*/
+/************************************************************************/
 static void send_hk_as_tm(void)
 {
 	uint8_t i;
@@ -509,6 +558,12 @@ static void send_hk_as_tm(void)
 	return;
 }
 
+/************************************************************************/
+/* REPORT_SCHEDULE														*/
+/* @Purpose: This function will downlink the current hk definition being*/
+/* used to produce housekeeping reports.								*/
+/* It does this by sending current hk def to OBC_PACKET_ROUTER.			*/
+/************************************************************************/
 static void send_param_report(void)
 {
 	uint8_t i;
@@ -522,7 +577,14 @@ static void send_param_report(void)
 	return;
 }
 
-// status = 0x01 for success, 0xFF for failure.
+/************************************************************************/
+/* SEND_TC_EXECUTION_VERIFY												*/
+/* @Purpose: sends an execution verification to the OBC_PACKET_ROUTER	*/
+/* which then attempts to downlink the telemetry to ground.				*/
+/* @param: status: 0x01 = Success, 0xFF = failure.						*/
+/* @param: packet_id: The first 2B of the PUS packet.					*/
+/* @param: pcs: the next 2B of the PUS packet.							*/
+/************************************************************************/
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
 {
 	clear_current_command();
@@ -536,4 +598,3 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
-

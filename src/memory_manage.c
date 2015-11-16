@@ -151,7 +151,17 @@ static void prvMemoryManageTask(void *pvParameters )
 	}
 }
 /*-----------------------------------------------------------*/
+/* static helper functions below */
 
+/************************************************************************/
+/* MEMORY_WASH															*/
+/* @Purpose: Given that all 3 SPIMEM chips are working properly, this	*/
+/* function reads through each page in memory on all 3 spi chips and	*/
+/* compares the results of what is read. It then uses a voting algorithm*/
+/* to rewrite areas of memory which may have been subjected to a bitflip*/
+/* If an anomaly is detected and cannot be rectified, an error report	*/
+/* is sent to the FDIR task.											*/
+/************************************************************************/
 static void memory_wash(void)
 {
 	int x, y, z;
@@ -228,8 +238,12 @@ static void memory_wash(void)
 	return;
 }
 
-// This function checks the queue for a command from the obc_packet_router and the executes it.
-// Otherwise it waits for a maximum of 1 minute.
+/************************************************************************/
+/* EXEC_PUS_COMMANDS													*/
+/* @Purpose: Attempts to receive from obc_to_mem_fifo, executes			*/
+/* different commands depending on what was received. Otherwise, it		*/
+/* waits for a maximum of 1 minute.										*/
+/************************************************************************/
 static void exec_commands(void)
 {
 	uint8_t command, memid, status;
@@ -333,6 +347,10 @@ static void exec_commands(void)
 	return;
 }
 
+/************************************************************************/
+/* CLEAR_CURRENT_COMMAND												*/
+/* @Purpose: clears the array current_command[]							*/
+/************************************************************************/
 static void clear_current_command(void)
 {
 	uint8_t i;
@@ -343,6 +361,14 @@ static void clear_current_command(void)
 	return;
 }
 
+/************************************************************************/
+/* SEND_TC_EXECUTION_VERIFY												*/
+/* @Purpose: sends an execution verification to the OBC_PACKET_ROUTER	*/
+/* which then attempts to downlink the telemetry to ground.				*/
+/* @param: status: 0x01 = Success, 0xFF = failure.						*/
+/* @param: packet_id: The first 2B of the PUS packet.					*/
+/* @param: pcs: the next 2B of the PUS packet.							*/
+/************************************************************************/
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
 {
 	clear_current_command();
@@ -357,6 +383,15 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	return;
 }
 
+/************************************************************************/
+/* SEND_EVENT_REPORT		                                            */
+/* @Purpose: sends a message to the OBC_PACKET_ROUTER using				*/
+/* mem_to_obc_fifo. The intent is to an event report downlinked to	*/
+/* the ground station.													*/
+/* @param: severity: 1 = Normal.										*/
+/* @param: report_id: Unique to the event report, ex: BIT_FLIP_DETECTED */
+/* @param: param1,0 extra information that can be sent to ground.		*/
+/************************************************************************/
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0)
 {
 	clear_current_command();

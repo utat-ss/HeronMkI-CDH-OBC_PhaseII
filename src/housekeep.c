@@ -124,7 +124,7 @@ static uint8_t hk_updated[DATA_LENGTH];
 static uint8_t current_hk_definition[DATA_LENGTH];
 static uint8_t current_hk_definitionf;					// Unique identifier for the housekeeping format definition.
 static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
-static uint32_t new_kh_msg_high, new_hk_msg_low;
+static uint32_t new_hk_msg_high, new_hk_msg_low;
 static uint8_t current_hk_fullf, param_report_requiredf;
 static uint8_t collection_interval0, collection_interval1;		// How to wait for the next collection (in minutes)
 static TickType_t xTimeToWait;				// Number entered here corresponds to the number of ticks we should wait.
@@ -167,7 +167,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	uint8_t i;
 	uint8_t command;
 	uint8_t passkey = 1234, addr = 0x80;
-	new_kh_msg_high = 0;
+	new_hk_msg_high = 0;
 	new_hk_msg_low = 0;
 	current_hk_fullf = 0;
 	current_hk_definitionf = 0;		// Default definition
@@ -353,10 +353,10 @@ static int store_housekeeping(void)
 	if(current_hk_fullf)
 		return -1;
 	clear_current_hk();
-	while(read_can_hk(&new_kh_msg_high, &new_hk_msg_low, 1234) == 1)
+	while(read_can_hk(&new_hk_msg_high, &new_hk_msg_low, 1234) == 1)
 	{
-		sender = (new_kh_msg_high & 0xF0000000) >> 28;			// Can be EPS_ID/COMS_ID/PAY_ID/OBC_ID
-		parameter_name = (new_kh_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
+		sender = (new_hk_msg_high & 0xF0000000) >> 28;			// Can be EPS_ID/COMS_ID/PAY_ID/OBC_ID
+		parameter_name = (new_hk_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
 		for(i = 0; i < num_parameters; i+=2)
 		{
 			if(current_hk_definition[i] == parameter_name)
@@ -430,68 +430,74 @@ static void setup_default_definition(void)
 	hk_definition0[136] = 0;							// sID = 0
 	hk_definition0[135] = collection_interval0;			// Collection interval = 30 min
 	hk_definition0[134] = 36;							// Number of parameters (2B each)
-	hk_definition0[75] = PANELX_V;
-	hk_definition0[74] = PANELX_V;
-	hk_definition0[73] = PANELX_I;
-	hk_definition0[72] = PANELX_I;
-	hk_definition0[71] = PANELY_V;
-	hk_definition0[70] = PANELY_V;
-	hk_definition0[69] = PANELY_I;
-	hk_definition0[68] = PANELY_I;
-	hk_definition0[67] = BATTM_V;
-	hk_definition0[66] = BATTM_V;
-	hk_definition0[65] = BATT_V;
-	hk_definition0[64] = BATT_V;
-	hk_definition0[63] = BATTIN_I;
-	hk_definition0[62] = BATTIN_I;
-	hk_definition0[61] = BATTOUT_I;
-	hk_definition0[60] = BATTOUT_I;
-	hk_definition0[59] = BATT_TEMP;
-	hk_definition0[58] = BATT_TEMP;	//
-	hk_definition0[57] = EPS_TEMP;
-	hk_definition0[56] = EPS_TEMP;	//
-	hk_definition0[55] = COMS_V;
-	hk_definition0[54] = COMS_V;
-	hk_definition0[53] = COMS_I;
-	hk_definition0[52] = COMS_I;
-	hk_definition0[51] = PAY_V;
-	hk_definition0[50] = PAY_V;
-	hk_definition0[49] = PAY_I;
-	hk_definition0[48] = PAY_I;
-	hk_definition0[47] = OBC_V;
-	hk_definition0[46] = OBC_V;
-	hk_definition0[45] = OBC_I;
-	hk_definition0[44] = OBC_I;
-	hk_definition0[43] = BATT_I;
-	hk_definition0[42] = BATT_I;
-	hk_definition0[41] = EPS_MODE;	//
-	hk_definition0[40] = EPS_MODE;
-	hk_definition0[39] = COMS_TEMP;	//
-	hk_definition0[38] = COMS_TEMP;
-	hk_definition0[37] = COMS_MODE;	//
-	hk_definition0[36] = COMS_MODE;
-	hk_definition0[35] = PAY_TEMP0;
-	hk_definition0[34] = PAY_TEMP0;
-	hk_definition0[33] = PAY_TEMP1;
-	hk_definition0[32] = PAY_TEMP1;
-	hk_definition0[31] = PAY_TEMP2;
-	hk_definition0[30] = PAY_TEMP2;
-	hk_definition0[29] = PAY_TEMP3;
-	hk_definition0[28] = PAY_TEMP3;
-	hk_definition0[27] = PAY_TEMP4;
-	hk_definition0[26] = PAY_TEMP4;
-	hk_definition0[25] = PAY_HUM;
-	hk_definition0[24] = PAY_HUM;
-	hk_definition0[23] = PAY_PRESS;
-	hk_definition0[22] = PAY_PRESS;
-	hk_definition0[21] = PAY_MODE;
-	hk_definition0[20] = PAY_MODE;
-	hk_definition0[19] = PAY_STATE;
-	hk_definition0[18] = PAY_STATE;
-	hk_definition0[17] = OBC_TEMP;
-	hk_definition0[16] = OBC_TEMP;
-	hk_definition0[15] = OBC_MODE;
-	hk_definition0[14] = OBC_MODE;
+	hk_definition0[81] = PANELX_V;
+	hk_definition0[80] = PANELX_V;
+	hk_definition0[79] = PANELX_I;
+	hk_definition0[78] = PANELX_I;
+	hk_definition0[77] = PANELY_V;
+	hk_definition0[76] = PANELY_V;
+	hk_definition0[75] = PANELY_I;
+	hk_definition0[74] = PANELY_I;
+	hk_definition0[73] = BATTM_V;
+	hk_definition0[72] = BATTM_V;
+	hk_definition0[71] = BATT_V;
+	hk_definition0[70] = BATT_V;
+	hk_definition0[69] = BATTIN_I;
+	hk_definition0[68] = BATTIN_I;
+	hk_definition0[67] = BATTOUT_I;
+	hk_definition0[66] = BATTOUT_I;
+	hk_definition0[65] = BATT_TEMP;
+	hk_definition0[64] = BATT_TEMP;	//
+	hk_definition0[63] = EPS_TEMP;
+	hk_definition0[62] = EPS_TEMP;	//
+	hk_definition0[61] = COMS_V;
+	hk_definition0[60] = COMS_V;
+	hk_definition0[59] = COMS_I;
+	hk_definition0[58] = COMS_I;
+	hk_definition0[57] = PAY_V;
+	hk_definition0[56] = PAY_V;
+	hk_definition0[55] = PAY_I;
+	hk_definition0[54] = PAY_I;
+	hk_definition0[53] = OBC_V;
+	hk_definition0[52] = OBC_V;
+	hk_definition0[51] = OBC_I;
+	hk_definition0[50] = OBC_I;
+	hk_definition0[49] = BATT_I;
+	hk_definition0[48] = BATT_I;
+	hk_definition0[47] = COMS_TEMP;	//
+	hk_definition0[46] = COMS_TEMP;
+	hk_definition0[45] = OBC_TEMP;	//
+	hk_definition0[44] = OBC_TEMP;
+	hk_definition0[43] = PAY_TEMP0;
+	hk_definition0[42] = PAY_TEMP0;
+	hk_definition0[41] = PAY_TEMP1;
+	hk_definition0[40] = PAY_TEMP1;
+	hk_definition0[39] = PAY_TEMP2;
+	hk_definition0[38] = PAY_TEMP2;
+	hk_definition0[37] = PAY_TEMP3;
+	hk_definition0[36] = PAY_TEMP3;
+	hk_definition0[35] = PAY_TEMP4;
+	hk_definition0[34] = PAY_TEMP4;
+	hk_definition0[33] = PAY_HUM;
+	hk_definition0[32] = PAY_HUM;
+	hk_definition0[31] = PAY_PRESS;
+	hk_definition0[30] = PAY_PRESS;
+	hk_definition0[29] = PAY_ACCEL;
+	hk_definition0[28] = PAY_ACCEL;
+	hk_definition0[27] = MPPTA;
+	hk_definition0[26] = MPPTA;
+	hk_definition0[25] = MPPTB;
+	hk_definition0[24] = MPPTB;
+	hk_definition0[23] = COMS_MODE;	//
+	hk_definition0[22] = COMS_MODE;
+	hk_definition0[21] = EPS_MODE;	//
+	hk_definition0[20] = EPS_MODE;
+	hk_definition0[19] = PAY_MODE;
+	hk_definition0[18] = PAY_MODE
+	hk_definition0[17] = OBC_MODE;
+	hk_definition0[16] = OBC_MODE;
+	hk_definition0[15] = PAY_STATE;
+	hk_definition0[14] = PAY_STATE;
 	hk_definition0[13] = ABS_TIME_D;
 	hk_definition0[12] = ABS_TIME_D;
 	hk_definition0[11] = ABS_TIME_H;

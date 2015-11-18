@@ -260,6 +260,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define PAY_TEMP4				0x18
 #define PAY_HUM					0x19
 #define PAY_PRESS				0x1A
+#define PAY_ACCEL				0x1B
 
 /* VARIABLE NAMES		*/
 #define MPPTA					0xFF

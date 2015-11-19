@@ -58,6 +58,7 @@
 #define MEMORY_SERVICE					6
 #define TIME_SERVICE					9
 #define K_SERVICE						69
+#define FDIR_SERVICE					70
 
 /* Definitions to clarify which service subtypes represent what	*/
 /* Housekeeping							*/

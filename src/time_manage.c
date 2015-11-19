@@ -78,7 +78,7 @@ static void broadcast_minute(void);
 static void update_absolute_time(void);
 static void report_time(void);
 static void exec_commands(void);
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
 /* Local Variables for Time Management */
 static struct timestamp time;
@@ -192,21 +192,21 @@ static void report_time(void)
 // Execute commands that are sent from the obc_packet_router
 static void exec_commands(void)
 {
-	uint16_t packet_id, pcs;
+	uint16_t packet_id, psc;
 	if(xQueueReceive(obc_to_time_fifo, current_command, (TickType_t)10) == pdTRUE)
 	{
 		packet_id = ((uint16_t)current_command[8]) << 8;
 		packet_id += (uint16_t)current_command[7];
-		pcs = ((uint16_t)current_command[6]) << 8;
-		pcs += (uint16_t)current_command[5];
+		psc = ((uint16_t)current_command[6]) << 8;
+		psc += (uint16_t)current_command[5];
 		report_timeout = current_command[0];			
-		send_tc_execution_verify(1, packet_id, pcs);
+		send_tc_execution_verify(1, packet_id, psc);
 	}
 	return;
 }
 
 // status = 0x01 for success, 0xFF for failure.
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc)
 {
 	clear_current_command();
 	current_command[9] = TASK_TO_OPR_TCV;		// Request a TC verification
@@ -214,7 +214,7 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[7] = TIME_TASK_ID;			// APID of this task
 	current_command[6] = ((uint8_t)packet_id) >> 8;
 	current_command[5] = (uint8_t)packet_id;
-	current_command[4] = ((uint8_t)pcs) >> 8;
-	current_command[3] = (uint8_t)pcs;
+	current_command[4] = ((uint8_t)psc) >> 8;
+	current_command[3] = (uint8_t)psc;
 	return;
 }

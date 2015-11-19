@@ -95,7 +95,7 @@ void menory_manage(void);
 static void memory_wash(void);
 static void exec_commands(void);
 static void clear_current_command(void);
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 
 /* Local variables for memory management */
@@ -248,7 +248,7 @@ static void exec_commands(void)
 {
 	uint8_t command, memid, status;
 	uint16_t i, j;
-	uint16_t packet_id, pcs;
+	uint16_t packet_id, psc;
 	uint8_t* mem_ptr = 0;
 	uint32_t address, length, last_len = 0, num_transfers = 0;
 	uint64_t check = 0;
@@ -258,8 +258,8 @@ static void exec_commands(void)
 		command = current_command[146];
 		packet_id = ((uint16_t)current_command[140]) << 8;
 		packet_id += (uint16_t)current_command[139];
-		pcs = ((uint16_t)current_command[138]) << 8;
-		pcs += (uint16_t)current_command[137];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
 		memid = current_command[136];
 		address =  ((uint32_t)current_command[135]) << 24;
 		address += ((uint32_t)current_command[134]) << 16;
@@ -283,9 +283,9 @@ static void exec_commands(void)
 				else
 				{
 					if(spimem_write(address, current_command, length) < 0)				// FAILURE_RECOVERY
-						send_tc_execution_verify(0xFF, packet_id, pcs);
+						send_tc_execution_verify(0xFF, packet_id, psc);
 				}
-				send_tc_execution_verify(1, packet_id, pcs);
+				send_tc_execution_verify(1, packet_id, psc);
 			case	DUMP_REQUEST_ABS:
 				clear_current_command();		// Only clears lower data section.
 				last_len = 0;
@@ -306,29 +306,29 @@ static void exec_commands(void)
 					else
 					{
 						if(spimem_read(address, current_command, length) < 0)		// FAILURE_RECOVERY
-							send_tc_execution_verify(0xFF, packet_id, pcs);
+							send_tc_execution_verify(0xFF, packet_id, psc);
 					}
 					current_command[146] = MEMORY_DUMP_ABS;
 					current_command[145] = num_transfers - j;
 					xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
 					taskYIELD();	// Give the packet router a chance to downlink the dump packet.				
 				}
-				send_tc_execution_verify(1, packet_id, pcs);
+				send_tc_execution_verify(1, packet_id, psc);
 			case	CHECK_MEM_REQUEST:
 				if(!memid)
 				{
 					check = fletcher64(address, length);
-					send_tc_execution_verify(1, packet_id, pcs);
+					send_tc_execution_verify(1, packet_id, psc);
 				}
 				else
 				{
 					check = fletcher64_on_spimem(address, length, &status);
 					if(status > 1)
 					{
-						send_tc_execution_verify(0xFF, packet_id, pcs);
+						send_tc_execution_verify(0xFF, packet_id, psc);
 						return;
 					}
-					send_tc_execution_verify(1, packet_id, pcs);
+					send_tc_execution_verify(1, packet_id, psc);
 				}
 				current_command[146] = MEMORY_CHECK_ABS;
 				current_command[7] = ((uint8_t)(check & 0xFF00000000000000)) >> 56;
@@ -367,9 +367,9 @@ static void clear_current_command(void)
 /* which then attempts to downlink the telemetry to ground.				*/
 /* @param: status: 0x01 = Success, 0xFF = failure.						*/
 /* @param: packet_id: The first 2B of the PUS packet.					*/
-/* @param: pcs: the next 2B of the PUS packet.							*/
+/* @param: psc: the next 2B of the PUS packet.							*/
 /************************************************************************/
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc)
 {
 	clear_current_command();
 	current_command[146] = TASK_TO_OPR_TCV;		// Request a TC verification
@@ -377,8 +377,8 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[144] = MEMORY_TASK_ID;		// APID of this task
 	current_command[140] = ((uint8_t)packet_id) >> 8;
 	current_command[139] = (uint8_t)packet_id;
-	current_command[138] = ((uint8_t)pcs) >> 8;
-	current_command[137] = (uint8_t)pcs;
+	current_command[138] = ((uint8_t)psc) >> 8;
+	current_command[137] = (uint8_t)psc;
 	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }

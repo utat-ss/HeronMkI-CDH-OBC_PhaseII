@@ -85,7 +85,7 @@ static int clear_schedule(void);
 static void clear_temp_array(void);
 static void clear_current_command(void);
 static int report_schedule(void);
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 
 
@@ -163,35 +163,35 @@ static void prvSchedulingTask( void *pvParameters )
 /************************************************************************/
 static void exec_pus_commands(void)
 {
-	uint16_t packet_id, pcs;
+	uint16_t packet_id, psc;
 	uint8_t status, kicked_count;
 	if(xQueueReceive(obc_to_sched_fifo, current_command, (TickType_t)1000) == pdTRUE)	// Only block for a single second.
 	{
 		packet_id = ((uint16_t)current_command[140]) << 8;
 		packet_id += (uint16_t)current_command[139];
-		pcs = ((uint16_t)current_command[138]) << 8;
-		pcs += (uint16_t)current_command[137];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
 		switch(current_command[146])
 		{
 			case ADD_SCHEDULE:
 				x = modify_schedule(&status, &kicked_count);
 				if(status == -1)
-					send_tc_execution_verify(0xFF, packet_id, pcs);			// The Schedule modification failed
+					send_tc_execution_verify(0xFF, packet_id, psc);			// The Schedule modification failed
 				if(status == 2)
 					send_event_report(1, KICK_COM_FROM_SCHEDULE, kicked_count, 0);		// the modification kicked out commands.
 				if(status == 1)
-					send_tc_execution_verify(1, packet_id, pcs);			// modification succeeded without a hitch
+					send_tc_execution_verify(1, packet_id, psc);			// modification succeeded without a hitch
 				check_schedule();
 			case CLEAR_SCHEDULE:
 				if(clear_schedule() < 0)
-					send_tc_execution_verify(0xFF, packet_id, pcs);
+					send_tc_execution_verify(0xFF, packet_id, psc);
 				else
-					send_tc_execution_verify(1, packet_id, pcs);
+					send_tc_execution_verify(1, packet_id, psc);
 			case SCHED_REPORT_REQUEST:
 				if(report_schedule() < 0)
-					send_tc_execution_verify(0xFF, packet_id, pcs);
+					send_tc_execution_verify(0xFF, packet_id, psc);
 				else
-					send_tc_execution_verify(1, packet_id, pcs);			
+					send_tc_execution_verify(1, packet_id, psc);			
 			default:
 				return;
 		}
@@ -490,9 +490,9 @@ static int report_schedule(void)
 /* which then attempts to downlink the telemetry to ground.				*/
 /* @param: status: 0x01 = Success, 0xFF = failure.						*/
 /* @param: packet_id: The first 2B of the PUS packet.					*/
-/* @param: pcs: the next 2B of the PUS packet.							*/
+/* @param: psc: the next 2B of the PUS packet.							*/
 /************************************************************************/
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc)
 {
 	clear_current_command();
 	current_command[146] = TASK_TO_OPR_TCV;		// Request a TC verification
@@ -500,8 +500,8 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[144] = SCHEDULING_TASK_ID;			// APID of this task
 	current_command[140] = ((uint8_t)packet_id) >> 8;
 	current_command[139] = (uint8_t)packet_id;
-	current_command[138] = ((uint8_t)pcs) >> 8;
-	current_command[137] = (uint8_t)pcs;
+	current_command[138] = ((uint8_t)psc) >> 8;
+	current_command[137] = (uint8_t)psc;
 	xQueueSendToBack(sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }

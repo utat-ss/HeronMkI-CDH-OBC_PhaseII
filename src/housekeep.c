@@ -113,7 +113,7 @@ static void send_param_report(void);
 static void exec_commands(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -205,14 +205,14 @@ static void prvHouseKeepTask(void *pvParameters )
 static void exec_commands(void)
 {
 	uint8_t i, command;
-	uint16_t packet_id, pcs;
+	uint16_t packet_id, psc;
 	clear_current_command();
 	if( xQueueReceive(obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
 	{
 		packet_id = ((uint16_t)current_command[140]) << 8;
 		packet_id += (uint16_t)current_command[139];
-		pcs = ((uint16_t)current_command[138]) << 8;
-		pcs += (uint16_t)current_command[137];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
 		command = current_command[146];
 		switch(command)
 		{
@@ -226,7 +226,7 @@ static void exec_commands(void)
 				hk_definition1[135] = collection_interval1;
 				hk_definition1[134] = current_command[146];
 				set_definition(ALTERNATE);
-				send_tc_execution_verify(1, packet_id, pcs);		// Send TC Execution Verification (Success)
+				send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
 			case	CLEAR_HK_DEFINITION:
 				collection_interval1 = 30;
 				for(i = 0; i < DATA_LENGTH; i++)
@@ -234,16 +234,16 @@ static void exec_commands(void)
 					hk_definition1[i] = 0;
 				}
 				set_definition(DEFAULT);
-				send_tc_execution_verify(1, packet_id, pcs);
+				send_tc_execution_verify(1, packet_id, psc);
 			case	ENABLE_PARAM_REPORT:
 				param_report_requiredf = 1;
-				send_tc_execution_verify(1, packet_id, pcs);
+				send_tc_execution_verify(1, packet_id, psc);
 			case	DISABLE_PARAM_REPORT:
 				param_report_requiredf = 0;
-				send_tc_execution_verify(1, packet_id, pcs);
+				send_tc_execution_verify(1, packet_id, psc);
 			case	REPORT_HK_DEFINITIONS:
 				param_report_requiredf = 1;
-				send_tc_execution_verify(1, packet_id, pcs);
+				send_tc_execution_verify(1, packet_id, psc);
 			default:
 				break;
 		}
@@ -589,9 +589,9 @@ static void send_param_report(void)
 /* which then attempts to downlink the telemetry to ground.				*/
 /* @param: status: 0x01 = Success, 0xFF = failure.						*/
 /* @param: packet_id: The first 2B of the PUS packet.					*/
-/* @param: pcs: the next 2B of the PUS packet.							*/
+/* @param: psc: the next 2B of the PUS packet.							*/
 /************************************************************************/
-static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t pcs)
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc)
 {
 	clear_current_command();
 	current_command[146] = TASK_TO_OPR_TCV;		// Request a TC verification
@@ -599,8 +599,8 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[144] = HK_TASK_ID;			// APID of this task
 	current_command[140] = ((uint8_t)packet_id) >> 8;
 	current_command[139] = (uint8_t)packet_id;
-	current_command[138] = ((uint8_t)pcs) >> 8;
-	current_command[137] = (uint8_t)pcs;
+	current_command[138] = ((uint8_t)psc) >> 8;
+	current_command[137] = (uint8_t)psc;
 	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }

@@ -193,6 +193,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define TIME_GROUND_ID			0x11
 #define MEM_GROUND_ID			0x12
 #define GROUND_PACKET_ROUTER_ID 0x13
+#define FDIR_GROUND_ID			0x14
+#define SCHED_GROUND_ID			0x15
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01

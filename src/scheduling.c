@@ -29,6 +29,16 @@ Author: Keenan Burnett
 *					
 *					As commands are added in the future, chek_commands() should be modified to accomodate them.
 *
+* 11/25/2015		It occurred to me that it's going to make life so much better in the long run if each of the commands
+*					put in the schedule has it's own unique ID that we can keep track of as well as a "status" byte.
+*					Commands in the OBSW schedule may have a status, but this status shall be ignored except for when
+*					it is time to send a report to ground on the status of the scheduled command.
+*
+*					The use of cIDs simplifies the implementation of reports on failed / succeeded scheduled commands.
+*
+*					Note that this causes many changes to occur in GPR code and scheduling code as commands are now 16B long.
+*					(I am now effecting these changes)
+*
 * DESCRIPTION:
 *
 */
@@ -66,7 +76,7 @@ functionality. */
 #define	SCHED_REPORT_REQUEST			3
 #define SCHED_REPORT					4*/
 
-#define MAX_COMMANDS					1023
+#define MAX_COMMANDS					511
 
 /* Functions Prototypes. */
 static void prvSchedulingTask( void *pvParameters );
@@ -137,7 +147,7 @@ static void prvSchedulingTask( void *pvParameters )
 	next_command_time = ((uint32_t)temp_arr[2]) << 16;
 	next_command_time = ((uint32_t)temp_arr[1]) << 8;
 	next_command_time = (uint32_t)temp_arr[0];
-	x = spimem_read(SCHEDULE_BASE + 4 + ((num_commands - 1) * 8), temp_arr, 4);
+	x = spimem_read(SCHEDULE_BASE + 4 + ((num_commands - 1) * 16), temp_arr, 4);
 	furthest_command_time = ((uint32_t)temp_arr[3]) << 24;
 	furthest_command_time = ((uint32_t)temp_arr[2]) << 16;
 	furthest_command_time = ((uint32_t)temp_arr[1]) << 8;
@@ -217,10 +227,10 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 		
 	for(i = 0; i < num_new_commands; i++)			// out of the schedule.
 	{
-		new_time = ((uint32_t)current_command[135 - (i * 8)]) << 24;
-		new_time += ((uint32_t)current_command[134 - (i * 8)]) << 16;
-		new_time += ((uint32_t)current_command[133 - (i * 8)]) << 8;
-		new_time += (uint32_t)current_command[132 - (i * 8)];
+		new_time = ((uint32_t)current_command[135 - (i * 16)]) << 24;
+		new_time += ((uint32_t)current_command[134 - (i * 16)]) << 16;
+		new_time += ((uint32_t)current_command[133 - (i * 16)]) << 8;
+		new_time += (uint32_t)current_command[132 - (i * 16)];
 		
 		if((num_commands == MAX_COMMANDS) && (new_time >= furthest_command_time))
 		{
@@ -233,11 +243,11 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 			(*kicked_count)++;
 		}
 		if(new_time >= furthest_command_time)
-			add_command_to_end(new_time, 135 - (i * 8));
+			add_command_to_end(new_time, 135 - (i * 16));
 		if(new_time < next_command_time)
-			add_command_to_beginning(new_time, 135 - (i * 8));
+			add_command_to_beginning(new_time, 135 - (i * 16));
 		else
-			add_command_to_middle(new_time, 135 - (i * 8));
+			add_command_to_middle(new_time, 135 - (i * 16));
 		if(num_commands < MAX_COMMANDS)
 			num_commands++;
 	}
@@ -261,8 +271,8 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 static void add_command_to_end(uint32_t new_time, uint8_t position)
 {
 	if(num_commands == MAX_COMMANDS)
-		return;																						// USAGE ERROR
-	x = spimem_write((SCHEDULE_BASE + 4 + (num_commands * 8)), current_command + position, 8);		// FAILURE_RECOVERY
+		return;																							// USAGE ERROR
+	x = spimem_write((SCHEDULE_BASE + 4 + (num_commands * 16)), current_command + position, 16);		// FAILURE_RECOVERY
 	furthest_command_time = new_time;
 	return;
 }
@@ -271,7 +281,7 @@ static void add_command_to_beginning(uint32_t new_time, uint8_t position)
 {
 	next_command_time = new_time;
 	x = shift_schedule_right(SCHEDULE_BASE + 4);														// FAILURE_RECOVERY
-	x = spimem_write(SCHEDULE_BASE + 4, current_command + position, 8);
+	x = spimem_write(SCHEDULE_BASE + 4, current_command + position, 16);
 	return;
 }
 
@@ -282,7 +292,7 @@ static void add_command_to_middle(uint32_t new_time, uint8_t position)
 	uint8_t time_arr[4];
 	for(i = 0; i < num_commands; i++)
 	{
-		if(spimem_read((SCHEDULE_BASE + 4 + num_commands * 8), time_arr, 4) < 0)						// FAILURE_RECOVERY
+		if(spimem_read((SCHEDULE_BASE + 4 + num_commands * 16), time_arr, 4) < 0)						// FAILURE_RECOVERY
 			return;
 		stored_time = ((uint32_t)time_arr[0]) << 24;
 		stored_time += ((uint32_t)time_arr[1]) << 16;
@@ -290,8 +300,8 @@ static void add_command_to_middle(uint32_t new_time, uint8_t position)
 		stored_time += (uint32_t)time_arr[3];
 		if(new_time >= stored_time)
 		{
-			shift_schedule_right(SCHEDULE_BASE + 4 + (i + 1) * 8);
-			x = spimem_write(SCHEDULE_BASE + 4 + (i + 1) * 8, current_command + position, 8);
+			shift_schedule_right(SCHEDULE_BASE + 4 + (i + 1) * 16);
+			x = spimem_write(SCHEDULE_BASE + 4 + (i + 1) * 16, current_command + position, 16);
 			return;
 		}
 	}
@@ -309,11 +319,11 @@ static void add_command_to_middle(uint32_t new_time, uint8_t position)
 static int shift_schedule_right(uint32_t address)
 {
 	uint8_t num_pages, i;
-	num_pages = ((num_commands * 8) - (address - (SCHEDULE_BASE + 4))) / 256;
-	if(((num_commands * 8) - (address - (SCHEDULE_BASE + 4))) % 256)
+	num_pages = ((num_commands * 16) - (address - (SCHEDULE_BASE + 4))) / 256;
+	if(((num_commands * 16) - (address - (SCHEDULE_BASE + 4))) % 256)
 		num_pages++;
 
-	if(spimem_read(SCHEDULE_BASE + 8096, temp_arr, 256) < 0)				// Store the page of memory which may be overwritten.
+	if(spimem_read(SCHEDULE_BASE + 8192, temp_arr, 256) < 0)				// Store the page of memory which may be overwritten.
 		return -1;
 	if(spimem_read(address, sched_buff0, 256) < 0)
 		return -1;
@@ -321,14 +331,14 @@ static int shift_schedule_right(uint32_t address)
 		return -1;
 	for(i = 0; i < num_pages; i++)
 	{
-		if(spimem_write((address + (i * 256) + 8), sched_buff0, 256) < 0)
+		if(spimem_write((address + (i * 256) + 16), sched_buff0, 256) < 0)
 			return -1;
 		load_buff1_to_buff0();
 		if(spimem_read((address + (i + 1) * 256), sched_buff1, 256) < 0)
 			return -1;
 	}
 
-	if(spimem_write(SCHEDULE_BASE + 8096, temp_arr, 256) < 0)				// Restore the page which may have been overwritten.
+	if(spimem_write(SCHEDULE_BASE + 8192, temp_arr, 256) < 0)				// Restore the page which may have been overwritten.
 		return -1;
 	return 1;
 }
@@ -339,19 +349,20 @@ static int shift_schedule_right(uint32_t address)
 /* starting at "address"												*/
 /* @param: address: the location in memory we want to shift left from	*/
 /* @return: -1 = something went wrong, 1 = action succeeded.			*/
+/* @Note: Remember to update next_command_time if it's going to change	*/
 /************************************************************************/
 static int shift_schedule_left(uint32_t address)
 {
 	uint8_t num_pages, i;
-	num_pages = ((num_commands * 8) - (address - (SCHEDULE_BASE + 4))) / 256;
-	if(((num_commands * 8) - (address - (SCHEDULE_BASE + 4))) % 256)
+	num_pages = ((num_commands * 16) - (address - (SCHEDULE_BASE + 4))) / 256;
+	if(((num_commands * 16) - (address - (SCHEDULE_BASE + 4))) % 256)
 		num_pages++;
 
 	for(i = 0; i < num_pages; i++)
 	{
-		if(spimem_read((address + (i * 256) - 8), sched_buff0, 256) < 0)
+		if(spimem_read((address + i * 256), sched_buff0, 256) < 0)
 			return -1;
-		if(spimem_write((address + (i * 256) - 8), sched_buff0, 256) < 0)
+		if(spimem_write((address + (i * 256) - 16), sched_buff0, 256) < 0)
 			return -1;
 	}
 	return 1;
@@ -395,10 +406,17 @@ static void load_buff1_to_buff0(void)
 /************************************************************************/
 static int check_schedule(void)
 {
-	if(next_command_time >= CURRENT_TIME)
+	uint8_t status = 0x01;										// This variable is going to contain the status returned
+	if(next_command_time <= CURRENT_TIME)						// from whatever command needs to be executed below, assume it is used for now.
 	{
-		// Execute the Command.
-		shift_schedule_left(SCHEDULE_BASE + 12);				// Shift out the command which was just executed.
+		// status = exec_k_command();
+		if(status == 0xFF)										// The scheduled command failed.
+		{
+			// Retry for a maximum of 3 tries.
+			// Still failing: Send a failure message to the FDIR Process and wait for signal from FDIR. FAILURE_RECOVERY
+			// Still failing: (What FDIR should do: ) Send a message to the ground scheduling service letting it know that the command failed.
+		}
+		shift_schedule_left(SCHEDULE_BASE + 20);				// Shift out the command which was just executed.
 		num_commands--;
 		temp_arr[0] = (uint8_t)num_commands;
 		temp_arr[1] = (uint8_t)(num_commands >> 8);
@@ -407,6 +425,11 @@ static int check_schedule(void)
 		x = spimem_write(SCHEDULE_BASE, temp_arr, 4);				// update the num_commands within SPI memory.
 		if(x < 0)
 			return -1;												// FAILURE_RECOVERY
+		x = spimem_read(SCHEDULE_BASE+4, temp_arr, 4);
+		next_command_time = ((uint32_t)temp_arr[3]) << 24;			// update the next_command_time
+		next_command_time = ((uint32_t)temp_arr[2]) << 16;
+		next_command_time = ((uint32_t)temp_arr[1]) << 8;
+		next_command_time = (uint32_t)temp_arr[0];
 	}
 	return 1;
 }
@@ -468,8 +491,8 @@ static void clear_current_command(void)
 static int report_schedule(void)
 {
 	uint8_t i, num_pages;
-	num_pages = (4 + num_commands * 8) /256;
-	if((4 + num_commands * 8) % 256)
+	num_pages = (4 + num_commands * 16) /256;
+	if((4 + num_commands * 16) % 256)
 		num_pages++;
 	clear_current_command();
 	current_command[146] = SCHED_REPORT;

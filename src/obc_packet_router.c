@@ -296,7 +296,7 @@ static void exec_commands(void)
 		if(current_command[146] == SCHED_REPORT)
 		{
 			sched_report_count++;
-			x = packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, 6, SCHED_REPORT, sched_report_count, current_command[145], current_command);
+			x = packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, SCHED_REPORT, sched_report_count, current_command[145], current_command);
 		}
 		if(current_command[146] == TASK_TO_OPR_TCV)
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);

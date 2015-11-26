@@ -329,10 +329,9 @@ static int request_housekeeping_all(void)
 		return -1;
 	if(request_housekeeping(PAY_ID) > 1)							// Request housekeeping from PAY.
 		return -1;
-
-	xTimeToWait = 100;												// Give the SSMs >100ms to transmit their housekeeping
+													// Give the SSMs >100ms to transmit their housekeeping
 	xLastWakeTime = xTaskGetTickCount();
-	vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+	vTaskDelayUntil(&xLastWakeTime, (TickType_t)100);
 	return 1;
 }
 

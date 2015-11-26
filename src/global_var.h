@@ -41,6 +41,9 @@
 	*
 	*	11/05/2015			Adding lots of FIFOs for intertask communication
 	*
+	*	11/25/2015			Adding some the definitions that have been created since I started
+	*						working on the grounstation.
+	*
 */
 
 #include <stdio.h>
@@ -83,6 +86,9 @@
 #define CLEAR_SCHEDULE					2
 #define	SCHED_REPORT_REQUEST			3
 #define SCHED_REPORT					4
+#define PAUSE_SCHEDULE					5
+#define RESUME_SCHEDULE					6
+#define COMPLETED_SCHED_COM_REPORT		7
 
 /* Action Requests to the OBC_PACKET_ROUTER */
 #define TASK_TO_OPR_TCV					0xDD

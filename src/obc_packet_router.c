@@ -127,7 +127,7 @@ uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
 static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
-static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count;
+static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count, sched_command_count;
 static uint8_t current_data[DATA_LENGTH];
 static uint8_t current_command[DATA_LENGTH + 10];
 /* Latest TC packet received, next TM packet to send	*/
@@ -185,6 +185,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	mem_dump_count = 0;
 	event_report_count = 0;
 	sched_report_count = 0;
+	sched_command_count = 0;
 	mem_check_count = 0;
 	clear_current_data();
 	clear_current_command();
@@ -308,6 +309,11 @@ static void exec_commands(void)
 			low = ((uint8_t)current_command[1]) << 8;
 			low = (uint8_t)current_command[0];
 			send_event_packet(high, low);
+		}
+		if(current_command[146] == COMPLETED_SCHED_COM_REPORT)
+		{
+			sched_command_count++;
+			x = packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, COMPLETED_SCHED_COM_REPORT, sched_command_count, current_command[145], current_command);
 		}
 	}
 	if(xQueueReceive(event_msg_fifo, &low, (TickType_t)1) == pdTRUE)
@@ -765,20 +771,25 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 	}
 	if(service_type == K_SERVICE)
 	{
-		severity = current_command[129];
-		time = ((uint32_t)current_command[135]) << 24;
-		time += ((uint32_t)current_command[134]) << 16;
-		time += ((uint32_t)current_command[133]) << 8;
-		time += (uint32_t)current_command[132];
-		current_command[146] = service_sub_type;
-		if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
-			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
-		if(severity == 1)
-			xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
-		if(severity == 2)
+		if(service_sub_type == ADD_SCHEDULE)
 		{
-			// Deal with command here.
+			severity = current_command[129];
+			time = ((uint32_t)current_command[135]) << 24;
+			time += ((uint32_t)current_command[134]) << 16;
+			time += ((uint32_t)current_command[133]) << 8;
+			time += (uint32_t)current_command[132];
+			current_command[146] = service_sub_type;
+			if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
+			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
+			if(severity == 1)
+			xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			if(severity == 2)
+			{
+				// Deal with command here.
+			}			
 		}
+		// Everything else should be sent to the scheduling task.
+		xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
 	}
 	
 	return;
@@ -880,7 +891,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	{
 		length = tc_to_decode[136];
 		
-		if((service_sub_type > 4) || !service_sub_type)
+		if((service_sub_type > 7) || !service_sub_type)
 		{
 			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
 			return -1;

@@ -101,6 +101,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 
 /* Local variables for scheduling */
 static uint32_t num_commands, next_command_time, furthest_command_time;
+static uint8_t scheduling_on;
 static uint8_t temp_arr[256];
 static uint8_t current_command[DATA_LENGTH + 10];
 static uint8_t sched_buff0[256], sched_buff1[256];
@@ -152,6 +153,7 @@ static void prvSchedulingTask( void *pvParameters )
 	furthest_command_time = ((uint32_t)temp_arr[2]) << 16;
 	furthest_command_time = ((uint32_t)temp_arr[1]) << 8;
 	furthest_command_time = (uint32_t)temp_arr[0];
+	scheduling_on = 1;
 	clear_schedule_buffers();
 	clear_temp_array();
 	clear_current_command();
@@ -201,7 +203,11 @@ static void exec_pus_commands(void)
 				if(report_schedule() < 0)
 					send_tc_execution_verify(0xFF, packet_id, psc);
 				else
-					send_tc_execution_verify(1, packet_id, psc);			
+					send_tc_execution_verify(1, packet_id, psc);
+			case PAUSE_SCHEDULE:
+				scheduling_on = 0;
+			case RESUME_SCHEDULE:
+				scheduling_on = 1;
 			default:
 				return;
 		}
@@ -403,12 +409,26 @@ static void load_buff1_to_buff0(void)
 /* to be executed or forwarded to the correct task / SSM.				*/
 /* This function will then shift command out of the schedule.			*/
 /* @return: -1 = something went wrong, 1 = action succeeded.			*/
+/*		-2 = scheduling is currently paused.							*/
 /************************************************************************/
 static int check_schedule(void)
 {
 	uint8_t status = 0x01;										// This variable is going to contain the status returned
+	uint16_t cID, i;
+	uint8_t command_array[16];
+	if(!scheduling_on)
+	{
+		return -2;		// Scheduling is currently paused.
+	}
+	for (i = 0; i < 16; i++)
+	{
+		command_array[i] = 0;
+	}
 	if(next_command_time <= CURRENT_TIME)						// from whatever command needs to be executed below, assume it is used for now.
 	{
+		spimem_read(SCHEDULE_BASE + 4, command_array, 16);
+		cID = ((uint16_t)command_array[7]) << 8
+		cID += (uint16_t)command_array[8]
 		// status = exec_k_command();
 		if(status == 0xFF)										// The scheduled command failed.
 		{
@@ -416,6 +436,12 @@ static int check_schedule(void)
 			// Still failing: Send a failure message to the FDIR Process and wait for signal from FDIR. FAILURE_RECOVERY
 			// Still failing: (What FDIR should do: ) Send a message to the ground scheduling service letting it know that the command failed.
 		}
+		else
+		{
+			status = 1;
+			generate_command_report(cID, status);				// Send a command completion report to the groundstation.
+		}
+			
 		shift_schedule_left(SCHEDULE_BASE + 20);				// Shift out the command which was just executed.
 		num_commands--;
 		temp_arr[0] = (uint8_t)num_commands;
@@ -432,6 +458,17 @@ static int check_schedule(void)
 		next_command_time = (uint32_t)temp_arr[0];
 	}
 	return 1;
+}
+
+static int generate_command_report(uint16_t cID, uint8_t status)
+{
+	clear_current_command();
+	current_command[146] = COMPLETED_SCHED_COM_REPORT;
+	current_command[2] = uint8_t((cID & 0xFF00) >> 8);
+	current_command[1] = uint8_t(cID & 0x00FF);
+	current_command[0] = status;
+	xQueueSendToBack(sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	return;
 }
 
 /************************************************************************/

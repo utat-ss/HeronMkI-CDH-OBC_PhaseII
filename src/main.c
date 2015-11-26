@@ -305,9 +305,13 @@ static void prvInitializeMutexes(void)
 {	
 	Can0_Mutex = xSemaphoreCreateBinary();
 	Spi0_Mutex = xSemaphoreCreateBinary();
+	Highsev_Mutex = xSemaphoreCreateBinary();
+	Lowsev_Mutex = xSemaphoreCreateBinary();
 
 	xSemaphoreGive(Can0_Mutex);
 	xSemaphoreGive(Spi0_Mutex);
+	xSemaphoreGive(Highsev_Mutex);
+	xSemaphoreGive(Lowsev_Mutex);
 	return;
 }
 
@@ -346,6 +350,9 @@ static void prvInitializeFifos(void)
 	obc_to_hk_fifo = xQueueCreate(fifo_length, item_size);
 	obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
 	obc_to_sched_fifo = xQueueCreate(fifo_length, item_size);
+	obc_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+	high_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+	low_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
 	fifo_length	 = 4;
 	item_size = 10;
 	obc_to_time_fifo = xQueueCreate(fifo_length, item_size);
@@ -399,11 +406,28 @@ static void prvInitializeGlobalVars(void)
 		hk_read_receive[i] = 0;
 		hk_write_receive[i] = 0;
 	}
+	
+	for (i = 0; i < 152; i++)
+	{
+		high_error_array[i] = 0;
+		low_error_array[i] = 0;
+	}
 
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	current_tc_fullf = 0;
 	receiving_tcf = 0;
+
+	hk_fdir_signal = 0;
+	time_fdir_signal = 0;
+	coms_fdir_signal = 0;
+	eps_fdir_signal = 0;
+	pay_fdir_signal = 0;
+	opr_fdir_signal = 0;
+	sched_fdir_signal = 0;
+	wdt_fdir_signal = 0;
+	mem_fdir_signal = 0;
+	
 	return;
 }
 

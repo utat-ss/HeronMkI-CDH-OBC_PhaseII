@@ -41,6 +41,8 @@
 	*
 	*	11/05/2015			Adding lots of FIFOs for intertask communication
 	*
+	*	11/26/2015			Adding a couple FIFOs for error reporting / handling.
+	*
 */
 
 #include <stdio.h>
@@ -117,6 +119,14 @@ QueueHandle_t obc_to_time_fifo;			// obc_packet_router	-->		time_manage
 QueueHandle_t obc_to_mem_fifo;			// obc_packet_router	-->		memory
 QueueHandle_t obc_to_sched_fifo;		// obc_packet_router	-->		scheduling
 QueueHandle_t obc_to_fdir_fifo;			// ob_packet_router		-->		fdir
+
+/* ERROR HANDLING FIFOs				*/
+QueueHandle_t high_sev_to_fdir_fifo;	// Any task				-->		fdir
+QueueHandle_t low_sev_to_fdir_fifo;		// Any task				-->		fdir
+
+/* MUTEX LOCKS FOR ERROR HANDLING FIFOs	*/
+SemaphoreHandle_t Highsev_Mutex;
+SemaphoreHandle_t Lowsev_Mutex;
 
 /* GLOBAL VARIABLES ARE INITIALIZED IN prvInitializeGlobalVars() in main.c */
 /*	DATA RECEPTION FLAG			   */

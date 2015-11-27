@@ -347,6 +347,7 @@ static void exec_commands(void)
 static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data)
 {
 	uint16_t i, j, abs_time;
+	uint16_t pec;
 	type = 0;			// Distinguishes TC and TM packets, TM = 0
 	sequence_count = 0;
 	uint16_t packet_error_control = 0;
@@ -359,7 +360,6 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		sequence_flags = 0x1;	// Indicates that this is the first packet in a series of packets.
 	else
 		sequence_flags = 0x3;	// Indicates that this is a standalone packet.
-	
 	// Packet Header
 	current_tm[151] = ((version & 0x07) << 5) | ((type & 0x01) << 4) | (0x08);
 	current_tm[150] = sender;
@@ -375,10 +375,10 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	current_tm[141] = dest;
 	current_tm[140] = (uint8_t)((abs_time & 0xFF00) >> 8);
 	current_tm[139] = (uint8_t)(abs_time & 0x00FF);
-	// The Packet Error Control (PEC) is usually put at the end
-	// this is usually a CRC on the rest of the packet.
-	current_tm[1] = 0x00;
-	current_tm[0] = 0x00;
+	// The Packet Error Control (PEC) is put at the end of the packet.
+	pec = fletcher16(current_tm + 2, 150);
+	current_tm[1] = (uint8_t)((pec & 0xFF00) >> 8);
+	current_tm[0] = (uint8_t)(pec & 0x00FF);
 
 	if(num_packets == 1)
 	{

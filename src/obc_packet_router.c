@@ -788,8 +788,12 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				// Deal with command here.
 			}			
 		}
-		// Everything else should be sent to the scheduling task.
-		xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
+		else
+		{
+			// Everything else should be sent to the scheduling task.
+			current_command[146] = service_sub_type;
+			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);			
+		}
 	}
 	
 	return;

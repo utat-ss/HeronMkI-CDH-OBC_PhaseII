@@ -219,6 +219,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define TC_TRANSACTION_RESP		0x14
 #define SAFE_MODE_TYPE			0x15
 #define SEND_EVENT				0x16
+#define ASK_OBC_ALIVE			0x17
+#define OBC_IS_ALIVE			0x18
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

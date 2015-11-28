@@ -307,6 +307,8 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 		case SEND_EVENT:
 			xQueueSendToBackFromISR(event_msg_fifo, &ul_data_incom, &wake_task);
 			xQueueSendToBackFromISR(event_msg_fifo, &uh_data_incom, &wake_task);	// Event reception FIFO.
+		case ASK_OBC_ALIVE:
+			send_can_command(0x00, 0x00, OBC_ID, COMS_ID, OBC_IS_ALIVE, COMMAND_PRIO);
 		default :
 			return;
 	}

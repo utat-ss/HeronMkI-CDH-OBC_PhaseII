@@ -123,17 +123,30 @@ void spimem_initialize(void)
 	return;
 }
 
-
+// ret > 0 == nunmber of bytes which were successfully written to memory.
+// ret < 0 ==  failure code which should be given to the FDIR task. -1 = All SPI Chips are dead.
 int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
-	int x = -1;
-	x = spimem_write_h(1, addr, data_buff, size);
-	if(x < 0)
-		return x;
-	x = spimem_write_h(2, addr, data_buff, size);
-	if(x < 0)
-		return x;
-	x = spimem_write_h(3, addr, data_buff, size);
+	int x = -1;	
+	if(!SPI_HEALTH1 && ! SPI_HEALTH2 && !SPI_HEALTH3)
+		return -1;
+	if(SPI_HEALTH1)
+	{
+		x = spimem_write_h(1, addr, data_buff, size);
+		if(x < 0)
+			return x;		
+	}
+	if(SPI_HEALTH2)
+	{
+		x = spimem_write_h(2, addr, data_buff, size);
+		if(x < 0)
+			return x;	
+	}
+	if(SPI_HEALTH3)
+	{
+		x = spimem_write_h(3, addr, data_buff, size);
+		return x;		
+	}
 	return x;
 }
 
@@ -146,8 +159,10 @@ int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 /* @param: *data_buff: Contains the data to be written to memory.		*/
 /* @param: size: Length of the aforementioned buffer.					*/
 /* @Note: addresses on these SPI Memory chips are 24 bits.				*/
-/* @Return: Returns -1 if the request failed, otherwise returns the 	*/
-/* number of consecutive bytes which were successfully written to memory*/
+/* @Return: Returns < 0 are failure codes for the FDIR, otherwise		*/
+/* returns the number of consecutive bytes which were successfully		*/
+/* written to memory -2 = Usage error, -3 = Spi0_Mutex is currently		*/
+/* being used or there is an error, -4 = SPI_CHIP_RECOVERY required.	*/
 /* @Note: This function simply writes the bytes you ask for into 		*/
 /* ascending order (numerically) in memory.								*/
 /* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
@@ -161,9 +176,9 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 	uint32_t size1, size2, low, dirty = 0, page, sect_num, check;
 		
 	if (size > 256)				// Invalid size to write.
-		return -1;
+		return -2;
 	if (addr > 0xFFFFF)			// Invalid address to write to.
-		return -1;
+		return -2;
 	
 	low = addr & 0x000000FF;
 	if ((size + low) > 256)		// Requested write flows into a second page.
@@ -190,7 +205,7 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 		{
 			exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
-			return -1;
+			return -4;
 		}
 					
 		page = get_page(addr);
@@ -227,10 +242,17 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 			{
 				sect_num = get_sector(addr + size1);
 				check = load_sector_into_spibuffer(spi_chip, sect_num);						// if check != 4096, FAILURE_RECOVERY.
+				if(check != 4096)
+					return -4;
 				check = update_spibuffer_with_new_page(addr + size1, (data_buff + size1), size2);	// if check != size1, FAILURE_RECOVERY.
+				if(check != size1)
+					return -4;
 				check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
+				if(check != 1)
+					return -4;
 				check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
-
+				if(check == 0xFFFFFFFF)
+					return -4;
 			}
 			else
 			{		
@@ -249,7 +271,7 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 	}
 
 	else
-		return -1;												// SPI0 is currently being used or there is an error.
+		return -3;												// SPI0 is currently being used or there is an error.
 }
 
 /************************************************************************/
@@ -272,7 +294,7 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 	uint32_t i;
 
 	if (addr > 0xFFFFF)										// Invalid address to write to.
-		return -1;
+		return -2;
 	if ((addr + size - 1) > 0xFFFFF)
 		size = 0xFFFFF - size;
 
@@ -287,7 +309,7 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 	}
 
 	if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
-		return -1;
+		return -4;
 
 	spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
 
@@ -304,8 +326,11 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 /* @param: addr: indicates the address of SPIMEM we want to read from   */
 /* @param: read_buff: Buffer in which the read bytes will be placed.	*/
 /* @param: size: How many bytes we would like to read into memory.		*/
-/* @return: -1 == Failure, otherwise returns the number of pages which	*/
-/* were read into the buffer.											*/
+/* @Return: Returns < 0 are failure codes for the FDIR, otherwise		*/
+/* returns the number of consecutive bytes which were successfully		*/
+/* read into the buffer. -1 = All SPI_CHIPS dead -2 = Usage error,		*/
+/* -3 = Spi0_Mutex is currently being used or there is an error,		*/
+/* -4 = SPI_CHIP_RECOVERY required.										*/
 /* @purpose: Read from the SPI memory chip.								*/
 /* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
 /* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
@@ -329,7 +354,7 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 	}
 	
 	if (addr > 0xFFFFF)										// Invalid address to write to.
-		return -1;
+		return -2;		// USAGE_ERROR
 	if ((addr + size - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
 		size = 0xFFFFF - size;
 
@@ -351,7 +376,7 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 		{
 			exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
-			return -1;
+			return -4;
 		}
 		
 		spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
@@ -366,7 +391,7 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 		return size;
 	}
 	else
-		return -1;												// SPI0 is currently being used or there is an error.
+		return -3;												// SPI0 is currently being used or there is an error.
 }
 
 /************************************************************************/

@@ -52,6 +52,7 @@
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "semphr.h"
+#include "task.h"
 
 /*		PUS DEFINITIONS HERE			*/
 #define PACKET_LENGTH	152
@@ -181,3 +182,16 @@ uint8_t absolute_time_arr[4];
 
 /* Global variables for indicating SPI Chip health */
 uint8_t SPI_HEALTH1, SPI_HEALTH2, SPI_HEALTH3;
+
+/* Task Handles for each of the running tasks	*/
+TaskHandle_t time_manage_HANDLE;
+TaskHandle_t memory_manage_HANDLE;
+TaskHandle_t opr_HANDLE;
+TaskHandle_t housekeeping_HANDLE;
+TaskHandle_t eps_HANDLE;
+TaskHandle_t coms_HANDLE;
+TaskHandle_t pay_HANDLE;
+TaskHandle_t scheduling_HANDLE;
+TaskHandle_t fdir_HANDLE;
+TaskHandle_t wdt_reset_HANDLE;
+

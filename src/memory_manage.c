@@ -107,23 +107,24 @@ static const TickType_t xTimeToWait = 60000;	// Number entered here corresponds 
 /* MEMORY_WASH (Function)												*/
 /* @Purpose: This function is used to create the memory washing task.	*/
 /************************************************************************/
-void memory_manage( void )
+TaskHandle_t memory_manage( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvMemoryManageTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) MM_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					MEMORY_MANAGE_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
 					
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached.  If the following line does execute, then
 	there was insufficient FreeRTOS heap memory available for the idle and/or
 	timer tasks	to be created.  See the memory management section on the
 	FreeRTOS web site for more details. */
-	return;
+	return temp_HANDLE;
 }
 
 /************************************************************************/

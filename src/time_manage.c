@@ -73,7 +73,7 @@ functionality. */
 
 /*		Functions Prototypes.		*/
 static void prvTimeManageTask( void *pvParameters );
-void time_manage(void);
+TaskHandle_t time_manage(void);
 static void broadcast_minute(void);
 static void update_absolute_time(void);
 static void report_time(void);
@@ -90,17 +90,18 @@ static uint8_t current_command[10];
 /* time_manage (Function)												*/
 /* @Purpose: This function is used to create the time update task.		*/
 /************************************************************************/
-void time_manage( void )
+TaskHandle_t time_manage( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvTimeManageTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) TIME_MANAGE_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					TIME_MANAGE_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
-	return;
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
+	return temp_HANDLE;
 }
 /*-----------------------------------------------------------*/
 

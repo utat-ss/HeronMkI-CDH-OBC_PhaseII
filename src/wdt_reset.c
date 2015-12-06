@@ -75,29 +75,29 @@ functionality. */
 
 /* Functions Prototypes */
 static void wdtResetTask( void *pvParameter); // I don't know what this does
-void wdt_reset(void);
+TaskHandle_t wdt_reset(void);
 
 /*-------------------------------------------------------------*/
 
-void wdt_reset(void)
+TaskHandle_t wdt_reset(void)
 {
 	/*Start the watchdog timer reset task as described in comments */
-	
+	TaskHandle_t temp_HANDLE = 0;
 	xTaskCreate( wdtResetTask,			/* The function that implements the task. */
 	"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 	configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 	( void * ) WDT_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 	WDT_Reset_PRIORITY, 			    /* The priority assigned to the task. */
-	NULL );								/* The task handle is not required, so NULL is passed. */
+	&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
 	
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached.  If the following line does execute, then
 	there was insufficient FreeRTOS heap memory available for the idle and/or
 	timer tasks	to be created.  See the memory management section on the
 	FreeRTOS web site for more details. */
-	return;
+	return temp_HANDLE;
 	
-	//What happens if it does return?
+	//What happens if it does return? //death and destruction of course.
 	
 }
 

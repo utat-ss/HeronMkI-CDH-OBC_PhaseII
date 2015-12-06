@@ -53,7 +53,7 @@ functionality. */
 
 /* Function Prototypes										 */
 static void prvPayloadTask( void *pvParameters );
-void payload(void);
+TaskHandle_t payload(void);
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -61,23 +61,24 @@ void payload(void);
 /* @Purpose: This function is simply used to create the PAYLOAD task    */
 /* in main.c															*/
 /************************************************************************/
-void payload( void )
+TaskHandle_t payload( void )
 {
 	/* Start the two tasks as described in the comments at the top of this
 	file. */
+	TaskHandle_t temp_HANDLE = 0;
 	xTaskCreate( prvPayloadTask, /* The function that implements the task. */
 		"ON", /* The text name assigned to the task - for debug only as it is not used by the kernel. */
 		configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
 		( void * ) PAYLOAD_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
 		Payload_PRIORITY, /* The priority assigned to the task. */
-		NULL ); /* The task handle is not required, so NULL is passed. */
+		&temp_HANDLE ); /* The task handle is not required, so NULL is passed. */
 
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached. If the following line does execute, then
 	there was insufficient FreeRTOS heap memory available for the idle and/or
 	timer tasks to be created. See the memory management section on the
 	FreeRTOS web site for more details. */
-	return;
+	return temp_HANDLE;
 }
 
 /************************************************************************/

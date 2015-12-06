@@ -108,6 +108,9 @@ Author: Keenan Burnett
 *
 *	11/10/2015		I moved the initialization of Queues and Global variables into main.c
 *
+*	12/06/2015		I updated all the functions that create tasks so that they return their respective task handles,
+*					these are going to be imported for the fdir task to be able to kill running tasks and restart them.
+*
 *	DESCRIPTION:
 *	This is the 'main' file for our program which will run on the OBC.
 *	main.c is called from the reset handler and will initialize hardware,
@@ -164,18 +167,18 @@ static void prvInitializeGlobalVars(void);
 /* External functions used to create and encapsulate different tasks*/
 extern void my_blink(void);
 extern void command_loop(void);
-extern void housekeep(void);
+extern TaskHandle_t housekeep(void);
 extern void data_test(void);
-extern void time_manage(void);
-extern void eps(void);
-extern void coms(void);
-extern void payload(void);
-extern void memory_manage(void);
+extern TaskHandle_t time_manage(void);
+extern TaskHandle_t eps(void);
+extern TaskHandle_t coms(void);
+extern TaskHandle_t payload(void);
+extern TaskHandle_t memory_manage(void);
 extern void	spi_initialize(void);
-extern void wdt_reset(void);
-extern void obc_packet_router(void);
-extern void scheduling(void);
-extern void fdir(void);
+extern TaskHandle_t wdt_reset(void);
+extern TaskHandle_t obc_packet_router(void);
+extern TaskHandle_t scheduling(void);
+extern TaskHandle_t fdir(void);
 
 /* Prototypes for the standard FreeRTOS callback/hook functions implemented
 within this file. */
@@ -208,18 +211,18 @@ int main(void)
 	prvInitializeGlobalVars();
 		
 	/* Create Tasks */
-	//fdir();
-	//obc_packet_router();
-	//scheduling();
+	//fdir_HANDLE = fdir();
+	//opr_HANDLE = obc_packet_router();
+	//scheduling_HANDLE = scheduling();
 	//command_loop();
-	//housekeep();
+	//housekeeping_HANDLE = housekeep();
 	//data_test();
-	//time_update();
-	//memory_wash();
-	eps();
-	//coms();
-	//payload();
-	//wdt_reset();
+	//time_manage_HANDLE = time_manage();
+	//memory_manage_HANDLE = memory_manage();
+	eps_HANDLE = eps();
+	//coms_HANDLE = coms();
+	//pay_HANDLE = payload();
+	wdt_reset_HANDLE = wdt_reset();
 	
 	/* Start Scheduler */
 	vTaskStartScheduler();

@@ -62,23 +62,24 @@ functionality. */
  * Functions Prototypes.
  */
 static void prvFDIRTask( void *pvParameters );
-void fdir(void);
+TaskHandle_t fdir(void);
 
 /************************************************************************/
 /* FDIR (Function)														*/
 /* @Purpose: This function is used to create the fdir task.				*/
 /************************************************************************/
-void fdir( void )
+TaskHandle_t fdir( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE;
 		xTaskCreate( prvFDIRTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) FDIR_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					FDIR_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
-	return;
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
+	return temp_HANDLE;
 }
 /*-----------------------------------------------------------*/
 

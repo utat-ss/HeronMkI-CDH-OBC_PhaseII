@@ -56,7 +56,7 @@ functionality. */
 
 /* Function Prototypes										 */
 static void prvEpsTask( void *pvParameters );
-void eps(void);
+TaskHandle_t eps(void);
 static void getxDirection(void);
 static void getyDirection(void);
 static void setxDuty(void);
@@ -80,23 +80,24 @@ static uint32_t payv, payi, obcv, obci;
 /* @Purpose: This function is simply used to create the EPS task below	*/
 /* in main.c															*/
 /************************************************************************/
-void eps( void )
+TaskHandle_t eps( void )
 {
 	/* Start the two tasks as described in the comments at the top of this
 	file. */
+	TaskHandle_t temp_HANDLE = 0;
 	xTaskCreate( prvEpsTask, /* The function that implements the task. */
 		"ON", /* The text name assigned to the task - for debug only as it is not used by the kernel. */
 		configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
 		( void * ) EPS_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
 		Eps_PRIORITY, /* The priority assigned to the task. */
-		NULL ); /* The task handle is not required, so NULL is passed. */
+		&temp_HANDLE ); /* The task handle is not required, so NULL is passed. */
 
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached. If the following line does execute, then
 	there was insufficient FreeRTOS heap memory available for the idle and/or
 	timer tasks to be created. See the memory management section on the
 	FreeRTOS web site for more details. */
-	return;
+	return temp_HANDLE;
 }
 
 /************************************************************************/

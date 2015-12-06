@@ -104,7 +104,7 @@ functionality. */
 
 /* Functions Prototypes. */
 static void prvOBCPacketRouterTask( void *pvParameters );
-void obc_packet_router(void);
+TaskHandle_t obc_packet_router(void);
 static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data);
 static int receive_tc_msg(void);
 static int send_pus_packet_tm(uint8_t sender_id);
@@ -139,17 +139,18 @@ static TickType_t xTimeToWait;
 /* OBC_PACKET_ROUTER (Function)											*/
 /* @Purpose: This function is used to create the obc packet router task	*/
 /************************************************************************/
-void obc_packet_router( void )
+TaskHandle_t obc_packet_router( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvOBCPacketRouterTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) OBC_PACKET_ROUTER_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					OBC_PACKET_ROUTER_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
-	return;
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
+	return temp_HANDLE;
 }
 /*-----------------------------------------------------------*/
 

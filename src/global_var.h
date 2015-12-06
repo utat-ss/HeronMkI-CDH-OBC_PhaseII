@@ -51,6 +51,7 @@
 #include <stdio.h>
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 
 /*		PUS DEFINITIONS HERE			*/
 #define PACKET_LENGTH	152

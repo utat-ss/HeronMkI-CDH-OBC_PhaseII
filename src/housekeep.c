@@ -51,6 +51,8 @@
 	*
 	*					The current offset of the housekeeping log needs to be stored in SPI memory just in case the main
 	*					computer gets reset (we would lose track of how much housekeeping is currently in memory)
+	*	
+	*	12/05/2015		Added error handling for exec_commands, store_housekeeping using wrapper functions
 	*
 	*	DESCRIPTION:
 	*	
@@ -75,6 +77,9 @@
 
 /* SPI memory includes	 */
 #include "spimem.h"
+
+/* Error Handling includes */
+#include "error_handling.h"
 
 /* Priorities at which the tasks are created. */
 #define Housekeep_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
@@ -103,7 +108,8 @@ static void prvHouseKeepTask( void *pvParameters );
 void housekeep(void);
 static void clear_current_hk(void);
 static int request_housekeeping_all(void);
-static int store_housekeeping(void);
+static void store_housekeeping(void);
+static int store_housekeeping_H(void);
 static void setup_default_definition(void);
 static void set_definition(uint8_t sID);
 static void clear_alternate_hk_definition(void);
@@ -111,9 +117,11 @@ static void clear_current_command(void);
 static void send_hk_as_tm(void);
 static void send_param_report(void);
 static void exec_commands(void);
+static int exec_commands_H(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+static uint8_t get_ssm_id(uint8_t sensor_name);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -130,6 +138,7 @@ static uint8_t collection_interval0, collection_interval1;		// How to wait for t
 static TickType_t xTimeToWait;				// Number entered here corresponds to the number of ticks we should wait.
 static uint8_t current_hk_mem_offset[4];
 static TickType_t	xLastWakeTime;
+uint32_t req_data_result;
 
 /************************************************************************/
 /* HOUSEKEEPING (Function) 												*/
@@ -185,7 +194,10 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		exec_commands();			// FAILURE_RECOVERY if this doesn't return 1.
+		
+		exec_commands();
+		
+		
 		request_housekeeping_all();
 		store_housekeeping();
 		send_hk_as_tm();
@@ -202,7 +214,24 @@ static void prvHouseKeepTask(void *pvParameters )
 /* different commands depending on what was received. Otherwise, it		*/
 /* waits for a maximum of <collection_interval> minutes.				*/
 /************************************************************************/
-static void exec_commands(void)
+
+
+static void exec_commands(void){
+	int attempts = 1;
+	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
+	uint16_t exec_com_success = exec_commands_H();
+	while (attempts<3 && exec_com_success != 1){
+		exec_com_success = exec_commands_H();
+		attempts++;
+	}
+	if (exec_com_success != 1) {
+		errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR, exec_com_success);
+	}
+	
+}
+
+// Will return 1 if successful, current_command if there is a FIFO error
+static int exec_commands_H(void)
 {
 	uint8_t i, command;
 	uint16_t packet_id, psc;
@@ -249,8 +278,10 @@ static void exec_commands(void)
 		}
 		return 1;
 	}
-	else
-		return -1;
+	else										//Failure Recovery					
+		return current_command;
+		
+		
 }
 
 /************************************************************************/
@@ -343,7 +374,7 @@ static int request_housekeeping_all(void)
 /* were not updated, and subsequently sends an event report to ground	*/
 /* if one was updated as well as a message to the FDIR task.			*/
 /************************************************************************/
-static int store_housekeeping(void)
+static void store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
 	uint8_t num_parameters = current_hk_definition[134];
@@ -360,6 +391,7 @@ static int store_housekeeping(void)
 		{
 			if(current_hk_definition[i] == parameter_name)
 			{
+				
 				current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
 				current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
 				hk_updated[i] = 1;
@@ -372,8 +404,27 @@ static int store_housekeeping(void)
 	for(i = 0; i < num_parameters; i+=2)
 	{
 		if(!hk_updated[i])
-		{
-			// FAILURE_RECOVERY (Let the FDIR task that a sensor/variable may be unresponsive.
+		{//failed updates are requested 3 times. If they fail, error is reported
+			
+			int attempts = 1;
+			int* status = 0; // this might be wrong
+			req_data_result = 0;
+			req_data_result = request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
+			while (attempts < 3 && req_data_result == -1){
+				attempts++;
+				req_data_result = request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
+			}
+			
+			if (req_data_result == -1){
+				//malfunctioning sensor is sent to erorREPORT
+				errorREPORT(HK_TASK_ID,HK_COLLECT_ERROR, &current_hk_definition[i]);
+			}
+			else {
+				current_hk[i] = (uint8_t)(req_data_result & 0x000000FF);
+				current_hk[i + 1] = (uint8_t)((req_data_result & 0x0000FF00) >> 8);
+				hk_updated[i] = 1;
+				hk_updated[i + 1] = 1;
+			}
 		}
 	}
 	/* Store the new housekeeping in SPI memory */
@@ -382,6 +433,23 @@ static int store_housekeeping(void)
 	current_hk_fullf = 1;
 	return 1;
 }
+
+
+//Returns the proper ssm_id for a given sensor
+static uint8_t get_ssm_id(uint8_t sensor_name){
+	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
+		return EPS_ID;
+	if ((sensor_name == 0x12) || (sensor_name == 0xFD))
+		return COMS_ID;
+	if ((sensor_name == 0x13) || (sensor_name == 0xFA) || (sensor_name>=0xF2 && sensor_name <=0xF8))
+		return OBC_ID; //not sure if this is right
+	if ((sensor_name>0x13 && sensor_name <= 0x1B) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
+		return PAY_ID;
+
+	
+}
+
+
 
 /************************************************************************/
 /* STORE_HK_IN_SPIMEM													*/
@@ -492,7 +560,7 @@ static void setup_default_definition(void)
 	hk_definition0[21] = EPS_MODE;	//
 	hk_definition0[20] = EPS_MODE;
 	hk_definition0[19] = PAY_MODE;
-	hk_definition0[18] = PAY_MODE
+	hk_definition0[18] = PAY_MODE;
 	hk_definition0[17] = OBC_MODE;
 	hk_definition0[16] = OBC_MODE;
 	hk_definition0[15] = PAY_STATE;

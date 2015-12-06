@@ -48,9 +48,10 @@
 	*	07/07/2015		I changed 'decode_can_msg' to 'debug_can_msg' and added the function 'stora_can_msg'
 	*
 */
+#ifndef CAN_FUNCH
+#define CAN_FUNCH
 
 #include <asf/sam/drivers/can/can.h>
-
 #include <stdio.h>
 #include <string.h>
 #include "board.h"
@@ -322,3 +323,4 @@ int set_sensor_high(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint
 int set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint16_t boundary);		// API Function.
 int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value);				// API Function.
 
+#endif

@@ -97,6 +97,7 @@ static void clear_current_command(void);
 static int report_schedule(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
+static int generate_command_report(uint16_t cID, uint8_t status);
 
 
 /* Local variables for scheduling */
@@ -427,8 +428,8 @@ static int check_schedule(void)
 	if(next_command_time <= CURRENT_TIME)						// from whatever command needs to be executed below, assume it is used for now.
 	{
 		spimem_read(SCHEDULE_BASE + 4, command_array, 16);
-		cID = ((uint16_t)command_array[7]) << 8
-		cID += (uint16_t)command_array[8]
+		cID = ((uint16_t)command_array[7]) << 8;
+		cID += (uint16_t)command_array[8];
 		// status = exec_k_command();
 		if(status == 0xFF)										// The scheduled command failed.
 		{
@@ -464,8 +465,8 @@ static int generate_command_report(uint16_t cID, uint8_t status)
 {
 	clear_current_command();
 	current_command[146] = COMPLETED_SCHED_COM_REPORT;
-	current_command[2] = uint8_t((cID & 0xFF00) >> 8);
-	current_command[1] = uint8_t(cID & 0x00FF);
+	current_command[2] = (uint8_t)((cID & 0xFF00) >> 8);
+	current_command[1] = (uint8_t)(cID & 0x00FF);
 	current_command[0] = status;
 	xQueueSendToBack(sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;

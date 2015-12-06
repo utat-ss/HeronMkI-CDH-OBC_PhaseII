@@ -146,6 +146,8 @@ uint32_t data_reg[2];
 
 #include "checksum.h"
 
+#include "error_handling.h"
+
 /* Set up the hardware ready to run the program. */
 static void prvSetupHardware(void);
 /*	Initialize mutexes and semaphores to be used by the programs  */

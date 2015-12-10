@@ -106,6 +106,7 @@ functionality. */
 /* Function Prototypes */
 static void prvHouseKeepTask( void *pvParameters );
 TaskHandle_t housekeep(void);
+void housekeep_suicide(void);
 static void clear_current_hk(void);
 static int request_housekeeping_all(void);
 static void store_housekeeping(void);
@@ -122,6 +123,7 @@ static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static uint8_t get_ssm_id(uint8_t sensor_name);
+
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -670,5 +672,34 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
 	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	return;
+}
+
+void housekeep_suicide(void)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_hk);
+	vPortFree(current_command);
+	vPortFree(hk_definition0);
+	vPortFree(hk_definition1);
+	vPortFree(hk_updated);
+	vPortFree(current_hk_definition);
+	vPortFree(current_hk_definitionf);
+	vPortFree(current_eps_hk);
+	vPortFree(current_coms_hk);
+	vPortFree(current_pay_hk);
+	vPortFree(current_obc_hk);
+	vPortFree(new_hk_msg_high);
+	vPortFree(new_hk_msg_low);
+	vPortFree(current_hk_fullf);
+	vPortFree(param_report_requiredf);
+	vPortFree(collection_interval0);
+	vPortFree(collection_interval1);
+	vPortFree(xTimeToWait);
+	vPortFree(current_hk_mem_offset);
+	vPortFree(xLastWakeTime);
+	vPortFree(req_data_result);
+	// Kill self.
+	vTaskDelete(NULL);
 	return;
 }

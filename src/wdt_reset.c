@@ -76,6 +76,7 @@ functionality. */
 /* Functions Prototypes */
 static void wdtResetTask( void *pvParameter); // I don't know what this does
 TaskHandle_t wdt_reset(void);
+void wdt_reset_kill(uint8_t killer);
 
 /*-------------------------------------------------------------*/
 
@@ -98,16 +99,13 @@ TaskHandle_t wdt_reset(void)
 	return temp_HANDLE;
 	
 	//What happens if it does return? //death and destruction of course.
-	
 }
-
 
 /************************************************************************/
 /*				WDT RESET TASK		                                */
 /*	The purpose of this task is to reset the watchdog timer every  	*/
 /*	time interval (defined by WDT_Reset_Delay)						*/
 /************************************************************************/
-
 
 static void wdtResetTask(void *pvParameters)
 {
@@ -119,7 +117,6 @@ static void wdtResetTask(void *pvParameters)
 	//is this okay?
 	const TickType_t xTimeToWait = WDT_Reset_Delay;
 	
-	
 	/* @non-terminating@ */	
 	
 	for ( ;; )
@@ -129,5 +126,16 @@ static void wdtResetTask(void *pvParameters)
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);	
 	}
-	
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void wdt_reset_kill(uint8_t killer)
+{
+	// Kill the task.
+	if(killer)
+		vTaskDelete(wdt_reset_HANDLE);
+	else:
+		vTaskDelete(NULL);
+	return;
 }

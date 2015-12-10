@@ -82,7 +82,15 @@ extern TaskHandle_t obc_packet_router(void);
 extern TaskHandle_t scheduling(void);
 
 /* External functions used to kill different tasks	*/
-extern void housekeep_suicide(void);
+extern void housekeep_kill(uint8_t killer);
+extern void scheduling_kill(uint8_t killer);
+extern void time_manage_kill(uint8_t killer);
+extern void memory_manage_kill(uint8_t killer);
+extern void wdt_reset_kill(uint8_t killer);
+extern void eps_kill(uint8_t killer);
+extern void coms_kill(uint8_t killer);
+extern void payload_kill(uint8_t killer);
+extern void opr_kill(uint8_t killer);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
@@ -181,11 +189,55 @@ static void clear_current_command(void)
 	return;
 }
 
-int restart_task(xTaskHandle task_to_restart)
+int restart_task(uint8_t task_id)
 {
 	// Delete the given task.
-	
-	
-	
+	switch(task_id)
+	{
+		case HK_TASK_ID:
+			housekeep_kill(1);
+		case TIME_TASK_ID:
+			time_manage_kill(1);
+		case COMS_TASK_ID:
+			coms_kill(1);
+		case EPS_TASK_ID:
+			eps_kill(1);
+		case PAY_TASK_ID:
+			payload_kill(1);
+		case OBC_PACKET_ROUTER_ID:
+			opr_kill(1);
+		case SCHEDULING_TASK_ID:
+			scheduling_kill(1);
+		case WD_RESET_TASK_ID:
+			wdt_reset_kill(1);
+		case MEMORY_TASK_ID:
+			memory_manage_kill(1);
+		default:
+			return;		// SAFE_MODE ?
+	}
 	// Now recreate it.
+	switch(task_id)
+	{
+		case HK_TASK_ID:
+			housekeeping_HANDLE = housekeep();
+		case TIME_TASK_ID:
+			time_manage_HANDLE = time_manage();
+		case COMS_TASK_ID:
+			coms_HANDLE = coms();
+		case EPS_TASK_ID:
+			eps_HANDLE = eps();
+		case PAY_TASK_ID:
+			pay_HANDLE = payload();
+		case OBC_PACKET_ROUTER_ID:
+			opr_HANDLE = obc_packet_router();
+		case SCHEDULING_TASK_ID:
+			scheduling_HANDLE = scheduling();
+		case WD_RESET_TASK_ID:
+			wdt_reset_HANDLE = wdt_reset();
+		case MEMORY_TASK_ID:
+			memory_manage_HANDLE = memory_manage();
+		default:
+			return;		// SAFE_MODE ?
+	}
+	return;
 }

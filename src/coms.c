@@ -57,6 +57,7 @@ functionality. */
 /* Function Prototypes										 */
 static void prvComsTask( void *pvParameters );
 TaskHandle_t coms(void);
+void coms_kill(uint8_t killer);
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -110,3 +111,16 @@ static void prvComsTask(void *pvParameters )
 }
 
 // Static helper functions may be defined below.
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void coms_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	// Kill the task.
+	if(killer)
+		vTaskDelete(coms_HANDLE);
+	else:
+		vTaskDelete(NULL);
+	return;
+}

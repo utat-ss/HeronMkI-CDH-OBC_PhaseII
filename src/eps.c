@@ -57,6 +57,7 @@ functionality. */
 /* Function Prototypes										 */
 static void prvEpsTask( void *pvParameters );
 TaskHandle_t eps(void);
+void eps_kill(uint8_t killer);
 static void getxDirection(void);
 static void getyDirection(void);
 static void setxDuty(void);
@@ -306,4 +307,34 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 			status = set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);		//Otherwise try again
 	}
 	return;						//If status is 1 then we are good and we should return the sensor value
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void eps_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(xDirection);
+	vPortFree(yDirection);
+	vPortFree(xDuty);
+	vPortFree(yDuty);
+	vPortFree(pxp_last);
+	vPortFree(pyp_last);
+	vPortFree(battmv);
+	vPortFree(battv);
+	vPortFree(batti);
+	vPortFree(battemp);
+	vPortFree(epstemp);
+	vPortFree(comsv);
+	vPortFree(comsi);
+	vPortFree(payv);
+	vPortFree(payi);
+	vPortFree(obcv);
+	vPortFree(obci);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(eps_HANDLE);
+	else:
+		vTaskDelete(NULL);
+	return;
 }

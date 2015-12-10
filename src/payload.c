@@ -54,6 +54,7 @@ functionality. */
 /* Function Prototypes										 */
 static void prvPayloadTask( void *pvParameters );
 TaskHandle_t payload(void);
+void payload_kill(uint8_t killer);
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -106,3 +107,17 @@ static void prvPayloadTask(void *pvParameters )
 }
 
 // Declare Static Functions here.
+
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void payload_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	// Kill the task.
+	if(killer)
+		vTaskDelete(pay_HANDLE);
+	else:
+		vTaskDelete(NULL);
+	return;
+}

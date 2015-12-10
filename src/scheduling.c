@@ -81,6 +81,7 @@ functionality. */
 /* Functions Prototypes. */
 static void prvSchedulingTask( void *pvParameters );
 TaskHandle_t scheduling(void);
+void scheduling_kill(uint8_t killer);
 static void exec_pus_commands(void);
 static int modify_schedule(uint8_t* status, uint8_t* kicked_count);
 static void add_command_to_end(uint32_t new_time, uint8_t position);
@@ -586,5 +587,26 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[1] = param1;
 	current_command[0] = param0;
 	xQueueSendToBack(sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	return;
+}
+
+// This function will kill the scheduling task.
+// If it is being called by the sched task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void scheduling_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_command);
+	vPortFree(num_commands);
+	vPortFree(next_command_time);
+	vPortFree(furthest_command_time);
+	vPortFree(scheduling_on);
+	vPortFree(sched_buff0);
+	vPortFree(sched_buff1);
+	vPortFree(x);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(scheduling_HANDLE);
+	else:
+		vTaskDelete(NULL);
 	return;
 }

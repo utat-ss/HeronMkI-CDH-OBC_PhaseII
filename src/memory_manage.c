@@ -92,6 +92,7 @@ static uint8_t page_buff1[256], page_buff2[256], page_buff3[256];
 /* Functions Prototypes. */
 static void prvMemoryManageTask( void *pvParameters );
 void menory_manage(void);
+void memory_manage_kill(uint8_t killer);
 static void memory_wash(void);
 static void exec_commands(void);
 static void clear_current_command(void);
@@ -402,5 +403,21 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[1] = param1;
 	current_command[0] = param0;
 	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	return;
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void memory_manage_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_command);
+	vPortFree(minute_count);
+	vPortFree(xTimeToWait);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(memory_manage_HANDLE);
+	else:
+		vTaskDelete(NULL);
 	return;
 }

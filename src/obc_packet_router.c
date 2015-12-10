@@ -105,6 +105,7 @@ functionality. */
 /* Functions Prototypes. */
 static void prvOBCPacketRouterTask( void *pvParameters );
 TaskHandle_t obc_packet_router(void);
+void opr_kill(uint8_t killer);
 static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data);
 static int receive_tc_msg(void);
 static int send_pus_packet_tm(uint8_t sender_id);
@@ -1035,5 +1036,48 @@ static void send_event_packet(uint32_t high, uint32_t low)
 	current_data[1] = (uint8_t)((low & 0x0000FF00) >> 8);
 	current_data[0] = (uint8_t)(low & 0x000000FF);
 	resp = packetize_send_telemetry(sender, GROUND_PACKET_ROUTER_ID, 5, severity, event_report_count, 1, current_data);	// FAILURE_RECOVERY
+	return;
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void opr_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_command);
+	vPortFree(version);
+	vPortFree(type);
+	vPortFree(data_header);
+	vPortFree(flag);
+	vPortFree(sequence_flags);
+	vPortFree(sequence_count);
+	vPortFree(packet_id);
+	vPortFree(psc);
+	vPortFree(tc_sequence_count);
+	vPortFree(hk_telem_count);
+	vPortFree(hk_def_report_count);
+	vPortFree(time_report_count);
+	vPortFree(mem_dump_count);
+	vPortFree(packet_id);
+	vPortFree(tc_exec_success_count);
+	vPortFree(tc_exec_fail_count);
+	vPortFree(mem_check_count);
+	vPortFree(new_tc_msg_high);
+	vPortFree(new_tc_msg_low);
+	vPortFree(tc_verify_success_count);
+	vPortFree(tc_verify_fail_count);
+	vPortFree(event_report_count);
+	vPortFree(sched_report_count);
+	vPortFree(sched_command_count);
+	vPortFree(current_data);
+	vPortFree(current_tc);
+	vPortFree(current_tm);
+	vPortFree(tc_to_decode);
+	vPortFree(xTimeToWait);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(opr_HANDLE);
+	else:
+		vTaskDelete(NULL);
 	return;
 }

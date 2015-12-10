@@ -74,6 +74,7 @@ functionality. */
 /*		Functions Prototypes.		*/
 static void prvTimeManageTask( void *pvParameters );
 TaskHandle_t time_manage(void);
+void time_manage_kill(uint8_t killer);
 static void broadcast_minute(void);
 static void update_absolute_time(void);
 static void report_time(void);
@@ -217,5 +218,22 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[5] = (uint8_t)packet_id;
 	current_command[4] = ((uint8_t)psc) >> 8;
 	current_command[3] = (uint8_t)psc;
+	return;
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void time_manage_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_command);
+	vPortFree(time);
+	vPortFree(minute_count);
+	vPortFree(report_timeout);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(time_manage_HANDLE);
+	else:
+		vTaskDelete(NULL);
 	return;
 }

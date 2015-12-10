@@ -108,7 +108,7 @@ functionality. */
 /* Function Prototypes */
 static void prvHouseKeepTask( void *pvParameters );
 TaskHandle_t housekeep(void);
-void housekeep_suicide(void);
+void housekeep_kill(uint8_t killer)
 static void clear_current_hk(void);
 static int request_housekeeping_all(void);
 static void store_housekeeping(void);
@@ -677,7 +677,9 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	return;
 }
 
-void housekeep_suicide(void)
+// This function will kill the housekeeping task.
+// If it is being called by the hk task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void housekeep_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
 	vPortFree(current_hk);
@@ -701,7 +703,10 @@ void housekeep_suicide(void)
 	vPortFree(current_hk_mem_offset);
 	vPortFree(xLastWakeTime);
 	vPortFree(req_data_result);
-	// Kill self.
-	vTaskDelete(housekeeping_HANDLE);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(housekeeping_HANDLE);
+	else:
+		vTaskDelete(NULL);	
 	return;
 }

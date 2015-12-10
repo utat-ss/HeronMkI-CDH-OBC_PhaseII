@@ -54,6 +54,8 @@
 	*	
 	*	12/05/2015		Added error handling for exec_commands, store_housekeeping using wrapper functions
 	*
+	*	12/09/2015		Added in housekeep_suicide() so that this task can kill itself if need be (or if commanded by the fdir task).
+	*
 	*	DESCRIPTION:
 	*	
  */
@@ -700,6 +702,6 @@ void housekeep_suicide(void)
 	vPortFree(xLastWakeTime);
 	vPortFree(req_data_result);
 	// Kill self.
-	vTaskDelete(NULL);
+	vTaskDelete(housekeeping_HANDLE);
 	return;
 }

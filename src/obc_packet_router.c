@@ -782,9 +782,9 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			time += (uint32_t)current_command[132];
 			current_command[146] = service_sub_type;
 			if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
-			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
-			if(severity == 1)
-			xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+				xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
+			//if(severity == 1)
+			//	xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
 			if(severity == 2)
 			{
 				// Deal with command here.

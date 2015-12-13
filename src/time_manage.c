@@ -75,8 +75,8 @@ functionality. */
 static void prvTimeManageTask( void *pvParameters );
 TaskHandle_t time_manage(void);
 void time_manage_kill(uint8_t killer);
-static void broadcast_minute(void);
-static void update_absolute_time(void);
+void broadcast_minute(void);
+void update_absolute_time(void);
 static void report_time(void);
 static void exec_commands(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
@@ -137,7 +137,7 @@ static void prvTimeManageTask( void *pvParameters )
 }
 /*-----------------------------------------------------------*/
 
-static void broadcast_minute(void)
+void broadcast_minute(void)
 {
 	uint32_t high;
 	high = high_command_generator(TIME_TASK_ID, EPS_ID, MT_TC, SET_TIME);
@@ -151,7 +151,7 @@ static void broadcast_minute(void)
 
 // Updates the global variables which store absolute time and stores it in SPI memory every minute.
 // This function updates absolute time, and stores it in SPI memory for safe keeping.
-static void update_absolute_time(void)
+void update_absolute_time(void)
 {
 	CURRENT_MINUTE = time.minute;
 	if(time.hour != CURRENT_HOUR)

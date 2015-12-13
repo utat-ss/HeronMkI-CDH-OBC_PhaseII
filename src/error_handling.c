@@ -135,6 +135,10 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 // Note: This function does not halt regular operation, nor is the error fixed at this time.
 // The only reason this function would return -1 is if sending a message to the FDIR task failed.
 // 1 should really be returned.
+// The error should be placed in data[151-148]
+// The task ID should be placed in data[147]
+// Additional error code (if applicable) should be placed in data[146]
+// Any other desired may be placed in the lower bytes (not currently implemented)
 int errorREPORT(uint8_t task, uint32_t error, uint32_t* data)
 {
 	uint8_t i;

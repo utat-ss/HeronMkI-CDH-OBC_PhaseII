@@ -99,9 +99,15 @@
 #define TASK_TO_OPR_EVENT				0xEE
 
 /* EVENT REPORT ID						*/
-#define KICK_COM_FROM_SCHEDULE			0x01
-#define BIT_FLIP_DETECTED				0x02
-#define MEMORY_WASH_FINISHED			0x03
+#define KICK_COM_FROM_SCHEDULE			0x01			// A command was kicked from the schedule.
+#define BIT_FLIP_DETECTED				0x02			// A bit flip was detected in SPI memory.
+#define MEMORY_WASH_FINISHED			0x03			// A memory wash operation completed.
+#define ALL_SPIMEM_CHIPS_DEAD			0x04			// All the SPI memory chips are dead.
+#define INC_USAGE_OF_DECODE_ERROR		0x05			// Incorrect usafe of decode_error()
+#define INTERNAL_MEMORY_FALLBACK		0x06			// OBC has entered into internal memory fallback mode
+#define SCHEDULING_MALFUNCTION			0x07			// There was a malfunction in the scheduling task
+#define SAFE_MODE_ENTERED				0x08
+#define SPI0_MUTEX_MALFUNCTION			0x09
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/

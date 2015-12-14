@@ -51,6 +51,7 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 	uint8_t i;
 	TickType_t wait_time = 5 * 60 * 1000;
 	uint32_t timeout = 5 * 60 * 1000;
+	int ret_val = 0;
 	for(i = 0; i < 147; i++)
 	{
 		high_error_array[i] = *(data + i);	// Load the data into the high_error_array.
@@ -64,71 +65,74 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 	if (xSemaphoreTake(Highsev_Mutex, wait_time) == pdTRUE)		// Attempt to acquire Mutex, block for max 5 minutes.
 	{
 		xQueueSendToBack(high_sev_to_fdir_fifo, high_error_array, wait_time);		// This should return pdTrue
-		// Wait for the error to be resolved.
-		switch(task)
-		{
-			case HK_TASK_ID:
-				hk_fdir_signal = 1;
-				while(hk_fdir_signal & timeout--){taskYIELD();}	// Wait until the problem is solved for a maximum of 5 minutes.
-				if(!hk_fdir_signal)
-					return 1;
-				return -1;
-			case TIME_TASK_ID:
-				time_fdir_signal = 1;
-				while(time_fdir_signal & timeout--){taskYIELD();}
-				if(!time_fdir_signal)
-					return 1;
-				return -1;
-			case COMS_TASK_ID:
-				coms_fdir_signal = 1;
-				while(coms_fdir_signal & timeout--){taskYIELD();}
-				if(!coms_fdir_signal)
-					return 1;
-				return -1;
-			case EPS_TASK_ID:
-				eps_fdir_signal = 1;
-				while(eps_fdir_signal & timeout--){taskYIELD();}
-				if(!eps_fdir_signal)
-					return 1;
-				return -1;
-			case PAY_TASK_ID:
-				pay_fdir_signal = 1;
-				while(pay_fdir_signal & timeout--){taskYIELD();}
-				if(!pay_fdir_signal)
-					return 1;
-				return -1;
-			case OBC_PACKET_ROUTER_ID:
-				opr_fdir_signal = 1;
-				while(opr_fdir_signal & timeout--){taskYIELD();}
-				if(!opr_fdir_signal)
-					return 1;
-				return -1;
-			case SCHEDULING_TASK_ID:
-				sched_fdir_signal = 1;
-				while(sched_fdir_signal & timeout--){taskYIELD();}
-				if(!sched_fdir_signal)
-					return 1;
-				return -1;
-			case WD_RESET_TASK_ID:
-				wdt_fdir_signal = 1;
-				while(wdt_fdir_signal & timeout--){taskYIELD();}
-				if(!wdt_fdir_signal)
-					return 1;
-				return -1;
-			case MEMORY_TASK_ID:
-				mem_fdir_signal = 1;
-				while(mem_fdir_signal & timeout--){taskYIELD();}
-				if(!mem_fdir_signal)
-					return 1;
-				return -1;
-			default:
-				return -1;
-		}
-		
-		xSemaphoreGive(Highsev_Mutex);
 	}
-	else
-		return -1;
+		xSemaphoreGive(Highsev_Mutex);
+	// Release the currently acquired mutex lock if there is one.
+	if(mutex)
+		xSemaphoreGive(mutex);
+	// Wait for the error to be resolved.
+	switch(task)
+	{
+		case HK_TASK_ID:
+			hk_fdir_signal = 1;
+			while(hk_fdir_signal & timeout--){taskYIELD();}	// Wait until the problem is solved for a maximum of 5 minutes.
+			ret_val = -1
+			if(!hk_fdir_signal)
+				ret_val =  1;
+		case TIME_TASK_ID:
+			time_fdir_signal = 1;
+			while(time_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!time_fdir_signal)
+				ret_val = 1;
+		case COMS_TASK_ID:
+			coms_fdir_signal = 1;
+			while(coms_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!coms_fdir_signal)
+				ret_val =  1;
+		case EPS_TASK_ID:
+			eps_fdir_signal = 1;
+			while(eps_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!eps_fdir_signal)
+				ret_val = 1;
+		case PAY_TASK_ID:
+			pay_fdir_signal = 1;
+			while(pay_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1
+			if(!pay_fdir_signal)
+				ret_val = 1;
+		case OBC_PACKET_ROUTER_ID:
+			opr_fdir_signal = 1;
+			while(opr_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!opr_fdir_signal)
+				ret_val = 1;
+		case SCHEDULING_TASK_ID:
+			sched_fdir_signal = 1;
+			while(sched_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1
+			if(!sched_fdir_signal)
+				ret_val = 1;
+		case WD_RESET_TASK_ID:
+			wdt_fdir_signal = 1;
+			while(wdt_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!wdt_fdir_signal)
+				ret_val = 1;
+		case MEMORY_TASK_ID:
+			mem_fdir_signal = 1;
+			while(mem_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!mem_fdir_signal)
+				ret_val = 1;
+		default:
+			ret_val = -1;
+	}
+	if(mutex)
+		xSemaphoreTake(mutex, wait_time);
+	return ret_val;
 }
 
 // For low-severity errors only.

@@ -1,5 +1,5 @@
 /*
-Author: Keenan Burnett
+Author: Keenan Burnett, Samantha Murray
 ***********************************************************************
 * FILE NAME: coms.c
 *

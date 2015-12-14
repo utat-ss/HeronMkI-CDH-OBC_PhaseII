@@ -62,6 +62,8 @@ Author: Keenan Burnett
 #include "time.h"
 /*	Watchdog timer includes				*/
 #include <asf/sam/drivers/wdt/wdt.h>
+/* Includes related to atomic operation	*/
+#include "atomic.h"
 
 /* Priorities at which the tasks are created. */
 #define FDIR_PRIORITY		( tskIDLE_PRIORITY + 5 )
@@ -80,6 +82,7 @@ static void clear_current_command(void);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 int restart_task(uint8_t task_id);
 static void time_update(void);
+static void enter_SAFE_MODE(uint8_t reason);
 
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
@@ -107,9 +110,26 @@ extern void opr_kill(uint8_t killer);
 extern void broadcast_minute(void);
 void update_absolute_time(void);
 
-/* Local Varialbes for FDIR */
+/* Local Varibles for FDIR */
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
 static uint32_t minute_count;
+
+/* Fumble Counts */
+static uint8_t housekeep_fumble_count;
+static uint8_t scheduling_fumble_count;
+static uint8_t time_manage_fumble_count;
+static uint8_t memory_manage_fumble_count;
+static uint8_t wdt_reset_fumble_count;
+static uint8_t eps_fumble_count;
+static uint8_t coms_fumble_count;
+static uint8_t payload_fumble_count;
+static uint8_t opr_fumble_count;
+static uint8_t eps_SSM_fumble_count;
+static uint8_t coms_SSM_fumble_count;
+static uint8_t payload_SSM_fumble_count;
+static uint8_t SMERROR;
+
+
 /************************************************************************/
 /* FDIR (Function)														*/
 /* @Purpose: This function is used to create the fdir task.				*/
@@ -140,6 +160,9 @@ static void prvFDIRTask( void *pvParameters )
 	configASSERT( ( ( unsigned long ) pvParameters ) == FDIR_PARAMETER );
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
+
+	// Initialize all variables which are local to FDIR
+	init_vars();
 
 	/* @non-terminating@ */	
 	for( ;; )
@@ -192,15 +215,81 @@ static void check_error(void)
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code)
 {
 	// This is where the resolution sequences are going to go.
+	TaskHandle_t temp_task = 0;
+	eTaskState task_state = 0;
+	uint8_t i;
 	if(severity == 1)
 	{
 		switch(error)
 		{
 			case 1:
-				
+				if(task != SCHEDULING_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				if(code == 0xFF)				// All SPI Memory chips are dead.
+				{
+					// INTERNAL MEMORY FALLBACK MODE
+					send_event_report(2, INTERNAL_MEMORY_FALLBACK, 0, 0);
+					return;
+				}
+				if(code == 0xFE)				// Usage error on the part of the task that called the function.
+				{
+					scheduling_fumble_count++;
+					if(scheduling_fumble_count == 10)
+					{
+						restart_task(SCHEDULING_TASK_ID);
+						return;
+					}
+					if(scheduling_fumble_count > 10)
+					{
+						enter_SAFE_MODE(SCHEDULING_MALFUNCTION);
+					}
+				}
+				if(code == 0xFD)				// Spi0_Mutex was not free when this task was called.
+				{
+					delay_ms(50);				// Give the currently running operation time to finish.
+					if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
+					{
+						sched_fdir_signal = 0;
+						xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
+						return;
+					}
+					// The Spi0_Mutex is still held by another task.
+					temp_task = xSemaphoreGetMutexHolder(Spi0_Mutex);		// Get the task which currently holds this mutex.
+					task_state = eTaskGetState(temp_task);
+					if(task_state < 2) // Task is in an operational state,
+					{
+						vTaskSuspend(temp_task);	// Suspend the task from running further.
+					}
+					enter_atomic();		// CRITICAL SECTION
+					restart_task(temp_task);
+					Spi0_Mutex = xSemaphoreCreateBinary();
+					xSemaphoreGive(Spi0_Mutex);	
+					exit_atomic();
+					for (i = 0; i < 50; i++)
+					{
+						taskYIELD();				// Give the new task ample time to start runnig again.
+					}
+					// Try to acquire the mutex again.
+					if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
+					{
+						sched_fdir_signal = 0;
+						xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
+						return;
+					}
+					// Something has gone wrong, etner SAFE_MODE and let ground know.
+					enter_SAFE_MODE(SPI0_MUTEX_MALFUNCTION);
+				}
+				if(code == 0xFC)
+				{
+					// ....
+				}
+		
 		}
+		
 	}
 }
+
+
 
 static void check_commands(void)
 {
@@ -222,10 +311,34 @@ static void clear_current_command(void)
 	return;
 }
 
-int restart_task(uint8_t task_id)
+int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE)
 {
 	// Delete the given task and then recreate it.
-	switch(task_id)
+	uint8_t taskID = task_id;
+	if(!taskID && task_HANDLE)
+	{
+		if(task_HANDLE == housekeeping_HANDLE)
+			taskID = HK_TASK_ID;
+		else if(task_HANDLE == time_manage_HANDLE)
+			taskID = TIME_TASK_ID;
+		else if(task_HANDLE == coms_HANDLE)
+			taskID = COMS_TASK_ID;
+		else if(task_HANDLE == eps_HANDLE)
+			taskID = EPS_TASK_ID;
+		else if(task_HANDLE == pay_HANDLE)
+			taskID = PAY_TASK_ID;
+		else if(task_HANDLE == opr_HANDLE)
+			taskID = OBC_PACKET_ROUTER_ID;
+		else if(task_HANDLE == scheduling_HANDLE)
+			taskID = SCHEDULING_TASK_ID;
+		else if(task_HANDLE == wdt_reset_HANDLE)
+			taskID = WD_RESET_TASK_ID;
+		else if(task_HANDLE == memory_manage_HANDLE)
+			taskID = MEMORY_TASK_ID;
+		else
+			vTaskDelete(task_HANDLE);	// Some bullshit task was running that shouldn't be.
+	}
+	switch(taskID)
 	{
 		case HK_TASK_ID:
 			housekeep_kill(1);
@@ -255,6 +368,7 @@ int restart_task(uint8_t task_id)
 			memory_manage_kill(1);
 			memory_manage_HANDLE = memory_manage();
 		default:
+			enter_SAFE_MODE();
 			return -1;		// SAFE_MODE ?
 	}
 	return 1;
@@ -278,6 +392,7 @@ int reset_SSM(uint8_t ssm_id)
 			delay_ms(5);
 			gpio_set_pin_high(PAY_RST_GPIO);		
 		default:
+			enter_SAFE_MODE();
 			return -1;
 	}
 	return 1;
@@ -304,10 +419,17 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	return;
 }
 
-static void enter_SAFE_MODE(void)
+static void enter_SAFE_MODE(uint8_t reason)
 {
 	minute_count = 0;
 	SAFE_MODE = 1;
+	SMERROR = reason;
+	// Let the ground the error that occurred, and that we're entering into SAFE_MODE.
+	send_event_report(4, reason, 0, 0);
+	send_event_report(1, SAFE_MODE_ENTERED, 0, 0);
+	
+	// REQUEST ASSISTANCE IF REASON IS NON-ZERO. 
+	
 	// Pause subsidiary tasks
 	vTaskSuspend(housekeeping_HANDLE);
 	vTaskSuspend(time_manage_HANDLE);
@@ -353,5 +475,24 @@ static void time_update(void)
 
 int reprogram_SSM(uint8_t ssm_id)
 {
-	
+	// Code for reprogramming the SSM can go here.
+}
+
+// Initializes all variables which are local to FDIR.
+static void init_vars(void)
+{
+	housekeep_fumble_count = 0;
+	scheduling_fumble_count = 0;
+	time_manage_fumble_count = 0;
+	memory_manage_fumble_count = 0;
+	wdt_reset_fumble_count = 0;
+	eps_fumble_count = 0;
+	coms_fumble_count = 0;
+	payload_fumble_count = 0;
+	opr_fumble_count = 0;
+	eps_SSM_fumble_count = 0;
+	coms_SSM_fumble_count = 0;
+	payload_SSM_fumble_count = 0;
+	SMERROR = 0;
+	return;
 }

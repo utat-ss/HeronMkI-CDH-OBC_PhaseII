@@ -108,7 +108,7 @@ functionality. */
 /* Function Prototypes */
 static void prvHouseKeepTask( void *pvParameters );
 TaskHandle_t housekeep(void);
-void housekeep_kill(uint8_t killer)
+void housekeep_kill(uint8_t killer);
 static void clear_current_hk(void);
 static int request_housekeeping_all(void);
 static void store_housekeeping(void);
@@ -706,7 +706,7 @@ void housekeep_kill(uint8_t killer)
 	// Kill the task.
 	if(killer)
 		vTaskDelete(housekeeping_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);	
 	return;
 }

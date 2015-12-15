@@ -103,7 +103,6 @@ static int generate_command_report(uint16_t cID, uint8_t status);
 
 /* Local variables for scheduling */
 static uint32_t num_commands, next_command_time, furthest_command_time;
-static uint8_t scheduling_on;
 static uint8_t temp_arr[256];
 static uint8_t current_command[DATA_LENGTH + 10];
 static uint8_t sched_buff0[256], sched_buff1[256];
@@ -606,7 +605,7 @@ void scheduling_kill(uint8_t killer)
 	// Kill the task.
 	if(killer)
 		vTaskDelete(scheduling_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);
 	return;
 }

@@ -1077,7 +1077,7 @@ void opr_kill(uint8_t killer)
 	// Kill the task.
 	if(killer)
 		vTaskDelete(opr_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);
 	return;
 }

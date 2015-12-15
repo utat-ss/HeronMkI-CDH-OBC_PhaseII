@@ -108,6 +108,11 @@
 #define SCHEDULING_MALFUNCTION			0x07			// There was a malfunction in the scheduling task
 #define SAFE_MODE_ENTERED				0x08
 #define SPI0_MUTEX_MALFUNCTION			0x09
+#define SPI_FAILED_IN_FDIR				0x0A			// A SPI memory operation failed during FDIR operations.
+#define SCHED_COMMAND_FAILED			0x0B
+#define ERROR_IN_RESTART_TASK			0x0C
+#define ERROR_IN_RS5					0x0D
+#define ERROR_IN_RESET_SSM				0x0E
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -200,4 +205,7 @@ TaskHandle_t pay_HANDLE;
 TaskHandle_t scheduling_HANDLE;
 TaskHandle_t fdir_HANDLE;
 TaskHandle_t wdt_reset_HANDLE;
+
+/* Global variable for determining whether scheduled operations are currently running */
+uint8_t scheduling_on;
 

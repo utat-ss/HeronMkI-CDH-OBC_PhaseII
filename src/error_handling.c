@@ -76,7 +76,7 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 		case HK_TASK_ID:
 			hk_fdir_signal = 1;
 			while(hk_fdir_signal & timeout--){taskYIELD();}	// Wait until the problem is solved for a maximum of 5 minutes.
-			ret_val = -1
+			ret_val = -1;
 			if(!hk_fdir_signal)
 				ret_val =  1;
 		case TIME_TASK_ID:
@@ -100,7 +100,7 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 		case PAY_TASK_ID:
 			pay_fdir_signal = 1;
 			while(pay_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1
+			ret_val = -1;
 			if(!pay_fdir_signal)
 				ret_val = 1;
 		case OBC_PACKET_ROUTER_ID:
@@ -112,7 +112,7 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 		case SCHEDULING_TASK_ID:
 			sched_fdir_signal = 1;
 			while(sched_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1
+			ret_val = -1;
 			if(!sched_fdir_signal)
 				ret_val = 1;
 		case WD_RESET_TASK_ID:

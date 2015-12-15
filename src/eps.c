@@ -334,7 +334,7 @@ void eps_kill(uint8_t killer)
 	// Kill the task.
 	if(killer)
 		vTaskDelete(eps_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);
 	return;
 }

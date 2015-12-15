@@ -227,13 +227,12 @@ void time_manage_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
 	vPortFree(current_command);
-	vPortFree(time);
 	vPortFree(minute_count);
 	vPortFree(report_timeout);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(time_manage_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);
 	return;
 }

@@ -117,7 +117,7 @@ void payload_kill(uint8_t killer)
 	// Kill the task.
 	if(killer)
 		vTaskDelete(pay_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);
 	return;
 }

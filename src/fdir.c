@@ -32,6 +32,9 @@ Author: Keenan Burnett
 * 12/12/2015		I added in reset_SSM(), send_Event_Report(), enter_SAFE_MODE(), and am working on filling
 *					in more parts to check_error().
 *
+* 12/13/2015		I'm adding in code for the resolution sequence of ERROR# 1 (lots of this code could be turned into
+*					helper functions and reused elsewhere in the decode_error() function.
+*
 * DESCRIPTION:
 *
 */
@@ -79,10 +82,22 @@ static void check_error(void);
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code);
 static void check_commands(void);
 static void clear_current_command(void);
+static void clear_test_arrays(void);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
-int restart_task(uint8_t task_id);
+int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE);
 static void time_update(void);
 static void enter_SAFE_MODE(uint8_t reason);
+static void init_vars(void);
+
+/* Prototypes for resolution sequences */
+static void resolution_sequence1(uint8_t code);
+static void resolution_sequence1_1(void);
+static void resolution_sequence1_2(void);
+static void resolution_sequence1_3(void);
+static void resolution_sequence1_4(void);
+static void resolution_sequence4(uint8_t task, uint8_t command);
+static void resolution_sequence5(uint8_t task, uint8_t code);
+
 
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
@@ -112,6 +127,7 @@ void update_absolute_time(void);
 
 /* Local Varibles for FDIR */
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
+static uint8_t test_array1[256], test_array2[256];
 static uint32_t minute_count;
 
 /* Fumble Counts */
@@ -127,7 +143,15 @@ static uint8_t opr_fumble_count;
 static uint8_t eps_SSM_fumble_count;
 static uint8_t coms_SSM_fumble_count;
 static uint8_t payload_SSM_fumble_count;
+static uint8_t SPI_CHIP_1_fumble_count;
+static uint8_t SPI_CHIP_2_fumble_count;
+static uint8_t SPI_CHIP_3_fumble_count;
+
+/* Reason for entering SAFE_MODE */
 static uint8_t SMERROR;
+
+/* Time variable to use during SAFE_MODE */
+static struct timestamp time;
 
 
 /************************************************************************/
@@ -218,6 +242,7 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 	TaskHandle_t temp_task = 0;
 	eTaskState task_state = 0;
 	uint8_t i;
+	int x;
 	if(severity == 1)
 	{
 		switch(error)
@@ -225,71 +250,250 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 			case 1:
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				if(code == 0xFF)				// All SPI Memory chips are dead.
-				{
-					// INTERNAL MEMORY FALLBACK MODE
-					send_event_report(2, INTERNAL_MEMORY_FALLBACK, 0, 0);
-					return;
-				}
-				if(code == 0xFE)				// Usage error on the part of the task that called the function.
-				{
-					scheduling_fumble_count++;
-					if(scheduling_fumble_count == 10)
-					{
-						restart_task(SCHEDULING_TASK_ID);
-						return;
-					}
-					if(scheduling_fumble_count > 10)
-					{
-						enter_SAFE_MODE(SCHEDULING_MALFUNCTION);
-					}
-				}
-				if(code == 0xFD)				// Spi0_Mutex was not free when this task was called.
-				{
-					delay_ms(50);				// Give the currently running operation time to finish.
-					if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
-					{
-						sched_fdir_signal = 0;
-						xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
-						return;
-					}
-					// The Spi0_Mutex is still held by another task.
-					temp_task = xSemaphoreGetMutexHolder(Spi0_Mutex);		// Get the task which currently holds this mutex.
-					task_state = eTaskGetState(temp_task);
-					if(task_state < 2) // Task is in an operational state,
-					{
-						vTaskSuspend(temp_task);	// Suspend the task from running further.
-					}
-					enter_atomic();		// CRITICAL SECTION
-					restart_task(temp_task);
-					Spi0_Mutex = xSemaphoreCreateBinary();
-					xSemaphoreGive(Spi0_Mutex);	
-					exit_atomic();
-					for (i = 0; i < 50; i++)
-					{
-						taskYIELD();				// Give the new task ample time to start runnig again.
-					}
-					// Try to acquire the mutex again.
-					if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
-					{
-						sched_fdir_signal = 0;
-						xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
-						return;
-					}
-					// Something has gone wrong, etner SAFE_MODE and let ground know.
-					enter_SAFE_MODE(SPI0_MUTEX_MALFUNCTION);
-				}
-				if(code == 0xFC)
-				{
-					// ....
-				}
-		
+				resolution_sequence1(code);
+			case 2:
+				if(task != SCHEDULING_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence1(code);
+			case 3:
+				if(task != SCHEDULING_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence1(code);
+			case 4:
+				if(task != SCHEDULING_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence4(task, code);	// code here should be the command that failed.
+			case 5:
+				if(task != SCHEDULING_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence5(task, code);			// code: 0 = from OPR, 1 = to OPR
 		}
 		
 	}
 }
 
+static void resolution_sequence1(uint8_t code)
+{
+	if(code == 0xFF)				// All SPI Memory chips are dead.
+		resolution_sequence1_1();
+	if(code == 0xFE)				// Usage error on the part of the task that called the function.
+		resolution_sequence1_2();
+	if(code == 0xFD)				// Spi0_Mutex was not free when this task was called.
+		resolution_sequence1_3();
+	if(code == 0xFC)
+		resolution_sequence1_4();
+	return;
+}
 
+static void resolution_sequence1_1(void)
+{					
+	// INTERNAL MEMORY FALLBACK MODE
+	send_event_report(2, INTERNAL_MEMORY_FALLBACK, 0, 0);
+	return;
+}
+
+static void resolution_sequence1_2(void)
+{					
+	scheduling_fumble_count++;
+	if(scheduling_fumble_count == 10)
+	{
+		restart_task(SCHEDULING_TASK_ID, (TaskHandle_t)0);
+		return;
+	}
+	if(scheduling_fumble_count > 10)
+	{
+		enter_SAFE_MODE(SCHEDULING_MALFUNCTION);
+	}
+	return;
+}
+
+static void resolution_sequence1_3(void)
+{
+	TaskHandle_t temp_task = 0;
+	eTaskState task_state = 0;
+	uint8_t i;
+	delay_ms(50);				// Give the currently running operation time to finish.
+	if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
+	{
+		sched_fdir_signal = 0;
+		xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
+		return;
+	}
+	// The Spi0_Mutex is still held by another task.
+	temp_task = xSemaphoreGetMutexHolder(Spi0_Mutex);		// Get the task which currently holds this mutex.
+	task_state = eTaskGetState(temp_task);
+	if(task_state < 2) // Task is in an operational state,
+	{
+		vTaskSuspend(temp_task);	// Suspend the task from running further.
+	}
+	enter_atomic();		// CRITICAL SECTION
+	restart_task(temp_task, (TaskHandle_t)0);
+	Spi0_Mutex = xSemaphoreCreateBinary();
+	xSemaphoreGive(Spi0_Mutex);
+	exit_atomic();
+	for (i = 0; i < 50; i++)
+	{
+		taskYIELD();				// Give the new task ample time to start runnig again.
+	}
+	// Try to acquire the mutex again.
+	if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
+	{
+		sched_fdir_signal = 0;
+		xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
+		return;
+	}
+	// Something has gone wrong, etner SAFE_MODE and let ground know.
+	enter_SAFE_MODE(SPI0_MUTEX_MALFUNCTION);
+	return;
+}
+
+static void resolution_sequence1_4(void)
+{					
+	uint8_t i;
+	int x;
+	if(SPI_HEALTH1)
+	{
+		SPI_CHIP_1_fumble_count++;
+		if(SPI_CHIP_1_fumble_count >= 10)
+		SPI_HEALTH1 = 0;		// Mark this chip as dysfunctional.
+	}
+	else if(SPI_HEALTH2)
+	{
+		SPI_CHIP_2_fumble_count++;
+		if(SPI_CHIP_2_fumble_count >= 10)
+		SPI_HEALTH2 = 0;		// Mark this chip as dysfunctional.
+	}
+	else if(SPI_HEALTH3)
+	{
+		SPI_CHIP_3_fumble_count++;
+		if(SPI_CHIP_3_fumble_count >= 10)
+		SPI_HEALTH3 = 0;		// Mark this chip as dysfunctional.
+		// INTERNAL MEMORY FALLBACK MODE
+		sched_fdir_signal = 0;	// Issue resolved.
+		return;
+	}
+	// At least one of the chips is working or has not fumbled too many times.
+	clear_test_arrays();
+	for(i = 0; i < 256; i++)
+	{
+		test_array1[i] = i;
+	}
+	
+	// Check to see if reading/writing is possible from the chip which malfunctioned.
+	if(SPI_HEALTH1)
+	{
+		if( spimem_write(0x00, test_array1, 256) < 0)
+		{
+			// INTERNAL MEMORY FALLBACK MODE.
+			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
+		}
+		x = spimem_read(0x00, test_array2, 256);
+		{
+			// INTERNAL MEMORY FALLBACK MODE.
+			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
+		}
+		for(i = 0; i < 256; i++)
+		{
+			if(test_array2[i] != test_array1[i])
+			SPI_HEALTH1 = 0;
+		}
+		if(SPI_HEALTH1)
+		{
+			sched_fdir_signal = 0;	// The issue was only temporary.
+			return;
+		}
+	}
+	else if(SPI_HEALTH2)			// Try switching to a different chip
+	{
+		if( spimem_write(0x00, test_array1, 256) < 0)
+		{
+			// INTERNAL MEMORY FALLBACK MODE.
+			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
+		}
+		x = spimem_read(0x00, test_array2, 256);
+		{
+			// INTERNAL MEMORY FALLBACK MODE.
+			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
+		}
+		for(i = 0; i < 256; i++)
+		{
+			if(test_array2[i] != test_array1[i])
+			SPI_HEALTH2 = 0;	// Try with a different chip.
+		}
+		if(SPI_HEALTH2)
+		{
+			sched_fdir_signal = 0;	// The issue was only temporary.
+			return;
+		}
+	}
+	else if(SPI_HEALTH3)
+	{
+		if( spimem_write(0x00, test_array1, 256) < 0)
+		{
+			// INTERNAL MEMORY FALLBACK MODE.
+			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
+		}
+		x = spimem_read(0x00, test_array2, 256);
+		{
+			// INTERNAL MEMORY FALLBACK MODE.
+			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
+		}
+		for(i = 0; i < 256; i++)
+		{
+			if(test_array2[i] != test_array1[i])
+			SPI_HEALTH3 = 0;	// Try with a different chip.
+		}
+		if(SPI_HEALTH3)
+		{
+			sched_fdir_signal = 0;	// The issue was only temporary.
+			return;
+		}
+	}
+	// There are no functional chips, INTERNAL MEMORY FALLBACK MODE
+	sched_fdir_signal = 0;
+	return;
+}
+
+// command - Currently corresponds to the K-service command which was scheduled and failed. 
+static void resolution_sequence4(uint8_t task, uint8_t command)
+{
+	restart_task(task, (TaskHandle_t)0);
+	// Retry the command which failed. (should be located in current_command[])
+	// Play with the SSM if one was involved.
+	// If the command worked now: return that the issue was resolved.
+	
+	// Pause Scheduled operations:
+	scheduling_on = 0;
+	enter_SAFE_MODE(SCHED_COMMAND_FAILED);
+	return;
+}
+
+static void resolution_sequence5(uint8_t task, uint8_t code)
+{
+	switch(task)
+	{
+		case HK_TASK_ID:
+			housekeep_fumble_count++;
+		case TIME_TASK_ID:
+
+		case COMS_TASK_ID:
+
+		case EPS_TASK_ID:
+
+		case PAY_TASK_ID:
+
+		case OBC_PACKET_ROUTER_ID:
+
+		case SCHEDULING_TASK_ID:
+
+		case MEMORY_TASK_ID:
+
+		default:
+			enter_SAFE_MODE(ERROR_IN_RS5);
+		return -1;		// SAFE_MODE ?
+	}
+	return;
+}
 
 static void check_commands(void)
 {
@@ -368,7 +572,7 @@ int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE)
 			memory_manage_kill(1);
 			memory_manage_HANDLE = memory_manage();
 		default:
-			enter_SAFE_MODE();
+			enter_SAFE_MODE(ERROR_IN_RESTART_TASK);
 			return -1;		// SAFE_MODE ?
 	}
 	return 1;
@@ -392,7 +596,7 @@ int reset_SSM(uint8_t ssm_id)
 			delay_ms(5);
 			gpio_set_pin_high(PAY_RST_GPIO);		
 		default:
-			enter_SAFE_MODE();
+			enter_SAFE_MODE(ERROR_IN_RESET_SSM);
 			return -1;
 	}
 	return 1;
@@ -460,6 +664,7 @@ static void enter_SAFE_MODE(uint8_t reason)
 // Does the part of what time_manage does that is related to updating absolute time and CURRENT_MINUTE within the SSMs.
 static void time_update(void)
 {
+	uint32_t report_timeout = 60;	// Produce a time report once every 60 minutes.
 	if (rtc_triggered_a2())
 	{
 		rtc_get(&time);
@@ -478,6 +683,17 @@ int reprogram_SSM(uint8_t ssm_id)
 	// Code for reprogramming the SSM can go here.
 }
 
+static void clear_test_arrays(void)
+{
+	uint8_t i;
+	for (i = 0; i < 256; i++)
+	{
+		test_array1[i] = 0;
+		test_array2[i] = 0;
+	}
+	return;
+}
+
 // Initializes all variables which are local to FDIR.
 static void init_vars(void)
 {
@@ -493,6 +709,10 @@ static void init_vars(void)
 	eps_SSM_fumble_count = 0;
 	coms_SSM_fumble_count = 0;
 	payload_SSM_fumble_count = 0;
+	SPI_CHIP_1_fumble_count = 0;
+	SPI_CHIP_2_fumble_count = 0;
+	SPI_CHIP_3_fumble_count = 0;
 	SMERROR = 0;
+	clear_test_arrays();
 	return;
 }

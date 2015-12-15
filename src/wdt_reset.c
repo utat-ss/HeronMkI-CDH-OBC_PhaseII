@@ -54,6 +54,8 @@
 /* Common demo includes. */
 #include "partest.h"
 
+#include "global_var.h"
+
 //What other includes do I need?
 
 #include <asf/sam/drivers/wdt/wdt.h>
@@ -135,7 +137,7 @@ void wdt_reset_kill(uint8_t killer)
 	// Kill the task.
 	if(killer)
 		vTaskDelete(wdt_reset_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);
 	return;
 }

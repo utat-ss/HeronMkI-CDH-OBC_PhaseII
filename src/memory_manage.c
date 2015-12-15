@@ -417,7 +417,7 @@ void memory_manage_kill(uint8_t killer)
 	// Kill the task.
 	if(killer)
 		vTaskDelete(memory_manage_HANDLE);
-	else:
+	else
 		vTaskDelete(NULL);
 	return;
 }

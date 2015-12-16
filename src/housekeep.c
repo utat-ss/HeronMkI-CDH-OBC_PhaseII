@@ -8,7 +8,7 @@
 	*	This file is to be used to create the housekeeping task needed to monitor
 	*	housekeeping information on the satellite.
 	*
-	*	FILE REFERENCES:	stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
+	*	FILE REFERENCES:	stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h, spimem.h, error_handling.h
 	*
 	*	EXTERNAL VARIABLES:
 	*
@@ -104,7 +104,6 @@ functionality. */
 #define HK_REPORT						25
 -----------------------------------------------------------*/
 
-
 /* Function Prototypes */
 static void prvHouseKeepTask( void *pvParameters );
 TaskHandle_t housekeep(void);
@@ -125,7 +124,6 @@ static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static uint8_t get_ssm_id(uint8_t sensor_name);
-
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -232,7 +230,7 @@ static void exec_commands(void){
 	if (exec_com_success != 1) {
 		errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR, exec_com_success);
 	}
-	
+	return;
 }
 
 // Will return 1 if successful, current_command if there is a FIFO error
@@ -285,8 +283,6 @@ static int exec_commands_H(void)
 	}
 	else										//Failure Recovery					
 		return current_command;
-		
-		
 }
 
 /************************************************************************/
@@ -439,7 +435,6 @@ static void store_housekeeping(void)
 	return 1;
 }
 
-
 //Returns the proper ssm_id for a given sensor
 static uint8_t get_ssm_id(uint8_t sensor_name){
 	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
@@ -453,8 +448,6 @@ static uint8_t get_ssm_id(uint8_t sensor_name){
 
 	
 }
-
-
 
 /************************************************************************/
 /* STORE_HK_IN_SPIMEM													*/

@@ -88,6 +88,10 @@ int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE);
 static void time_update(void);
 static void enter_SAFE_MODE(uint8_t reason);
 static void init_vars(void);
+void clear_fifo_buffer(void);
+int recreate_fifo_h(QueueHandle_t *queue_to_recreate);
+int recreate_fifo(uint8_t task_id, uint8_t direction);
+
 
 /* Prototypes for resolution sequences */
 static void resolution_sequence1(uint8_t code);
@@ -146,6 +150,22 @@ static uint8_t payload_SSM_fumble_count;
 static uint8_t SPI_CHIP_1_fumble_count;
 static uint8_t SPI_CHIP_2_fumble_count;
 static uint8_t SPI_CHIP_3_fumble_count;
+static uint8_t hk_fifo_to_OPR_fumble_count;
+static uint8_t hk_fifo_from_OPR_fumble_count;
+static uint8_t sched_fifo_to_OPR_fumble_count;
+static uint8_t sched_fifo_from_OPR_fumble_count;
+static uint8_t time_fifo_to_OPR_fumble_count;
+static uint8_t time_fifo_from_OPR_fumble_count;
+static uint8_t memory_fifo_to_OPR_fumble_count;
+static uint8_t memory_fifo_from_OPR_fumble_count;
+static uint8_t wdt_fifo_to_OPR_fumble_count;
+static uint8_t wdt_fifo_from_OPR_fumble_count;
+static uint8_t eps_fifo_to_OPR_fumble_count;
+static uint8_t eps_fifo_from_OPR_fumble_count;
+static uint8_t coms_fifo_to_OPR_fumble_count;
+static uint8_t coms_fifo_from_OPR_fumble_count;
+static uint8_t pay_fifo_to_OPR_fumble_count;
+static uint8_t pay_fifo_from_OPR_fumble_count;
 
 /* Reason for entering SAFE_MODE */
 static uint8_t SMERROR;
@@ -473,24 +493,176 @@ static void resolution_sequence5(uint8_t task, uint8_t code)
 	switch(task)
 	{
 		case HK_TASK_ID:
-			housekeep_fumble_count++;
+			if(code)
+				hk_fifo_to_OPR_fumble_count++;
+			else
+				hk_fifo_from_OPR_fumble_count++;
+			// If the fumble count gets too high, restart the task which might be faulty.
+			if((hk_fifo_to_OPR_fumble_count == 5) || (hk_fifo_from_OPR_fumble_count == 5))
+			{
+				restart_task(HK_TASK_ID, (TaskHandle_t)0);
+				hk_fdir_signal = 0;
+				return;
+			}
+			if((hk_fifo_to_OPR_fumble_count > 5) || (hk_fifo_from_OPR_fumble_count > 5))
+			{
+				enter_SAFE_MODE(DYSFUNCTIONAL_FIFO);
+				hk_fdir_signal = 0;
+				return;
+			}
+			if((hk_fifo_to_OPR_fumble_count < 5) && (hk_fifo_from_OPR_fumble_count < 5))
+			{
+				recreate_fifo(HK_TASK_ID, code);
+				hk_fdir_signal = 0;
+				return;
+			}			
 		case TIME_TASK_ID:
-
+			if(code)
+				time_fifo_to_OPR_fumble_count++;
+			else
+				time_fifo_from_OPR_fumble_count++;
+			// If the fumble count gets too high, restart the task which might be faulty.
+			if((time_fifo_to_OPR_fumble_count == 5) || (time_fifo_from_OPR_fumble_count == 5))
+			{
+				restart_task(TIME_TASK_ID, (TaskHandle_t)0);
+				time_fdir_signal = 0;
+				return;
+			}
+			if((time_fifo_to_OPR_fumble_count > 5) || (time_fifo_from_OPR_fumble_count > 5))
+			{
+				enter_SAFE_MODE(DYSFUNCTIONAL_FIFO);
+				time_fdir_signal = 0;
+				return;
+			}
+			if((time_fifo_to_OPR_fumble_count < 5) && (time_fifo_from_OPR_fumble_count < 5))
+			{
+				recreate_fifo(TIME_TASK_ID, code);
+				time_fdir_signal = 0;
+				return;
+			}
 		case COMS_TASK_ID:
-
+			if(code)
+				coms_fifo_to_OPR_fumble_count++;
+			else
+				coms_fifo_from_OPR_fumble_count++;
+			// Just try resetting the task.
+			if((coms_fifo_to_OPR_fumble_count == 1) || (coms_fifo_from_OPR_fumble_count == 1))
+			{
+				restart_task(COMS_TASK_ID, (TaskHandle_t)0);
+				coms_fdir_signal = 0;
+				return;
+			}
+			// If that didn't work, enter into SAFE_MODE.
+			if((coms_fifo_to_OPR_fumble_count > 1) || (coms_fifo_from_OPR_fumble_count > 1))
+			{
+				enter_SAFE_MODE(IMPORTANT_FIFO_FAILED);
+				coms_fdir_signal = 0;
+				return;
+			}
 		case EPS_TASK_ID:
-
+			if(code)
+				eps_fifo_to_OPR_fumble_count++;
+			else
+				eps_fifo_from_OPR_fumble_count++;
+			// Just try resetting the task.
+			if((eps_fifo_to_OPR_fumble_count == 1) || (eps_fifo_from_OPR_fumble_count == 1))
+			{
+				restart_task(EPS_TASK_ID, (TaskHandle_t)0);
+				eps_fdir_signal = 0;
+				return;
+			}
+			// If that didn't work, enter into SAFE_MODE.
+			if((eps_fifo_to_OPR_fumble_count > 1) || (eps_fifo_from_OPR_fumble_count > 1))
+			{
+				enter_SAFE_MODE(IMPORTANT_FIFO_FAILED);
+				eps_fdir_signal = 0;
+				return;
+			}
 		case PAY_TASK_ID:
-
+			if(code)
+				pay_fifo_to_OPR_fumble_count++;
+			else
+				pay_fifo_from_OPR_fumble_count++;
+			// Just try resetting the task.
+			if((pay_fifo_to_OPR_fumble_count == 1) || (pay_fifo_from_OPR_fumble_count == 1))
+			{
+				restart_task(PAY_TASK_ID, (TaskHandle_t)0);
+				pay_fdir_signal = 0;
+				return;
+			}
+			// If that didn't work, enter into SAFE_MODE.
+			if((pay_fifo_to_OPR_fumble_count > 1) || (pay_fifo_from_OPR_fumble_count > 1))
+			{
+				enter_SAFE_MODE(IMPORTANT_FIFO_FAILED);
+				pay_fdir_signal = 0;
+				return;
+			}
 		case OBC_PACKET_ROUTER_ID:
-
+			// Just try resetting the task
+			opr_fumble_count++;
+			if(opr_fumble_count == 1)
+			{
+				restart_task(OBC_PACKET_ROUTER_ID, (TaskHandle_t)0);
+				opr_fdir_signal = 0;
+				return;				
+			}
+			if(opr_fumble_count > 1)
+			{
+				enter_SAFE_MODE(IMPORTANT_FIFO_FAILED);
+				opr_fdir_signal = 0;
+				return;				
+			}
 		case SCHEDULING_TASK_ID:
-
+			if(code)
+				sched_fifo_to_OPR_fumble_count++;
+			else
+				sched_fifo_from_OPR_fumble_count++;
+			// If the fumble count gets too high, restart the task which might be faulty.
+			if((sched_fifo_to_OPR_fumble_count == 5) || (sched_fifo_from_OPR_fumble_count == 5))
+			{
+				restart_task(SCHEDULING_TASK_ID, (TaskHandle_t)0);
+				sched_fdir_signal = 0;
+				return;
+			}
+			if((sched_fifo_to_OPR_fumble_count > 5) || (sched_fifo_from_OPR_fumble_count > 5))
+			{
+				enter_SAFE_MODE(DYSFUNCTIONAL_FIFO);
+				sched_fdir_signal = 0;
+				return;
+			}
+			if((sched_fifo_to_OPR_fumble_count < 5) && (sched_fifo_from_OPR_fumble_count < 5))
+			{
+				recreate_fifo(SCHEDULING_TASK_ID, code);
+				sched_fdir_signal = 0;
+				return;
+			}
 		case MEMORY_TASK_ID:
-
+			if(code)
+				memory_fifo_to_OPR_fumble_count++;
+			else
+				memory_fifo_from_OPR_fumble_count++;
+			// If the fumble count gets too high, restart the task which might be faulty.
+			if((memory_fifo_to_OPR_fumble_count == 5) || (memory_fifo_from_OPR_fumble_count == 5))
+			{
+				restart_task(HK_TASK_ID, (TaskHandle_t)0);
+				mem_fdir_signal = 0;
+				return;
+			}
+			if((memory_fifo_to_OPR_fumble_count > 5) || (memory_fifo_from_OPR_fumble_count > 5))
+			{
+				enter_SAFE_MODE(DYSFUNCTIONAL_FIFO);
+				mem_fdir_signal = 0;
+				return;
+			}
+			if((memory_fifo_to_OPR_fumble_count < 5) && (memory_fifo_from_OPR_fumble_count < 5))
+			{
+				recreate_fifo(HK_TASK_ID, code);
+				mem_fdir_signal = 0;
+				return;
+			}
 		default:
 			enter_SAFE_MODE(ERROR_IN_RS5);
-		return -1;		// SAFE_MODE ?
+		return;		// SAFE_MODE ?
 	}
 	return;
 }
@@ -578,6 +750,71 @@ int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE)
 	return 1;
 }
 
+
+// A return of 1 indicates that the action was completed successfully.
+// A return of -1 of course means that this function failed.
+int recreate_fifo(uint8_t task_id, uint8_t direction)
+{
+	clear_fifo_buffer();
+	switch(task)
+	{
+		case HK_TASK_ID:
+			if(direction)
+				recreate_fifo_h(hk_to_obc_fifo);
+			else
+				recreate_fifo_h(obc_to_hk_fifo);
+		case TIME_TASK_ID:
+			if(direction)
+				recreate_fifo_h(time_to_obc_fifo);
+			else
+				recreate_fifo_h(obc_to_time_fifo);
+		case SCHEDULING_TASK_ID:
+			if(direction)
+				recreate_fifo_h(sched_to_obc_fifo);
+			else
+				recreate_fifo_h(obc_to_sched_fifo);
+		case MEMORY_TASK_ID:
+			if(direction)
+				recreate_fifo_h(mem_to_obc_fifo);
+			else
+				recreate_fifo_h(obc_to_mem_fifo);
+		default:
+			enter_SAFE_MODE(ERROR_IN_RS5);
+				return -1;		// SAFE_MODE ?
+	}
+	return 1;
+}
+
+int recreate_fifo_h(QueueHandle_t *queue_to_recreate)
+{
+	UBaseType_t fifo_length, item_size;
+	fifo_length = 4;
+	item_size = 147;
+	uint8_t counter;
+	if(!*queue_to_recreate)		// FIFO got deleted somehow.
+	{
+		*queue_to_recreate = xQueueCreate(fifo_length, item_size);
+		return 1;
+	}
+	// Load the contents of the fifo to be cleared into the fdir_fifo_buffer.
+	while((xQueueReceive(*queue_to_recreate, test_array1, (TickType_t)1)) && (counter <= 4))
+	{
+		counter++;
+		if(!xQueueSendToBack(fdir_fifo_buffer, test_array1, (TickType_t)1))
+			enter_SAFE_MODE(FIFO_ERROR_WITHIN_FDIR);
+	}
+	vQueueDelete(*queue_to_recreate);
+	*queue_to_recreate = xQueueCreate(fifo_length, item_size);
+	while(counter)
+	{
+		if(!xQueueReceive(fdir_fifo_buffer, test_array1, (TickType_t)1))
+			enter_SAFE_MODE(FIFO_ERROR_WITHIN_FDIR);
+		if(!xQueueSendToBack(*queue_to_recreate, test_array1, (TickType_t)1))
+			enter_SAFE_MODE(FIFO_ERROR_WITHIN_FDIR);
+	}
+	return 1;
+}
+
 int reset_SSM(uint8_t ssm_id)
 {
 	// Set the pin for the SSM low, then back to high again.
@@ -600,6 +837,16 @@ int reset_SSM(uint8_t ssm_id)
 			return -1;
 	}
 	return 1;
+}
+
+// *Makes use of test_array1
+void clear_fifo_buffer(void)
+{
+	xQueueReceive(fdir_fifo_buffer, test_array1, (TickType_t)1);
+	xQueueReceive(fdir_fifo_buffer, test_array1, (TickType_t)1);
+	xQueueReceive(fdir_fifo_buffer, test_array1, (TickType_t)1);
+	xQueueReceive(fdir_fifo_buffer, test_array1, (TickType_t)1);
+	return;
 }
 
 /************************************************************************/
@@ -712,6 +959,22 @@ static void init_vars(void)
 	SPI_CHIP_1_fumble_count = 0;
 	SPI_CHIP_2_fumble_count = 0;
 	SPI_CHIP_3_fumble_count = 0;
+	hk_fifo_to_OPR_fumble_count = 0;
+	hk_fifo_from_OPR_fumble_count = 0;
+	sched_fifo_to_OPR_fumble_count = 0;
+	sched_fifo_from_OPR_fumble_count = 0;
+	time_fifo_to_OPR_fumble_count = 0;
+	time_fifo_from_OPR_fumble_count = 0;
+	memory_fifo_to_OPR_fumble_count = 0;
+	memory_fifo_from_OPR_fumble_count = 0;
+	wdt_fifo_to_OPR_fumble_count = 0;
+	wdt_fifo_from_OPR_fumble_count = 0;
+	eps_fifo_to_OPR_fumble_count = 0;
+	eps_fifo_from_OPR_fumble_count = 0;
+	coms_fifo_to_OPR_fumble_count = 0;
+	coms_fifo_from_OPR_fumble_count = 0;
+	pay_fifo_to_OPR_fumble_count = 0;
+	pay_fifo_from_OPR_fumble_count = 0;
 	SMERROR = 0;
 	clear_test_arrays();
 	return;

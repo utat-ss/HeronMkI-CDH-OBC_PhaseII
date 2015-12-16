@@ -345,6 +345,7 @@ static void prvInitializeFifos(void)
 	hk_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 	mem_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 	sched_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+	fdir_fifo_buffer = xQueueCreate(fifo_length, item_size);
 	fifo_length = 4;
 	item_size = 10;
 	time_to_obc_fifo = xQueueCreate(fifo_length, item_size);

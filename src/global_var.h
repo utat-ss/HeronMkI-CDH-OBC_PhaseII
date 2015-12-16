@@ -113,6 +113,10 @@
 #define ERROR_IN_RESTART_TASK			0x0C
 #define ERROR_IN_RS5					0x0D
 #define ERROR_IN_RESET_SSM				0x0E
+#define DYSFUNCTIONAL_FIFO				0x0F			// A FIFO write or read failed repetitively
+#define FIFO_INFO_LOST					0x10			// A FIFO was recreated and information inside was lost.
+#define FIFO_ERROR_WITHIN_FDIR			0x11
+#define IMPORTANT_FIFO_FAILED			0x12
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -122,6 +126,7 @@ QueueHandle_t can_hk_fifo;				// CAN Handler	-->		housekeep
 QueueHandle_t can_com_fifo;				// CAN Handler	-->		command_test
 QueueHandle_t tc_msg_fifo;				// CAN Handler	-->		obc_packet_router
 QueueHandle_t event_msg_fifo;			// CAN Handler	-->		obc_packet_router
+QueueHandle_t fdir_fifo_buffer;			// Buffer for loading a FIFO, used by FDIR.
 
 /* PUS PACKET FIFOS					*/
 /* Initialized in prvInitializeFifos() in main.c	*/

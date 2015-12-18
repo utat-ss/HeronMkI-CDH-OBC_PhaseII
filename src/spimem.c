@@ -90,7 +90,6 @@ void spimem_initialize(void)
 {
 	uint16_t dumbuf[2], i;
 	uint8_t check;
-	uint32_t timeout = 1500;		// ~15s timeout
 	
 	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off.
 	gpio_set_pin_low(SPI0_MEM1_WP);	// Turn write protection off.
@@ -98,18 +97,16 @@ void spimem_initialize(void)
 	gpio_set_pin_high(SPI0_MEM2_WP);	// Turn write protection off.
 	
 	if(ready_for_command_h(2) != 1)				// Check if the chip is ready to receive commands.
-		return;									// FAILURE_RECOVERY.
-		
-	dumbuf[0] = CE;							// Chip-Erase (this operation can take up to 7s.
-	spi_master_transfer(dumbuf, 1, 2);
+		return;									// FAILURE_RECOVERY : CHIP IS BEING BUGGY
 	
-	while((check_if_wip(2) != 0) && timeout--){ }	// Wait for a maximum of 15 s.
-		
-	if((check_if_wip(2) != 0) || !timeout)
-		return ;							// FAILURE_RECOVERY
-		
+	if(ERASE_SPIMEM_ON_RESET)
+	{
+		if(erase_spimem() < 0)
+			return;						// FAILURE_RECOVERY : CHIP ERASE TOOK TOO LONG
+	}
+			
 	if(ready_for_command_h(2) != 1)
-		return;							// FAILURE_RECOVERY
+		return;							// FAILURE_RECOVERY : CHIP IS BEING BUGGY
 	
 	for (i = 0; i < 128; i++)
 	{
@@ -121,6 +118,26 @@ void spimem_initialize(void)
 		spi_mem_buff[i] = 0;			// Initialize the memory buffer.
 	}
 	return;
+}
+
+int erase_spimem(void)
+{
+	uint16_t dumbuf[2];
+	dumbuf[0] = CE;
+	uint32_t timeout = chip_erase_timeout;
+	spi_master_transfer(dumbuf, 1, 2);	// Chip-Erase (this operation can take up to 7s for each chip)
+	while((check_if_wip(2) != 0) && timeout--){ }
+	if((check_if_wip(2) != 0) || !timeout)
+		return -1;
+	timeout = chip_erase_timeout;
+	while((check_if_wip(2) != 0) && timeout--){ }
+	if((check_if_wip(2) != 0) || !timeout)
+		return -1;
+	timeout = chip_erase_timeout;
+	while((check_if_wip(2) != 0) && timeout--){ }
+	if((check_if_wip(2) != 0) || !timeout)
+		return -1;
+	return 1;
 }
 
 // ret > 0 == nunmber of bytes which were successfully written to memory.
@@ -686,7 +703,8 @@ uint32_t set_sector_clean_in_bitmap(uint32_t sect_num)
 /************************************************************************/
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 {
-	uint32_t addr, timeout = 30;
+	uint32_t addr;
+	uint32_t timeout = erase_sector_timeout;
 
 	if(sect_num > 0xFF)							// Invalid Sector Number
 		return -1;
@@ -703,7 +721,7 @@ uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num)
 
 	spi_master_transfer(msg_buff, 4, spi_chip);
 	
-	while((check_if_wip(spi_chip) != 0) && timeout--){ }	// Wait for a maximum of 300ms.
+	while((check_if_wip(spi_chip) != 0) && timeout--){ }
 		
 	if((check_if_wip(spi_chip) != 0) || !timeout)
 		return -1;								// The Operation took too long.

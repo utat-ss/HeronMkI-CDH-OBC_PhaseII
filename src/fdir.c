@@ -41,6 +41,9 @@ Author: Keenan Burnett
 * 12/17/2015		I'm adding in more resolution sequences and am currently working on RS7. I was able to reuse resolutions for 
 *					error numbers 6,8,9,10.
 *
+* 12/18/2015		I'm still working on RS7, I added global variable req_data_timeout so that FDIR could adjust the timeout
+*					being used in request_sensor_data_h. I have now completed the resolution sequences for error numbers 11-17
+*
 * DESCRIPTION:
 *
 */
@@ -97,15 +100,22 @@ static void init_vars(void);
 void clear_fifo_buffer(void);
 int recreate_fifo_h(QueueHandle_t *queue_to_recreate);
 int recreate_fifo(uint8_t task_id, uint8_t direction);
+static void clear_fdir_signal(uint8_t task);
 
 /* Prototypes for resolution sequences */
-static void resolution_sequence1(uint8_t code);
-static void resolution_sequence1_1(void);
-static void resolution_sequence1_2(void);
-static void resolution_sequence1_3(void);
-static void resolution_sequence1_4(void);
+static void resolution_sequence1(uint8_t code, uint8_t task);
+static void resolution_sequence1_1(uint8_t task);
+static void resolution_sequence1_2(uint8_t task);
+static void resolution_sequence1_3(uint8_t task);
+static void resolution_sequence1_4(uint8_t task);
 static void resolution_sequence4(uint8_t task, uint8_t command);
 static void resolution_sequence5(uint8_t task, uint8_t code);
+static void resolution_sequence7(uint8_t task, uint8_t parameter);
+static void resolution_sequence11(uint8_t task);
+static void resolution_sequence14(uint8_t task, uint32_t sect_num, uint8_t chip);
+static void resolution_sequence18(uint8_t task);
+static void resolution_sequence20(uint8_t task);
+static void resolution_sequence29(uint8_t ssmID);
 
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
@@ -131,7 +141,7 @@ extern void opr_kill(uint8_t killer);
 
 /* External functions used for time management	*/
 extern void broadcast_minute(void);
-void update_absolute_time(void);
+extern void update_absolute_time(void);
 
 /* External functions used for diagnostics */
 extern uint8_t get_ssm_id(uint8_t sensor_name);
@@ -268,8 +278,9 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 	// This is where the resolution sequences are going to go.
 	TaskHandle_t temp_task = 0;
 	eTaskState task_state = 0;
-	uint8_t i;
+	uint8_t i, chip, status, ssmID;
 	int x;
+	uint32_t sect_num = 0xFFFFFFFF;
 	if(severity == 1)
 	{
 		switch(error)
@@ -277,15 +288,15 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 			case 1:
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence1(code);
+				resolution_sequence1(code, task);
 			case 2:
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence1(code);
+				resolution_sequence1(code, task);
 			case 3:
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence1(code);
+				resolution_sequence1(code, task);
 			case 4:
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -301,7 +312,7 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 			case 7:
 				if(task != HK_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				//resolution_sequence7(code);
+				resolution_sequence7(task, code);			// Here code is ID for the parameter that failed.
 			case 8:
 				if(task != HK_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -318,48 +329,94 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				// INTERNAL_MEMORY_FALLBACK_MODE
 				enter_SAFE_MODE(SPIMEM_ERROR_DURING_INIT);
 			case 11:
-									
+				resolution_sequence11(task, chip);
+			case 12:
+				resolution_sequence1_4(task);
+			case 13:
+				resolution_sequence1_4(task);
+			case 14:
+				sect_num = ((uint32_t)current_command[146]) << 24;
+				sect_num += ((uint32_t)current_command[145]) << 16;
+				sect_num += ((uint32_t)current_command[144]) << 8;
+				sect_num += (uint32_t)current_command[143];
+				chip = current_command[142];
+				resolution_sequence14(task, sect_num, chip);
+			case 15:
+				resolution_sequence1_4(task);
+			case 16:
+				resolution_sequence1_4(task);
+			case 17:
+				// INTERNAL MEMORY FALLBACK MODE
+				enter_SAFE_MODE(ALL_SPIMEM_CHIPS_DEAD);			
+			case 18:
+				resolution_sequence18();
+			case 19:
+				if(task != MEMORY_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				// INTERNAL MEMORY FALLBACK MODE
+				enter_SAFE_MODE(ALL_SPIMEM_CHIPS_DEAD);
+			case 20:
+				if(task != MEMORY_TASK_ID)
+				enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence20(task);
+			case 21:
+				if(task != MEMORY_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence1_4(task);
+			case 22:
+				if(task != MEMORY_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence5(task, code);
+			case 23:
+				if(task != EPS_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR)
+				resolution_sequence7(task, parameter);
+			case 24:
+				if(task != EPS_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR)
+				resolution_sequence7(task, parameter);
+				
+			case 29:
+				ssmID = current_command[147];
+				resolution_sequence29(ssmID);
 		}
 		
 	}
 }
 
-static void resolution_sequence1(uint8_t code)
+static void resolution_sequence1(uint8_t code, uint8_t task)
 {
 	if(code == 0xFF)				// All SPI Memory chips are dead.
-		resolution_sequence1_1();
+		resolution_sequence1_1(task);
 	if(code == 0xFE)				// Usage error on the part of the task that called the function.
-		resolution_sequence1_2();
+		resolution_sequence1_2(task);
 	if(code == 0xFD)				// Spi0_Mutex was not free when this task was called.
-		resolution_sequence1_3();
+		resolution_sequence1_3(task);
 	if(code == 0xFC)
-		resolution_sequence1_4();
+		resolution_sequence1_4(task);
 	return;
 }
 
-static void resolution_sequence1_1(void)
+static void resolution_sequence1_1(uint8_t task)
 {					
 	// INTERNAL MEMORY FALLBACK MODE
 	send_event_report(2, INTERNAL_MEMORY_FALLBACK, 0, 0);
+	clear_fdir_signal(task);
 	return;
 }
 
-static void resolution_sequence1_2(void)
+static void resolution_sequence1_2(uint8_t task)
 {					
 	scheduling_fumble_count++;
 	if(scheduling_fumble_count == 10)
-	{
 		restart_task(SCHEDULING_TASK_ID, (TaskHandle_t)0);
-		return;
-	}
 	if(scheduling_fumble_count > 10)
-	{
 		enter_SAFE_MODE(SCHEDULING_MALFUNCTION);
-	}
+	clear_fdir_signal(task);
 	return;
 }
 
-static void resolution_sequence1_3(void)
+static void resolution_sequence1_3(uint8_t task)
 {
 	TaskHandle_t temp_task = 0;
 	eTaskState task_state = 0;
@@ -367,7 +424,7 @@ static void resolution_sequence1_3(void)
 	delay_ms(50);				// Give the currently running operation time to finish.
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
 	{
-		sched_fdir_signal = 0;
+		clear_fdir_signal(task);
 		xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
 		return;
 	}
@@ -390,7 +447,7 @@ static void resolution_sequence1_3(void)
 	// Try to acquire the mutex again.
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
 	{
-		sched_fdir_signal = 0;
+		clear_fdir_signal(task);
 		xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
 		return;
 	}
@@ -399,7 +456,7 @@ static void resolution_sequence1_3(void)
 	return;
 }
 
-static void resolution_sequence1_4(void)
+static void resolution_sequence1_4(uint8_t task)
 {					
 	uint8_t i;
 	int x;
@@ -421,7 +478,7 @@ static void resolution_sequence1_4(void)
 		if(SPI_CHIP_3_fumble_count >= 10)
 		SPI_HEALTH3 = 0;		// Mark this chip as dysfunctional.
 		// INTERNAL MEMORY FALLBACK MODE
-		sched_fdir_signal = 0;	// Issue resolved.
+		clear_fdir_signal(task);	// Issue resolved.
 		return;
 	}
 	// At least one of the chips is working or has not fumbled too many times.
@@ -451,7 +508,7 @@ static void resolution_sequence1_4(void)
 		}
 		if(SPI_HEALTH1)
 		{
-			sched_fdir_signal = 0;	// The issue was only temporary.
+			clear_fdir_signal(task);	// The issue was only temporary.
 			return;
 		}
 	}
@@ -474,7 +531,7 @@ static void resolution_sequence1_4(void)
 		}
 		if(SPI_HEALTH2)
 		{
-			sched_fdir_signal = 0;	// The issue was only temporary.
+			clear_fdir_signal(task);	// The issue was only temporary.
 			return;
 		}
 	}
@@ -497,12 +554,12 @@ static void resolution_sequence1_4(void)
 		}
 		if(SPI_HEALTH3)
 		{
-			sched_fdir_signal = 0;	// The issue was only temporary.
+			clear_fdir_signal(task);	// The issue was only temporary.
 			return;
 		}
 	}
 	// There are no functional chips, INTERNAL MEMORY FALLBACK MODE
-	sched_fdir_signal = 0;
+	clear_fdir_signal(task);
 	return;
 }
 
@@ -699,22 +756,224 @@ static void resolution_sequence5(uint8_t task, uint8_t code)
 	return;
 }
 
-static void resolution_sequence7(uint8_t parameter)
+static void resolution_sequence7(uint8_t task, uint8_t parameter)
 {
 	uint8_t ssmID = 0xFF;
 	uint32_t data = 0;
+	int *status;
+	*status = 0;
 	ssmID = get_ssm_id(parameter);
+	// If the parameter is internal to the OBC, enter SAFE_MODE.
 	if(ssmID == OBC_ID)
 	{
 		enter_SAFE_MODE(OBC_PARAM_FAILED);
 		return;
 	}
-	if(ssmID == COMS_ID)
+	// Otherwise, increase the timeout and try again.
+	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
+	if(req_data_timeout > 10000000)
+		enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
+	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	if(*status > 0)
 	{
-		data = request_sensor_data()
+		clear_fdir_signal(task);	// The issue was resolved.
+		return;
 	}
+	// Try resetting the SSM which has the malfunctioning variable and attempt to acquire the parameter again.
+	reset_SSM(ssmID);
+	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	if(*status > 0)
+	{
+		clear_fdir_signal(task);	// The issue was resolved.
+		return;
+	}
+	// Try reprogramming the SSM and attempt to acquire the parameter again.
+	reprogram_SSM(ssmID);
+	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	if(*status > 0)
+	{
+		clear_fdir_signal(task);	// The issue was resolved.
+		return;
+	}
+	enter_SAFE_MODE(SSM_PARAM_FAILED);
+	clear_fdir_signal(task);
+	return;
 }
 
+static void resolution_sequence11(uint8_t task)
+{
+	chip_erase_timeout += 100;		// Increase the timeout by 1s.
+	if(chip_erase_timeout > 3000)	// 30s timeout.
+	{
+		enter_SAFE_MODE(ER_SEC_TIMEOUT_TOO_LONG);
+		clear_fdir_signal(task);
+		return;				
+	}
+	if(erase_spimem() > 0)
+	{
+		clear_fdir_signal(task);
+		return;		
+	}
+	enter_SAFE_MODE(SPIMEM_INIT_FAILED);
+	return;
+}
+
+// Address - location of the sector which took too long to erase.
+static void resolution_sequence14(uint8_t task, uint32_t sect_num, uint8_t chip)
+{
+	erase_sector_timeout += 10;		// Increase the timeout by 100ms.
+	if (erase_sector_timeout == 100)
+	{
+		enter_SAFE_MODE(ER_SEC_TIMEOUT_TOO_LONG);
+		clear_fdir_signal(task);
+		return;
+	}
+	if (erase_sector_on_chip(chip, sect_num) > 0)
+	{
+		clear_fdir_signal(task);
+		return;		
+	}
+	// The chip is being buggy, follow the normal resolution sequence for this.
+	resolution_sequence1_4(task);
+	return;
+}
+
+static void resolution_sequence18(uint8_t task)
+{
+	// The chip is being buggy, attempt to repair it.
+	resolution_sequence1_4(task);
+	status = get_fdir_signal(task);
+	// If the error stil hasn't been resolve, enter SAFE_MODE.
+	if(status)
+		enter_SAFE_MODE(SPIMEM_FAIL_IN_RTC_INIT);
+	clear_fdir_signal(task);
+	return;
+}
+
+static void resolution_sequence20(uint8_t task)
+{
+	// The chip is being buggy, attempt to repair it.
+	resolution_sequence1_4(task);
+	status = get_fdir_signal(task);
+	// If the error stil hasn't been resolve, enter SAFE_MODE.
+	if(status)
+	enter_SAFE_MODE(SPIMEM_FAIL_IN_MEM_WASH);
+	clear_fdir_signal(task);
+	return;	
+}
+
+static void resolution_sequence25(void)
+{
+	uint8_t ssmID = 0xFF;
+	uint32_t data = 0;
+	
+	
+	// Otherwise, increase the timeout and try again.
+	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
+	if(req_data_timeout > 10000000)
+	enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
+	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	if(*status > 0)
+	{
+		clear_fdir_signal(task);	// The issue was resolved.
+		return;
+	}
+	// Try resetting the SSM which has the malfunctioning variable and attempt to acquire the parameter again.
+	reset_SSM(ssmID);
+	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	if(*status > 0)
+	{
+		clear_fdir_signal(task);	// The issue was resolved.
+		return;
+	}
+	// Try reprogramming the SSM and attempt to acquire the parameter again.
+	reprogram_SSM(ssmID);
+	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	if(*status > 0)
+	{
+		clear_fdir_signal(task);	// The issue was resolved.
+		return;
+	}
+	enter_SAFE_MODE(SSM_PARAM_FAILED);
+	clear_fdir_signal(task);
+	return;
+}
+
+static void resolution_sequence29(uint8_t ssmID)
+{
+	uint8_t ssm_consec_trans_timeout = 0;
+	ssm_consec_trans_timeout = get_sensor_data(SSM_CTT);
+	ssm_consec_trans_timeout += 10;		// Increase the timeout by 1ms.
+	if (ssm_consec_trans_timeout == 250)
+	{
+		enter_SAFE_MODE(SSM_CTT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
+		if(!ssmID)
+			set_variable_value(COMS_FDIR_SIGNAL, 0);
+		if(ssmID == 1)
+			set_variable_value(EPS_FDIR_SIGNAL, 0);
+		if(ssmID == 2)
+			set_variable_value(PAY_FDIR_SIGNAL, 0);					
+	}
+	set_variable_value(SSM_CTT, ssm_consec_trans_timeout);
+
+	
+}
+
+static void clear_fdir_signal(uint8_t task)
+{
+	switch(task)
+	{
+		case HK_TASK_ID:
+			hk_fdir_signal = 0;
+		case TIME_TASK_ID:
+			time_fdir_signal = 0;
+		case COMS_TASK_ID:
+			coms_fdir_signal = 0;
+		case EPS_TASK_ID:
+			eps_fdir_signal = 0;
+		case PAY_TASK_ID:
+			pay_fdir_signal = 0;
+		case OBC_PACKET_ROUTER_ID:
+			opr_fdir_signal = 0;
+		case SCHEDULING_TASK_ID:
+			sched_fdir_signal = 0;
+		case WD_RESET_TASK_ID:
+			wdt_fdir_signal = 0;
+		case MEMORY_TASK_ID:
+			mem_fdir_signal = 0;
+		default:
+			enter_SAFE_MODE(ERROR_IN_CFS);
+	}
+	return;
+}
+
+static uint8_t get_fdir_signal(uint8_t task)
+{
+	switch(task)
+	{
+		case HK_TASK_ID:
+			return hk_fdir_signal;
+		case TIME_TASK_ID:
+			return time_fdir_signal;
+		case COMS_TASK_ID:
+			return coms_fdir_signal;
+		case EPS_TASK_ID:
+			return eps_fdir_signal;
+		case PAY_TASK_ID:
+			return pay_fdir_signal;
+		case OBC_PACKET_ROUTER_ID:
+			return opr_fdir_signal;
+		case SCHEDULING_TASK_ID:
+			return sched_fdir_signal;
+		case WD_RESET_TASK_ID:
+			return wdt_fdir_signal;
+		case MEMORY_TASK_ID:
+			return mem_fdir_signal;
+		default:
+			enter_SAFE_MODE(ERROR_IN_GFS);
+	}
+	return 0xFF;
+}
 
 static void check_commands(void)
 {

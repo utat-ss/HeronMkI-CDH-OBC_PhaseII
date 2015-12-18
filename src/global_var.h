@@ -119,6 +119,16 @@
 #define IMPORTANT_FIFO_FAILED			0x12
 #define SPIMEM_ERROR_DURING_INIT		0x13
 #define OBC_PARAM_FAILED				0x14
+#define REQ_DATA_TIMEOUT_TOO_LONG		0x15
+#define ERROR_IN_CFS					0x16
+#define SSM_PARAM_FAILED				0x17
+#define ER_SEC_TIMEOUT_TOO_LONG			0x18
+#define ER_CHIP_TIMEOUT_TOO_LONG		0x19
+#define SPIMEM_INIT_FAILED				0x1A
+#define ERROR_IN_GFS					0x1B
+#define SPIMEM_FAIL_IN_RTC_INIT			0x1C
+#define SPIMEM_FAIL_IN_MEM_WASH			0x1D
+#define SSM_CTT_TOO_LONG				0x1E
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -216,3 +226,7 @@ TaskHandle_t wdt_reset_HANDLE;
 /* Global variable for determining whether scheduled operations are currently running */
 uint8_t scheduling_on;
 
+/* Global variables for determining the timeouts in various operations */
+uint32_t req_data_timeout;
+uint32_t erase_sector_timeout;
+uint32_t chip_erase_timeout;

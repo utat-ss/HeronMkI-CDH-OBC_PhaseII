@@ -222,6 +222,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define SEND_EVENT				0x16
 #define ASK_OBC_ALIVE			0x17
 #define OBC_IS_ALIVE			0x18
+#define SSM_ERROR_ASSERT		0x19
+#define SSM_ERROR_REPORT		0x1A
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09
@@ -281,7 +283,16 @@ SemaphoreHandle_t	Can0_Mutex;
 #define ABS_TIME_S				0xF5
 #define SPI_CHIP_1				0xF4
 #define SPI_CHIP_2				0xF3
-#define SPI_CHIP_3				0xF2	
+#define SPI_CHIP_3				0xF2
+#define BALANCE_L				0xF1
+#define BALANCE_H				0xF0
+#define SSM_CTT					0xEF
+#define SSM_OGT					0xEE
+#define OBC_CTT					0xED
+#define OBC_OGT					0xEC
+#define COMS_FDIR_SIGNAL		0xEB
+#define EPS_FDIR_SIGNAL			0xEA
+#define PAY_FDIR_SIGNAL			0xE9
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

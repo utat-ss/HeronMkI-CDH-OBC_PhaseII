@@ -47,6 +47,9 @@
 
 SemaphoreHandle_t	Spi0_Mutex;
 
+/* Determines whether or not the spimem chips are cleared upon a reset */
+#define ERASE_SPIMEM_ON_RESET 1
+
 /*		SPI MEMORY COMMANDS		*/
 #define		WREN	0x06		// Write-Enable
 #define		WRDI	0x04		// Write-Disable
@@ -89,4 +92,5 @@ uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num);						
 uint32_t update_spibuffer_with_new_page(uint32_t addr, uint8_t* data_buff, uint32_t size);		// Driver
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num);							// Driver
 uint32_t write_sector_back_to_spimem(uint32_t spi_chip);										// Driver
+int erase_spimem(void)																			// Helper
 

@@ -420,11 +420,13 @@ static void prvInitializeGlobalVars(void)
 		low_error_array[i] = 0;
 	}
 
+	/* TC/ TM transaction Flags */
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	current_tc_fullf = 0;
 	receiving_tcf = 0;
-
+	
+	/* FDIR signals that individuals tasks loop on */
 	hk_fdir_signal = 0;
 	time_fdir_signal = 0;
 	coms_fdir_signal = 0;
@@ -435,6 +437,11 @@ static void prvInitializeGlobalVars(void)
 	wdt_fdir_signal = 0;
 	mem_fdir_signal = 0;
 	
+	/* Timeouts used for various operations */
+	req_data_timeout = 2000000;		// Maximum wait time of 25ms.
+	erase_sector_timeout = 30;		// Maximum wait time of 300ms.
+	chip_erase_timeout = 1500;		// Maximum wait time of 15s.
+		
 	return;
 }
 

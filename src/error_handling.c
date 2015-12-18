@@ -6,7 +6,7 @@ Author: Keenan Burnett
 * PURPOSE:
 * This file is to be used to house the functions related to error handling in the OBSW.
 *
-* FILE REFERENCES: stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
+* FILE REFERENCES: error_handling.h
 *
 * EXTERNAL VARIABLES:
 *

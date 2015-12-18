@@ -256,6 +256,12 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
 	uint8_t sender, destination, big_type, small_type;
 	BaseType_t wake_task;	// Not needed here.
+	uint8_t dumbuf[152];
+	uint8_t i;
+	for(i = 0; i < 152; i ++)
+	{
+		dumbuf[i] = 0;
+	}
 
 	sender = (uint8_t)(uh_data_incom >> 28);
 	destination = (uint8_t)((uh_data_incom & 0x0F000000)>>24);
@@ -309,6 +315,22 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			xQueueSendToBackFromISR(event_msg_fifo, &uh_data_incom, &wake_task);	// Event reception FIFO.
 		case ASK_OBC_ALIVE:
 			send_can_command(0x00, 0x00, OBC_ID, COMS_ID, OBC_IS_ALIVE, COMMAND_PRIO);
+		case SSM_ERROR_ASSERT:
+			dumbuf[148] = (uint8_t)(uh_data_incom & 0x000000FF);
+			dumbuf[147] = (uint8_t)((ul_data_incom & 0xFF000000) >> 24);
+			dumbuf[146] = (uint8_t)((ul_data_incom & 0x00FF0000) >> 16);
+			dumbuf[145] = (uint8_t)((ul_data_incom & 0x0000FF00) >> 8);
+			dumbuf[144] = (uint8_t)(ul_data_incom & 0x000000FF);	
+			xQueueSendToBackFromISR(high_sev_to_fdir_fifo, dumbuf, &wake_task);
+		case SSM_ERROR_REPORT:
+		case SSM_ERROR_ASSERT:
+		dumbuf[148] = (uint8_t)(uh_data_incom & 0x000000FF);
+		dumbuf[147] = (uint8_t)((ul_data_incom & 0xFF000000) >> 24);
+		dumbuf[146] = (uint8_t)((ul_data_incom & 0x00FF0000) >> 16);
+		dumbuf[145] = (uint8_t)((ul_data_incom & 0x0000FF00) >> 8);
+		dumbuf[144] = (uint8_t)(ul_data_incom & 0x000000FF);
+		xQueueSendToBackFromISR(low_sev_to_fdir_fifo, dumbuf, &wake_task);
+		
 		default :
 			return;
 	}
@@ -1125,9 +1147,9 @@ uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t
 
 static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status)
 {
-	uint32_t high, timeout, s, ret_val;
-	timeout = 2000000;		// Maximum wait time of 25ms.
+	uint32_t high, s, ret_val;
 	uint8_t id;
+	uint32_t timeout = req_data_timeout;
 	
 	if (send_can_command_h2(0x00, sensor_name, sender_id, ssm_id, REQ_DATA, COMMAND_PRIO) < 0)
 	{
@@ -1229,19 +1251,20 @@ uint32_t request_sensor_data(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_n
 	uint32_t ret_val = 0;
 	uint8_t* s = 0;
 	uint8_t temp = 0;
-	uint32_t temp2 = 0;
 	
 	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
 	{
 		ret_val = request_sensor_data_h(sender_id, ssm_id, sensor_name, s);
 		temp = *s;
 		*status = (int)temp;
-		temp2 = *status;
 		xSemaphoreGive(Can0_Mutex);
 		return ret_val;
 	}
 	else
+	{
+		*status = -1;
 		return -1;					// CAN0 was busy or something has gone wrong.
+	}
 }
 
 /************************************************************************/

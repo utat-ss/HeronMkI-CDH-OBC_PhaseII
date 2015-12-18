@@ -35,6 +35,12 @@ Author: Keenan Burnett
 * 12/13/2015		I'm adding in code for the resolution sequence of ERROR# 1 (lots of this code could be turned into
 *					helper functions and reused elsewhere in the decode_error() function.
 *
+* 12/16/2015		Added the code for resolution sequence #5 which takes care of what happens when a task experiences a faulty
+*					fifo.
+*
+* 12/17/2015		I'm adding in more resolution sequences and am currently working on RS7. I was able to reuse resolutions for 
+*					error numbers 6,8,9,10.
+*
 * DESCRIPTION:
 *
 */
@@ -92,7 +98,6 @@ void clear_fifo_buffer(void);
 int recreate_fifo_h(QueueHandle_t *queue_to_recreate);
 int recreate_fifo(uint8_t task_id, uint8_t direction);
 
-
 /* Prototypes for resolution sequences */
 static void resolution_sequence1(uint8_t code);
 static void resolution_sequence1_1(void);
@@ -101,7 +106,6 @@ static void resolution_sequence1_3(void);
 static void resolution_sequence1_4(void);
 static void resolution_sequence4(uint8_t task, uint8_t command);
 static void resolution_sequence5(uint8_t task, uint8_t code);
-
 
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
@@ -128,6 +132,9 @@ extern void opr_kill(uint8_t killer);
 /* External functions used for time management	*/
 extern void broadcast_minute(void);
 void update_absolute_time(void);
+
+/* External functions used for diagnostics */
+extern uint8_t get_ssm_id(uint8_t sensor_name);
 
 /* Local Varibles for FDIR */
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
@@ -287,6 +294,31 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence5(task, code);			// code: 0 = from OPR, 1 = to OPR
+			case 6:
+				if(task != HK_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence5(task, code);
+			case 7:
+				if(task != HK_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				//resolution_sequence7(code);
+			case 8:
+				if(task != HK_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence1(code);
+			case 0x1C:
+				if(task != HK_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence1(code);
+			case 9:
+				if(task != TIME_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence5(task, code);
+			case 10:
+				// INTERNAL_MEMORY_FALLBACK_MODE
+				enter_SAFE_MODE(SPIMEM_ERROR_DURING_INIT);
+			case 11:
+									
 		}
 		
 	}
@@ -666,6 +698,23 @@ static void resolution_sequence5(uint8_t task, uint8_t code)
 	}
 	return;
 }
+
+static void resolution_sequence7(uint8_t parameter)
+{
+	uint8_t ssmID = 0xFF;
+	uint32_t data = 0;
+	ssmID = get_ssm_id(parameter);
+	if(ssmID == OBC_ID)
+	{
+		enter_SAFE_MODE(OBC_PARAM_FAILED);
+		return;
+	}
+	if(ssmID == COMS_ID)
+	{
+		data = request_sensor_data()
+	}
+}
+
 
 static void check_commands(void)
 {

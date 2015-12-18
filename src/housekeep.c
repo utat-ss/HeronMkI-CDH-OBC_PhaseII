@@ -123,7 +123,7 @@ static int exec_commands_H(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
-static uint8_t get_ssm_id(uint8_t sensor_name);
+uint8_t get_ssm_id(uint8_t sensor_name);
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -436,7 +436,7 @@ static void store_housekeeping(void)
 }
 
 //Returns the proper ssm_id for a given sensor
-static uint8_t get_ssm_id(uint8_t sensor_name){
+uint8_t get_ssm_id(uint8_t sensor_name){
 	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
 		return EPS_ID;
 	if ((sensor_name == 0x12) || (sensor_name == 0xFD))

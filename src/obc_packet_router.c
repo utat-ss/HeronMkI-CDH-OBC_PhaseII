@@ -192,7 +192,6 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	clear_current_data();
 	clear_current_command();
 
-
 	/* Initialize variable used in PUS Packets */
 	version = 0;		// First 3 bits of the packet ID. (0 is default)
 	data_header = 1;	// Include the data field header in the PUS packet.

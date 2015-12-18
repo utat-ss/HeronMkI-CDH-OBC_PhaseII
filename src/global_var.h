@@ -117,6 +117,8 @@
 #define FIFO_INFO_LOST					0x10			// A FIFO was recreated and information inside was lost.
 #define FIFO_ERROR_WITHIN_FDIR			0x11
 #define IMPORTANT_FIFO_FAILED			0x12
+#define SPIMEM_ERROR_DURING_INIT		0x13
+#define OBC_PARAM_FAILED				0x14
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/

@@ -502,13 +502,14 @@ static int send_pus_packet_tm(uint8_t sender_id)
 {
 	uint32_t low, i;
 	uint32_t num_transfers = PACKET_LENGTH / 4;
-	uint8_t timeout = 25;
+	uint8_t timeout;
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 10;
 	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	send_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
+	timeout = obc_ok_go_timeout;
 	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
 	{
 		if(!timeout--)
@@ -518,7 +519,6 @@ static int send_pus_packet_tm(uint8_t sender_id)
 		}
 	}
 	start_tm_transferf = 0;
-	timeout = 100;
 	
 	for(i = 0; i < num_transfers; i++)
 	{
@@ -532,7 +532,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 10ms (10 * 1ms)
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
-	
+	timeout = obc_consec_trans_timeout;
 	while(!tm_transfer_completef)					// Delay for ~100 ms for the SSM to let the OBC know that
 	{												// the transfer has completed.
 		if(!timeout--)
@@ -732,7 +732,7 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 					x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Npar1 must be <= 64
 					return -1;
 				}
-				current_command[146] = HK_SERVICE;
+				current_command[146] = NEW_HK_DEFINITION;
 				current_command[145] = collection_interval;
 				current_command[144] = npar1;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue.
@@ -754,6 +754,10 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			case	REPORT_HK_DEFINITIONS:
 				current_command[146] = REPORT_HK_DEFINITIONS;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);
+				
+			// William: Put more diagnostics stuff here. This time I want the service_type in current_command[146] and
+			// The service_sub_type placed in current_command[145]
+				
 			default:
 				break;
 		}

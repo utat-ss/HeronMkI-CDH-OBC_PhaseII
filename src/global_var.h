@@ -76,6 +76,14 @@
 #define REPORT_HK_DEFINITIONS			9
 #define HK_DEFINITON_REPORT				10
 #define HK_REPORT						25
+/* Diagnostics							*/
+#define NEW_DIAG_DEFINITION				2
+#define CLEAR_DIAG_DEFINITION			4
+#define ENABLE_D_PARAM_REPORT			6
+#define DISABLE_D_PARAM_REPORT			8
+#define REPORT_DIAG_DEFINITIONS			11
+#define DIAG_DEFINITION_REPORT			12
+#define DIAG_REPORT						26
 /* Time									*/
 #define UPDATE_REPORT_FREQ				1
 #define TIME_REPORT						2
@@ -93,6 +101,19 @@
 #define PAUSE_SCHEDULE					5
 #define RESUME_SCHEDULE					6
 #define COMPLETED_SCHED_COM_REPORT		7
+/* FDIR Service							*/
+#define ENTER_LOW_POWER_MODE			1
+#define EXIT_LOW_POWER_MODE				2
+#define ENTER_SAFE_MODE					3
+#define EXIT_SAFE_MODE					4
+#define ENTER_COMS_TAKEOVER_MODE		5
+#define EXIT_COMS_TAKEOVER_MODE			6
+#define PAUSE_SSM_OPERATIONS			7
+#define RESUME_SSM_OPERATIONS			8
+#define REPROGRAM_SSM					9
+#define RESET_SSM						10
+#define RESET_TASK						11
+#define DELETE_TASK						12
 
 /* Action Requests to the OBC_PACKET_ROUTER */
 #define TASK_TO_OPR_TCV					0xDD
@@ -129,6 +150,7 @@
 #define SPIMEM_FAIL_IN_RTC_INIT			0x1C
 #define SPIMEM_FAIL_IN_MEM_WASH			0x1D
 #define SSM_CTT_TOO_LONG				0x1E
+#define OBC_CTT_TOO_LONG				0x1F
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -230,3 +252,5 @@ uint8_t scheduling_on;
 uint32_t req_data_timeout;
 uint32_t erase_sector_timeout;
 uint32_t chip_erase_timeout;
+uint32_t obc_ok_go_timeout;
+uint32_t obc_consec_trans_timeout;

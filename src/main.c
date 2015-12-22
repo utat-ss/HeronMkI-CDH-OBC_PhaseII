@@ -441,7 +441,8 @@ static void prvInitializeGlobalVars(void)
 	req_data_timeout = 2000000;		// Maximum wait time of 25ms.
 	erase_sector_timeout = 30;		// Maximum wait time of 300ms.
 	chip_erase_timeout = 1500;		// Maximum wait time of 15s.
-		
+	obc_consec_trans_timeout = 100;	// Maximum wait time of 100ms.
+	obc_ok_go_timeout = 25;			// Maximum wait time of 25ms.
 	return;
 }
 

@@ -44,6 +44,12 @@ Author: Keenan Burnett
 * 12/18/2015		I'm still working on RS7, I added global variable req_data_timeout so that FDIR could adjust the timeout
 *					being used in request_sensor_data_h. I have now completed the resolution sequences for error numbers 11-17
 *
+* 12/22/2015		Today I have been working on resolution sequences up to 31 (currently the last one).
+*
+*					Resolution sequences are now complete.
+*
+*					Started working on exec_commands(), leaving diagnostics for William to work on.
+*
 * DESCRIPTION:
 *
 */
@@ -89,7 +95,7 @@ static void prvFDIRTask( void *pvParameters );
 TaskHandle_t fdir(void);
 static void check_error(void);
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code);
-static void check_commands(void);
+static void exec_commands(void)
 static void clear_current_command(void);
 static void clear_test_arrays(void);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
@@ -115,7 +121,9 @@ static void resolution_sequence11(uint8_t task);
 static void resolution_sequence14(uint8_t task, uint32_t sect_num, uint8_t chip);
 static void resolution_sequence18(uint8_t task);
 static void resolution_sequence20(uint8_t task);
+static void resolution_sequence25(void);
 static void resolution_sequence29(uint8_t ssmID);
+static void resolution_sequence31(void)
 
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
@@ -146,7 +154,7 @@ extern void update_absolute_time(void);
 /* External functions used for diagnostics */
 extern uint8_t get_ssm_id(uint8_t sensor_name);
 
-/* Local Varibles for FDIR */
+/* Local Variables for FDIR */
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
 static uint8_t test_array1[256], test_array2[256];
 static uint32_t minute_count;
@@ -189,7 +197,6 @@ static uint8_t SMERROR;
 
 /* Time variable to use during SAFE_MODE */
 static struct timestamp time;
-
 
 /************************************************************************/
 /* FDIR (Function)														*/
@@ -369,19 +376,30 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				resolution_sequence5(task, code);
 			case 23:
 				if(task != EPS_TASK_ID)
-					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence7(task, parameter);
 			case 24:
 				if(task != EPS_TASK_ID)
-					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence7(task, parameter);
-				
+			case 25:
+				if(task != OBC_PACKET_ROUTER_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence25();
 			case 29:
+				if(task != OBC_PACKET_ROUTER_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				ssmID = current_command[147];
 				resolution_sequence29(ssmID);
+			case 31:
+				if(task != OBC_PACKET_ROUTER_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence31();
+			default:
+				enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);			
 		}
-		
 	}
+	return;
 }
 
 static void resolution_sequence1(uint8_t code, uint8_t task)
@@ -871,7 +889,7 @@ static void resolution_sequence25(void)
 	// Otherwise, increase the timeout and try again.
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
 	if(req_data_timeout > 10000000)
-	enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
+		enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
 	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
@@ -904,19 +922,35 @@ static void resolution_sequence29(uint8_t ssmID)
 	uint8_t ssm_consec_trans_timeout = 0;
 	ssm_consec_trans_timeout = get_sensor_data(SSM_CTT);
 	ssm_consec_trans_timeout += 10;		// Increase the timeout by 1ms.
-	if (ssm_consec_trans_timeout == 250)
-	{
-		enter_SAFE_MODE(SSM_CTT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
-		if(!ssmID)
-			set_variable_value(COMS_FDIR_SIGNAL, 0);
-		if(ssmID == 1)
-			set_variable_value(EPS_FDIR_SIGNAL, 0);
-		if(ssmID == 2)
-			set_variable_value(PAY_FDIR_SIGNAL, 0);					
-	}
-	set_variable_value(SSM_CTT, ssm_consec_trans_timeout);
 
+	if(ssm_consec_trans_timeout < 250)
+		set_variable_value(SSM_CTT, ssm_consec_trans_timeout);
 	
+	if(ssm_consec_trans_timeout == 230)			// Try resetting the SSM and hope that this resolves the issue.
+		reset_SSM(ssmID);
+	if(ssm_consec_trans_timeout == 240)			// Try reprogramming the SSm and hope that this resolves the issue.
+		reprogram_SSM(ssmID);
+	if (ssm_consec_trans_timeout > 240)			// If the timeout gets too long, we enter into SAFE_MODE.
+		enter_SAFE_MODE(SSM_CTT_TOO_LONG);
+
+	if(!ssmID)
+		set_variable_value(COMS_FDIR_SIGNAL, 0);
+	if(ssmID == 1)
+		set_variable_value(EPS_FDIR_SIGNAL, 0);
+	if(ssmID == 2)
+		set_variable_value(PAY_FDIR_SIGNAL, 0);
+	return;
+}
+
+static void resolution_sequence31(void)
+{
+	obc_consec_trans_timeout += 10;		// Increase the timeout by 10ms.
+	
+	if(obc_consec_trans_timeout > 240)
+		enter_SAFE_MODE(OBC_CTT_TOO_LONG);
+	
+	opr_fdir_signal = 0;
+	return;
 }
 
 static void clear_fdir_signal(uint8_t task)
@@ -975,9 +1009,74 @@ static uint8_t get_fdir_signal(uint8_t task)
 	return 0xFF;
 }
 
-static void check_commands(void)
+// exec_commands for FDIR is special in that commands are coming from two different service types (Housekeeping and FDIR).
+static void exec_commands(void)
 {
-	// Check for command from the OPR.
+	uint8_t i, command, service_type;
+	uint16_t packet_id, psc;
+	clear_current_command();
+	if( xQueueReceive(obc_to_fdir_fifo, current_command, xTimeToWait) == pdTRUE)
+	{
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
+		service_type = current_command[146];
+		command = current_command[145];
+		if(service_type == HK_SERVICE)
+		{
+			switch(command)
+			{
+				case	NEW_DIAG_DEFINITION:
+					break;	// Fill in the blanks.
+				case	CLEAR_DIAG_DEFINITION:
+					break;
+				case	ENABLE_D_PARAM_REPORT:
+					break;
+				case	DISABLE_D_PARAM_REPORT:
+					break;
+				case	REPORT_DIAG_DEFINITIONS:
+					break;
+				default:
+					break;
+			}
+		}
+		if(service_type == FDIR_SERVICE)
+		{
+			switch(command)
+			{
+				case	ENTER_LOW_POWER_MODE:
+				
+				case	EXIT_LOW_POWER_MODE:
+				
+				case	ENTER_SAFE_MODE:
+				
+				case	EXIT_SAFE_MODE:
+				
+				case	ENTER_COMS_TAKEOVER_MODE:
+				
+				case	EXIT_COMS_TAKEOVER_MODE:
+				
+				case	PAUSE_SSM_OPERATIONS:
+				
+				case	RESUME_SSM_OPERATIONS:
+				
+				case	REPROGRAM_SSM:
+				
+				case	RESET_SSM:
+				
+				case	RESET_TASK:
+				
+				case	DELETE_TASK:
+				
+				default:
+					break;
+			}
+		}
+		return;
+	}
+	else										//Failure Recovery
+		return current_command;
 }
 
 
@@ -1213,6 +1312,16 @@ static void enter_SAFE_MODE(uint8_t reason)
 		// Deal with anymore errors that might have arisen.
 		check_error();
 	}
+	
+	// Resume subsidiary tasks
+	vTaskResume(housekeeping_HANDLE);
+	vTaskResume(time_manage_HANDLE);
+	vTaskResume(coms_HANDLE);
+	vTaskResume(eps_HANDLE);
+	vTaskResume(pay_HANDLE);
+	vTaskResume(scheduling_HANDLE);
+	vTaskResume(wdt_reset_HANDLE);
+	vTaskResume(memory_manage_HANDLE);
 	return;
 }
 

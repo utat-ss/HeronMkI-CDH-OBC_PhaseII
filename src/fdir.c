@@ -50,6 +50,10 @@ Author: Keenan Burnett
 *
 *					Started working on exec_commands(), leaving diagnostics for William to work on.
 *
+* 12/23/2015		exec_commands() is pretty much done, save for the parts involving diagnostics. Need to finish the implementation
+*					of FDIR commands to SSMs on the SSM side of things. I also need a confirmation for entering low power mode or
+*					coms takeover mode.
+*
 * DESCRIPTION:
 *
 */
@@ -107,6 +111,12 @@ void clear_fifo_buffer(void);
 int recreate_fifo_h(QueueHandle_t *queue_to_recreate);
 int recreate_fifo(uint8_t task_id, uint8_t direction);
 static void clear_fdir_signal(uint8_t task);
+static void request_enter_low_power_mode(void);
+static void request_exit_low_power_mode(void);
+static void request_enter_coms_takeover(void);
+static void request_exit_coms_takeover(void);
+int delete_task(uint8_t task_id);
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
 /* Prototypes for resolution sequences */
 static void resolution_sequence1(uint8_t code, uint8_t task);
@@ -1046,29 +1056,50 @@ static void exec_commands(void)
 			switch(command)
 			{
 				case	ENTER_LOW_POWER_MODE:
-				
+					if(request_enter_low_power_mode() > 0)
+						send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
+					else
+						send_tc_execution_verify(0xFF, packet_id, psc);		// Send TC Execution Verification (Failure)						
 				case	EXIT_LOW_POWER_MODE:
-				
+					if(request_exit_low_power_mode() > 0)
+						send_tc_execution_verify(1, packet_id, psc);
+					else
+						send_tc_execution_verify(0xFF, packet_id, psc);				
 				case	ENTER_SAFE_MODE:
-				
+					enter_SAFE_MODE(0);
+					send_tc_execution_verify(1, packet_id, psc);
 				case	EXIT_SAFE_MODE:
-				
+					SAFE_MODE = 0;
+					send_tc_execution_verify(1, packet_id, psc);
+					send_event_report(1, SAFE_MODE_EXITED, 0, 0);
 				case	ENTER_COMS_TAKEOVER_MODE:
-				
+					if(request_enter_coms_takeover() > 0)
+						send_tc_execution_verify(1, packet_id, psc);
+					else
+						send_tc_execution_verify(0xFF, packet_id, psc);				
 				case	EXIT_COMS_TAKEOVER_MODE:
-				
+					if(request_exit_coms_takeover() > 0)
+						send_tc_execution_verify(1, packet_id, psc);
+					else
+						send_tc_execution_verify(0xFF, packet_id, psc);					
 				case	PAUSE_SSM_OPERATIONS:
-				
+					if(request_pause_operations(current_command[144]) > 0)
+						send_tc_execution_verify(1, packet_id, psc);
+					else
+						send_tc_execution_verify(0xFF, packet_id, psc);					
 				case	RESUME_SSM_OPERATIONS:
-				
+					if(request_resume_operations(current_command[144]) > 0)
+						send_tc_execution_verify(1, packet_id, psc);
+					else
+						send_tc_execution_verify(0xFF, packet_id, psc);
 				case	REPROGRAM_SSM:
-				
+					reprogram_SSM(current_command[144]);
 				case	RESET_SSM:
-				
+					reset_SSM(current_command[144]);
 				case	RESET_TASK:
-				
+					restart_task(current_command[144], (TaskHandle_t)0);
 				case	DELETE_TASK:
-				
+					delete_task(current_command[144]);
 				default:
 					break;
 			}
@@ -1076,9 +1107,134 @@ static void exec_commands(void)
 		return;
 	}
 	else										//Failure Recovery
-		return current_command;
+		return;
 }
 
+static void request_enter_low_power_mode(void)
+{
+	uint32_t timeout = 100;
+	if(send_can_command(0, 0, FDIR_TASK_ID, EPS_ID, ENTER_LOW_POWER_COM, DEF_PRIO) < 0)
+		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
+	while(!LOW_POWER_MODE && timeout--)
+	{
+		taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+	}
+	if(LOW_POWER_MODE)
+		return 1;
+	return -1;
+}
+
+static int request_exit_low_power_mode(void)
+{
+	uint32_t timeout = 100;
+	if(send_can_command(0, 0, FDIR_TASK_ID, EPS_ID, EXIT_LOW_POWER_COM, DEF_PRIO) < 0)
+		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
+	while(LOW_POWER_MODE && timeout--)
+	{
+		taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+	}
+	if(!LOW_POWER_MODE)
+		return 1;
+	return -1;
+}
+
+static int request_enter_coms_takeover(void)
+{
+	uint32_t timeout = 100;
+	if(send_can_command(0, 0, FDIR_TASK_ID, COMS_ID, ENTER_COMS_TAKEOVER_COM, DEF_PRIO) < 0)
+		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
+	while(!COMS_TAKEOVER_MODE && timeout--)
+	{
+		taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+	}
+	if(COMS_TAKEOVER_MODE)
+		return 1;
+	return -1;
+}
+
+static void request_exit_coms_takeover(void)
+{
+	uint32_t timeout = 100;
+	if(send_can_command(0, 0, FDIR_TASK_ID, COMS_ID, EXIT_COMS_TAKEOVER_COM, DEF_PRIO) < 0)
+		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
+	while(COMS_TAKEOVER_MODE && timeout--)
+	{
+		taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+	}
+	if(!COMS_TAKEOVER_MODE)
+		return 1;
+	return -1;
+}
+
+static int request_pause_operations(uint8_t ssmID)
+{
+	uint32_t timeout = 100;
+	if(send_can_command(0, 0, FDIR_TASK_ID, ssmID, PAUSE_OPERATIONS, DEF_PRIO) < 0)
+		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
+	if(!ssmID)
+	{
+		while(!COMS_PAUSED && timeout--)
+		{
+			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		}
+		if(COMS_PAUSED)
+			return 1;
+	}
+	if(ssmID == 1)
+	{
+		while(!EPS_PAUSED && timeout--)
+		{
+			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		}
+		if(EPS_PAUSED)
+			return 1;
+	}
+	if(ssmID == 2)
+	{
+		while(!PAY_PAUSED && timeout--)
+		{
+			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		}
+		if(PAY_PAUSED)
+			return 1;
+	}
+	return -1;
+}
+
+static void request_resume_operations(uint8_t ssmID)
+{
+	uint32_t timeout = 100;
+	if(send_can_command(0, 0, FDIR_TASK_ID, ssmID, RESUME_OPERATIONS, DEF_PRIO) < 0)
+		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
+	if(!ssmID)
+	{
+		while(COMS_PAUSED && timeout--)
+		{
+			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		}
+		if(!COMS_PAUSED)
+			return 1;
+	}
+	if(ssmID == 1)
+	{
+		while(EPS_PAUSED && timeout--)
+		{
+			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		}
+		if(!EPS_PAUSED)
+			return 1;
+	}
+	if(ssmID == 2)
+	{
+		while(PAY_PAUSED && timeout--)
+		{
+			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		}
+		if(!PAY_PAUSED)
+			return 1;
+	}
+	return -1;
+}
 
 /************************************************************************/
 /* CLEAR_CURRENT_COMMAND												*/
@@ -1157,7 +1313,35 @@ int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE)
 	return 1;
 }
 
-
+int delete_task(uint8_t task_id)
+{
+	// Delete the given task.
+	switch(task_id)
+	{
+		case HK_TASK_ID:
+			housekeep_kill(1);
+		case TIME_TASK_ID:
+			time_manage_kill(1);
+		case COMS_TASK_ID:
+			coms_kill(1);
+		case EPS_TASK_ID:
+			eps_kill(1);
+		case PAY_TASK_ID:
+			payload_kill(1);
+		case OBC_PACKET_ROUTER_ID:
+			opr_kill(1);
+		case SCHEDULING_TASK_ID:
+			scheduling_kill(1);
+		case WD_RESET_TASK_ID:
+			wdt_reset_kill(1);
+		case MEMORY_TASK_ID:
+			memory_manage_kill(1);
+		default:
+			enter_SAFE_MODE(ERROR_IN_DELETE_TASK);
+			return -1;		// SAFE_MODE ?
+	}
+	return 1;	
+}
 // A return of 1 indicates that the action was completed successfully.
 // A return of -1 of course means that this function failed.
 int recreate_fifo(uint8_t task_id, uint8_t direction)
@@ -1283,7 +1467,8 @@ static void enter_SAFE_MODE(uint8_t reason)
 	SAFE_MODE = 1;
 	SMERROR = reason;
 	// Let the ground the error that occurred, and that we're entering into SAFE_MODE.
-	send_event_report(4, reason, 0, 0);
+	if(reason)
+		send_event_report(4, reason, 0, 0);
 	send_event_report(1, SAFE_MODE_ENTERED, 0, 0);
 	
 	// REQUEST ASSISTANCE IF REASON IS NON-ZERO. 
@@ -1396,3 +1581,27 @@ static void init_vars(void)
 	clear_test_arrays();
 	return;
 }
+
+/************************************************************************/
+/* SEND_TC_EXECUTION_VERIFY												*/
+/* @Purpose: sends an execution verification to the OBC_PACKET_ROUTER	*/
+/* which then attempts to downlink the telemetry to ground.				*/
+/* @param: status: 0x01 = Success, 0xFF = failure.						*/
+/* @param: packet_id: The first 2B of the PUS packet.					*/
+/* @param: psc: the next 2B of the PUS packet.							*/
+/************************************************************************/
+static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc)
+{
+	clear_current_command();
+	current_command[146] = TASK_TO_OPR_TCV;		// Request a TC verification
+	current_command[145] = status;
+	current_command[144] = FDIR_TASK_ID;			// APID of this task
+	current_command[140] = ((uint8_t)packet_id) >> 8;
+	current_command[139] = (uint8_t)packet_id;
+	current_command[138] = ((uint8_t)psc) >> 8;
+	current_command[137] = (uint8_t)psc;
+	if(xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1) < 0)
+		enter_SAFE_MODE(FIFO_ERROR_WITHIN_FDIR);
+	return;
+}
+

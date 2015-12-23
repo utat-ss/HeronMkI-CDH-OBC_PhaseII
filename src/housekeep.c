@@ -199,8 +199,6 @@ static void prvHouseKeepTask(void *pvParameters )
 	{
 		
 		exec_commands();
-		
-		
 		request_housekeeping_all();
 		store_housekeeping();
 		send_hk_as_tm();

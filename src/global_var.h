@@ -151,6 +151,9 @@
 #define SPIMEM_FAIL_IN_MEM_WASH			0x1D
 #define SSM_CTT_TOO_LONG				0x1E
 #define OBC_CTT_TOO_LONG				0x1F
+#define SAFE_MODE_EXITED				0x20
+#define CAN_ERROR_WITHIN_FDIR			0x21
+#define ERROR_IN_DELETE_TASK			0x22
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -215,7 +218,13 @@ uint32_t pay_data_receive[2];
 uint32_t  glob_stored_data[2];			// Initialized in can_initialize
 uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 
+/* Global Mode Variables */
 uint32_t  SAFE_MODE;					// Condition which will initially hold the system in safe_mode.
+uint32_t  LOW_POWER_MODE;
+uint32_t  COMS_TAKEOVER_MODE;
+uint32_t  COMS_PAUSED;
+uint32_t  EPS_PAUSED;
+uint32_t  PAY_PAUSED;
 
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;

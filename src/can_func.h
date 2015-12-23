@@ -224,6 +224,12 @@ SemaphoreHandle_t	Can0_Mutex;
 #define OBC_IS_ALIVE			0x18
 #define SSM_ERROR_ASSERT		0x19
 #define SSM_ERROR_REPORT		0x1A
+#define ENTER_LOW_POWER_COM		0x1B
+#define EXIT_LOW_POWER_COM		0x1C
+#define ENTER_COMS_TAKEOVER_COM	0x1D
+#define EXIT_COMS_TAKEOVER_COM	0x1E
+#define PAUSE_OPERATIONS		0x1F
+#define RESUME_OPERATIONS		0x20
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

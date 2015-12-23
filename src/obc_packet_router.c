@@ -322,6 +322,25 @@ static void exec_commands(void)
 		xQueueReceive(event_msg_fifo, &high, (TickType_t)1);
 		send_event_packet(high, low);
 	}
+	
+	if(xQueueReceive(fdir_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	{
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
+		if(current_command[146] == TASK_TO_OPR_TCV)
+			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
+		if(current_command[146] == TASK_TO_OPR_EVENT)
+		{
+			high = (FDIR_TASK_ID) << 28;
+			low = ((uint8_t)current_command[3]) << 24;
+			low = ((uint8_t)current_command[2]) << 16;
+			low = ((uint8_t)current_command[1]) << 8;
+			low = (uint8_t)current_command[0];
+			send_event_packet(high, low);
+		}
+	}
 	return;
 }
 
@@ -800,6 +819,15 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);			
 		}
 	}
+	if(service_type == FDIR_SERVICE)
+	{
+		current_command[146] = service_type;
+		current_command[145] = service_sub_type;
+		if((service_sub_type == PAUSE_SSM_OPERATIONS) || (service_sub_type == RESUME_SSM_OPERATIONS) || (service_sub_type == RESET_SSM) 
+					|| (service_sub_type == REPROGRAM_SSM) || (service_sub_type == RESET_TASK))
+			current_command[144] = current_command[129];
+		xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+	}
 	
 	return;
 }
@@ -925,6 +953,14 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 				}
 				last_time = new_time;
 			}
+		}
+	}
+	if(service_type == FDIR_SERVICE)
+	{
+		if((service_sub_type > 12) || !service_sub_type)
+		{
+			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
+			return -1;
 		}
 	}
 	

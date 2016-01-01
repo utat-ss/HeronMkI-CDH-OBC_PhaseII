@@ -48,6 +48,9 @@
 	*
 */
 
+#ifndef GLOBAL_VARH
+#define GLOBAL_VARH
+
 #include <stdio.h>
 #include "FreeRTOS.h"
 #include "queue.h"
@@ -263,3 +266,5 @@ uint32_t erase_sector_timeout;
 uint32_t chip_erase_timeout;
 uint32_t obc_ok_go_timeout;
 uint32_t obc_consec_trans_timeout;
+
+#endif

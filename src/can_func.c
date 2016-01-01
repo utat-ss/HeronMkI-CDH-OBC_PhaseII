@@ -323,14 +323,29 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			dumbuf[144] = (uint8_t)(ul_data_incom & 0x000000FF);	
 			xQueueSendToBackFromISR(high_sev_to_fdir_fifo, dumbuf, &wake_task);
 		case SSM_ERROR_REPORT:
-		case SSM_ERROR_ASSERT:
-		dumbuf[148] = (uint8_t)(uh_data_incom & 0x000000FF);
-		dumbuf[147] = (uint8_t)((ul_data_incom & 0xFF000000) >> 24);
-		dumbuf[146] = (uint8_t)((ul_data_incom & 0x00FF0000) >> 16);
-		dumbuf[145] = (uint8_t)((ul_data_incom & 0x0000FF00) >> 8);
-		dumbuf[144] = (uint8_t)(ul_data_incom & 0x000000FF);
-		xQueueSendToBackFromISR(low_sev_to_fdir_fifo, dumbuf, &wake_task);
-		
+			break;
+		case LOW_POWER_MODE_ENTERED:
+			LOW_POWER_MODE = 1;
+		case LOW_POWER_MODE_EXITED:
+			LOW_POWER_MODE = 0;
+		case COMS_TAKEOVER_ENTERED:
+			COMS_TAKEOVER_MODE = 1;
+		case COMS_TAKEOVER_EXITED:
+			COMS_TAKEOVER_MODE = 0;
+		case OPERATIONS_PAUSED:
+			if(sender = COMS_ID)
+				COMS_PAUSED = 1;
+			if(sender == EPS_ID)
+				EPS_PAUSED = 1;
+			if(sender == PAY_ID)
+				PAY_PAUSED = 1;
+		case OPERATIONS_RESUMED:
+			if(sender == COMS_ID)
+				COMS_PAUSED = 0;
+			if(sender == EPS_ID)
+				EPS_PAUSED = 0;
+			if(sender == PAY_ID)
+				PAY_PAUSED = 0;
 		default :
 			return;
 	}

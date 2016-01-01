@@ -99,7 +99,7 @@ static void prvFDIRTask( void *pvParameters );
 TaskHandle_t fdir(void);
 static void check_error(void);
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code);
-static void exec_commands(void)
+static void exec_commands(void);
 static void clear_current_command(void);
 static void clear_test_arrays(void);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
@@ -111,10 +111,16 @@ void clear_fifo_buffer(void);
 int recreate_fifo_h(QueueHandle_t *queue_to_recreate);
 int recreate_fifo(uint8_t task_id, uint8_t direction);
 static void clear_fdir_signal(uint8_t task);
-static void request_enter_low_power_mode(void);
-static void request_exit_low_power_mode(void);
-static void request_enter_coms_takeover(void);
-static void request_exit_coms_takeover(void);
+static int request_enter_low_power_mode(void);
+static int request_exit_low_power_mode(void);
+static int request_enter_coms_takeover(void);
+static int request_exit_coms_takeover(void);
+static int request_pause_operations(uint8_t ssmID);
+static int request_resume_operations(uint8_t ssmID);
+int reset_SSM(uint8_t ssm_id);
+int reprogram_SSM(uint8_t ssm_id);
+static uint8_t get_fdir_signal(uint8_t task);
+
 int delete_task(uint8_t task_id);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
@@ -131,9 +137,9 @@ static void resolution_sequence11(uint8_t task);
 static void resolution_sequence14(uint8_t task, uint32_t sect_num, uint8_t chip);
 static void resolution_sequence18(uint8_t task);
 static void resolution_sequence20(uint8_t task);
-static void resolution_sequence25(void);
+static void resolution_sequence25(uint8_t task, uint8_t parameter);
 static void resolution_sequence29(uint8_t ssmID);
-static void resolution_sequence31(void)
+static void resolution_sequence31(void);
 
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
@@ -333,11 +339,11 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 			case 8:
 				if(task != HK_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence1(code);
+				resolution_sequence1(code, task);
 			case 0x1C:
 				if(task != HK_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence1(code);
+				resolution_sequence1(code, task);
 			case 9:
 				if(task != TIME_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -346,7 +352,7 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				// INTERNAL_MEMORY_FALLBACK_MODE
 				enter_SAFE_MODE(SPIMEM_ERROR_DURING_INIT);
 			case 11:
-				resolution_sequence11(task, chip);
+				resolution_sequence11(task);
 			case 12:
 				resolution_sequence1_4(task);
 			case 13:
@@ -366,7 +372,7 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				// INTERNAL MEMORY FALLBACK MODE
 				enter_SAFE_MODE(ALL_SPIMEM_CHIPS_DEAD);			
 			case 18:
-				resolution_sequence18();
+				resolution_sequence18(task);
 			case 19:
 				if(task != MEMORY_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -387,15 +393,15 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 			case 23:
 				if(task != EPS_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence7(task, parameter);
+				resolution_sequence7(task, code);
 			case 24:
 				if(task != EPS_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence7(task, parameter);
+				resolution_sequence7(task, code);
 			case 25:
 				if(task != OBC_PACKET_ROUTER_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence25();
+				resolution_sequence25(task, code);
 			case 29:
 				if(task != OBC_PACKET_ROUTER_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -868,10 +874,11 @@ static void resolution_sequence14(uint8_t task, uint32_t sect_num, uint8_t chip)
 
 static void resolution_sequence18(uint8_t task)
 {
+	uint8_t status = 0;
 	// The chip is being buggy, attempt to repair it.
 	resolution_sequence1_4(task);
 	status = get_fdir_signal(task);
-	// If the error stil hasn't been resolve, enter SAFE_MODE.
+	// If the error still hasn't been resolve, enter SAFE_MODE.
 	if(status)
 		enter_SAFE_MODE(SPIMEM_FAIL_IN_RTC_INIT);
 	clear_fdir_signal(task);
@@ -880,6 +887,7 @@ static void resolution_sequence18(uint8_t task)
 
 static void resolution_sequence20(uint8_t task)
 {
+	uint8_t status;
 	// The chip is being buggy, attempt to repair it.
 	resolution_sequence1_4(task);
 	status = get_fdir_signal(task);
@@ -890,11 +898,11 @@ static void resolution_sequence20(uint8_t task)
 	return;	
 }
 
-static void resolution_sequence25(void)
+static void resolution_sequence25(uint8_t task, uint8_t parameter)
 {
 	uint8_t ssmID = 0xFF;
 	uint32_t data = 0;
-	
+	int* status = 0;
 	
 	// Otherwise, increase the timeout and try again.
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
@@ -1025,7 +1033,7 @@ static void exec_commands(void)
 	uint8_t i, command, service_type;
 	uint16_t packet_id, psc;
 	clear_current_command();
-	if( xQueueReceive(obc_to_fdir_fifo, current_command, xTimeToWait) == pdTRUE)
+	if( xQueueReceive(obc_to_fdir_fifo, current_command, (TickType_t)100) == pdTRUE)
 	{
 		packet_id = ((uint16_t)current_command[140]) << 8;
 		packet_id += (uint16_t)current_command[139];
@@ -1110,7 +1118,7 @@ static void exec_commands(void)
 		return;
 }
 
-static void request_enter_low_power_mode(void)
+static int request_enter_low_power_mode(void)
 {
 	uint32_t timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, EPS_ID, ENTER_LOW_POWER_COM, DEF_PRIO) < 0)
@@ -1131,7 +1139,7 @@ static int request_exit_low_power_mode(void)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	while(LOW_POWER_MODE && timeout--)
 	{
-		taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		taskYIELD();		// Wait <= 100ms for EPS SSM to deassert LOW_POWER_MODE.
 	}
 	if(!LOW_POWER_MODE)
 		return 1;
@@ -1145,21 +1153,21 @@ static int request_enter_coms_takeover(void)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	while(!COMS_TAKEOVER_MODE && timeout--)
 	{
-		taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		taskYIELD();		// Wait <= 100ms for COMS SSM to assert COMS_TAKEOVER_MODE
 	}
 	if(COMS_TAKEOVER_MODE)
 		return 1;
 	return -1;
 }
 
-static void request_exit_coms_takeover(void)
+static int request_exit_coms_takeover(void)
 {
 	uint32_t timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, COMS_ID, EXIT_COMS_TAKEOVER_COM, DEF_PRIO) < 0)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	while(COMS_TAKEOVER_MODE && timeout--)
 	{
-		taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+		taskYIELD();		// Wait <= 100ms for COMS SSM to deassert COMS_TAKEOVER_MODE
 	}
 	if(!COMS_TAKEOVER_MODE)
 		return 1;
@@ -1175,7 +1183,7 @@ static int request_pause_operations(uint8_t ssmID)
 	{
 		while(!COMS_PAUSED && timeout--)
 		{
-			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+			taskYIELD();		// Wait <= 100ms for ssmID to pause operations
 		}
 		if(COMS_PAUSED)
 			return 1;
@@ -1184,7 +1192,7 @@ static int request_pause_operations(uint8_t ssmID)
 	{
 		while(!EPS_PAUSED && timeout--)
 		{
-			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+			taskYIELD();		
 		}
 		if(EPS_PAUSED)
 			return 1;
@@ -1193,7 +1201,7 @@ static int request_pause_operations(uint8_t ssmID)
 	{
 		while(!PAY_PAUSED && timeout--)
 		{
-			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+			taskYIELD();		
 		}
 		if(PAY_PAUSED)
 			return 1;
@@ -1201,7 +1209,7 @@ static int request_pause_operations(uint8_t ssmID)
 	return -1;
 }
 
-static void request_resume_operations(uint8_t ssmID)
+static int request_resume_operations(uint8_t ssmID)
 {
 	uint32_t timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, ssmID, RESUME_OPERATIONS, DEF_PRIO) < 0)
@@ -1210,7 +1218,7 @@ static void request_resume_operations(uint8_t ssmID)
 	{
 		while(COMS_PAUSED && timeout--)
 		{
-			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+			taskYIELD();		// Wait <= 100ms for ssmID to resume operations
 		}
 		if(!COMS_PAUSED)
 			return 1;
@@ -1219,7 +1227,7 @@ static void request_resume_operations(uint8_t ssmID)
 	{
 		while(EPS_PAUSED && timeout--)
 		{
-			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+			taskYIELD();		
 		}
 		if(!EPS_PAUSED)
 			return 1;
@@ -1228,7 +1236,7 @@ static void request_resume_operations(uint8_t ssmID)
 	{
 		while(PAY_PAUSED && timeout--)
 		{
-			taskYIELD();		// Wait <= 100ms for EPS SSM to assert LOW_POWER_MODE.
+			taskYIELD();		
 		}
 		if(!PAY_PAUSED)
 			return 1;
@@ -1347,7 +1355,7 @@ int delete_task(uint8_t task_id)
 int recreate_fifo(uint8_t task_id, uint8_t direction)
 {
 	clear_fifo_buffer();
-	switch(task)
+	switch(task_id)
 	{
 		case HK_TASK_ID:
 			if(direction)

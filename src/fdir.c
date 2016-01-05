@@ -54,6 +54,8 @@ Author: Keenan Burnett
 *					of FDIR commands to SSMs on the SSM side of things. I also need a confirmation for entering low power mode or
 *					coms takeover mode.
 *
+* 01/05/2016		I am adding in some code for the INTERNAL_MEMORY_FALLBACK mode which is used when all 3 SPI memory chips appear to be dead.			
+*
 * DESCRIPTION:
 *
 */
@@ -120,9 +122,10 @@ static int request_resume_operations(uint8_t ssmID);
 int reset_SSM(uint8_t ssm_id);
 int reprogram_SSM(uint8_t ssm_id);
 static uint8_t get_fdir_signal(uint8_t task);
-
 int delete_task(uint8_t task_id);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+void enter_INTERNAL_MEMORY_FALLBACK(void);
+void exit_INTERNAL_MEMORY_FALLBACK(void);
 
 /* Prototypes for resolution sequences */
 static void resolution_sequence1(uint8_t code, uint8_t task);
@@ -349,7 +352,7 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence5(task, code);
 			case 10:
-				// INTERNAL_MEMORY_FALLBACK_MODE
+				enter_INTERNAL_MEMORY_FALLBACK();
 				enter_SAFE_MODE(SPIMEM_ERROR_DURING_INIT);
 			case 11:
 				resolution_sequence11(task);
@@ -369,15 +372,15 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 			case 16:
 				resolution_sequence1_4(task);
 			case 17:
-				// INTERNAL MEMORY FALLBACK MODE
-				enter_SAFE_MODE(ALL_SPIMEM_CHIPS_DEAD);			
+				enter_INTERNAL_MEMORY_FALLBACK();
+				clear_fdir_signal(task);		
 			case 18:
 				resolution_sequence18(task);
 			case 19:
 				if(task != MEMORY_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				// INTERNAL MEMORY FALLBACK MODE
-				enter_SAFE_MODE(ALL_SPIMEM_CHIPS_DEAD);
+				enter_INTERNAL_MEMORY_FALLBACK();
+				clear_fdir_signal(task);
 			case 20:
 				if(task != MEMORY_TASK_ID)
 				enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -433,8 +436,7 @@ static void resolution_sequence1(uint8_t code, uint8_t task)
 
 static void resolution_sequence1_1(uint8_t task)
 {					
-	// INTERNAL MEMORY FALLBACK MODE
-	send_event_report(2, INTERNAL_MEMORY_FALLBACK, 0, 0);
+	enter_INTERNAL_MEMORY_FALLBACK();
 	clear_fdir_signal(task);
 	return;
 }
@@ -511,7 +513,7 @@ static void resolution_sequence1_4(uint8_t task)
 		SPI_CHIP_3_fumble_count++;
 		if(SPI_CHIP_3_fumble_count >= 10)
 		SPI_HEALTH3 = 0;		// Mark this chip as dysfunctional.
-		// INTERNAL MEMORY FALLBACK MODE
+		enter_INTERNAL_MEMORY_FALLBACK();
 		clear_fdir_signal(task);	// Issue resolved.
 		return;
 	}
@@ -527,12 +529,12 @@ static void resolution_sequence1_4(uint8_t task)
 	{
 		if( spimem_write(0x00, test_array1, 256) < 0)
 		{
-			// INTERNAL MEMORY FALLBACK MODE.
+			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		x = spimem_read(0x00, test_array2, 256);
 		{
-			// INTERNAL MEMORY FALLBACK MODE.
+			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
@@ -550,12 +552,12 @@ static void resolution_sequence1_4(uint8_t task)
 	{
 		if( spimem_write(0x00, test_array1, 256) < 0)
 		{
-			// INTERNAL MEMORY FALLBACK MODE.
+			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		x = spimem_read(0x00, test_array2, 256);
 		{
-			// INTERNAL MEMORY FALLBACK MODE.
+			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
@@ -573,12 +575,12 @@ static void resolution_sequence1_4(uint8_t task)
 	{
 		if( spimem_write(0x00, test_array1, 256) < 0)
 		{
-			// INTERNAL MEMORY FALLBACK MODE.
+			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		x = spimem_read(0x00, test_array2, 256);
 		{
-			// INTERNAL MEMORY FALLBACK MODE.
+			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
@@ -1548,6 +1550,34 @@ static void clear_test_arrays(void)
 		test_array1[i] = 0;
 		test_array2[i] = 0;
 	}
+	return;
+}
+
+void enter_INTERNAL_MEMORY_FALLBACK(void)
+{
+	INTERNAL_MEMORY_FALLBACK_MODE = 1;
+	HK_BASE			=	0x0000;		// HK = 512B: 0x0000 - 0x01FF
+	EVENT_BASE		=	0x0200;		// EVENT = 512B: 0x0200 - 0x03FF
+	SCHEDULE_BASE	=	0x0400;		// SCHEDULE = 1kB: 0x0400 - 0x07FF
+	SCIENCE_BASE	=	0x0800;		// SCIENCE = 2kB: 0x0800 - 0x0FFB
+	TIME_BASE		=	0x0FFC;		// TIME = 4B: 0x0FFC - 0x0FFF
+	MAX_SCHED_COMMANDS = 31;
+	LENGTH_OF_HK	= 512;
+	send_event_report(2, INTERNAL_MEMORY_FALLBACK, 0, 0);
+	return;
+}
+
+void exit_INTERNAL_MEMORY_FALLBACK(void)
+{
+	INTERNAL_MEMORY_FALLBACK_MODE = 0;
+	HK_BASE			=	0x0C000;	// HK = 8kB: 0x0C000 - 0x0DFFF
+	EVENT_BASE		=	0x0E000;	// EVENT = 8kB: 0x0E000 - 0x0FFFF
+	SCHEDULE_BASE	=	0x10000;	// SCHEDULE = 8kB: 0x10000 - 0x11FFF
+	SCIENCE_BASE	=	0x12000;	// SCIENCE = 8kB: 0x12000 - 0x13FFF
+	TIME_BASE		=	0xFFFFC;	// TIME = 4B: 0xFFFFC - 0xFFFFF
+	MAX_SCHED_COMMANDS = 511;
+	LENGTH_OF_HK	= 8192;
+	send_event_report(1, INTERNAL_MEMORY_FALLBACK_EXITED, 0, 0);
 	return;
 }
 

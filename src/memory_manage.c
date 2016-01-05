@@ -171,6 +171,9 @@ static void memory_wash(void)
 	uint8_t check_val = 0;
 	uint32_t page, addr, byte;
 	
+	if(INTERNAL_MEMORY_FALLBACK)	// No washing while in internal memory fallback mode.
+		return;
+	
 	if(!SPI_HEALTH1 || !SPI_HEALTH2 || !SPI_HEALTH3)
 	{
 		// If one of the chips is dead, we can't do any memory washing.

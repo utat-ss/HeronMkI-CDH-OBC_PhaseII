@@ -393,6 +393,16 @@ static void prvInitializeInterruptPriorities(void)
 static void prvInitializeGlobalVars(void)
 {
 	uint8_t i;
+	
+	/* Global Mode Variables */
+	SAFE_MODE = 0;
+	LOW_POWER_MODE = 0;
+	COMS_TAKEOVER_MODE = 0;
+	COMS_PAUSED = 0;
+	PAY_PAUSED = 0;
+	EPS_PAUSED = 0;
+	INTERNAL_MEMORY_FALLBACK_MODE = 0;
+	
 	/* Initialize the data reception flag	*/
 	glob_drf = 0;
 		
@@ -443,6 +453,24 @@ static void prvInitializeGlobalVars(void)
 	chip_erase_timeout = 1500;		// Maximum wait time of 15s.
 	obc_consec_trans_timeout = 100;	// Maximum wait time of 100ms.
 	obc_ok_go_timeout = 25;			// Maximum wait time of 25ms.
+	
+	/* SPI MEMORY BASE ADDRESSES	*/
+	COMS_BASE		=	0x00000;	// COMS = 16kB: 0x00000 - 0x03FFF
+	EPS_BASE		=	0x04000;	// EPS = 16kB: 0x04000 - 0x07FFF
+	PAY_BASE		=	0x08000;	// PAY = 16kB: 0x08000 - 0x0BFFF
+	HK_BASE			=	0x0C000;	// HK = 8kB: 0x0C000 - 0x0DFFF
+	EVENT_BASE		=	0x0E000;	// EVENT = 8kB: 0x0E000 - 0x0FFFF
+	SCHEDULE_BASE	=	0x10000;	// SCHEDULE = 8kB: 0x10000 - 0x11FFF
+	SCIENCE_BASE	=	0x12000;	// SCIENCE = 8kB: 0x12000 - 0x13FFF
+	TIME_BASE		=	0xFFFFC;	// TIME = 4B: 0xFFFFC - 0xFFFFF
+
+	/* Limits for task operations */
+	if(!INTERNAL_MEMORY_FALLBACK_MODE)
+	{
+		MAX_SCHED_COMMANDS = 511;
+		LENGTH_OF_HK = 8192;
+	}
+	
 	return;
 }
 

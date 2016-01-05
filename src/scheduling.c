@@ -76,8 +76,6 @@ functionality. */
 #define	SCHED_REPORT_REQUEST			3
 #define SCHED_REPORT					4*/
 
-#define MAX_COMMANDS					511
-
 /* Functions Prototypes. */
 static void prvSchedulingTask( void *pvParameters );
 TaskHandle_t scheduling(void);
@@ -240,12 +238,12 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 		new_time += ((uint32_t)current_command[133 - (i * 16)]) << 8;
 		new_time += (uint32_t)current_command[132 - (i * 16)];
 		
-		if((num_commands == MAX_COMMANDS) && (new_time >= furthest_command_time))
+		if((num_commands == MAX_SCHED_COMMANDS) && (new_time >= furthest_command_time))
 		{
 			*status = -1;		// Indicates failure
 			return i;			// Number of command which was successfully placed in the schedule.
 		}
-		if((num_commands == MAX_COMMANDS) && (new_time <= furthest_command_time))
+		if((num_commands == MAX_SCHED_COMMANDS) && (new_time <= furthest_command_time))
 		{
 			*status = 2;		// Indicates a command was kicked out of the schedule, but no failure.
 			(*kicked_count)++;
@@ -256,7 +254,7 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 			add_command_to_beginning(new_time, 135 - (i * 16));
 		else
 			add_command_to_middle(new_time, 135 - (i * 16));
-		if(num_commands < MAX_COMMANDS)
+		if(num_commands < MAX_SCHED_COMMANDS)
 			num_commands++;
 	}
 	temp_arr[0] = (uint8_t)num_commands;
@@ -278,7 +276,7 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 /************************************************************************/
 static void add_command_to_end(uint32_t new_time, uint8_t position)
 {
-	if(num_commands == MAX_COMMANDS)
+	if(num_commands == MAX_SCHED_COMMANDS)
 		return;																							// USAGE ERROR
 	x = spimem_write((SCHEDULE_BASE + 4 + (num_commands * 16)), current_command + position, 16);		// FAILURE_RECOVERY
 	furthest_command_time = new_time;

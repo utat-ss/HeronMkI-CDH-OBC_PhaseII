@@ -60,18 +60,9 @@ SemaphoreHandle_t	Spi0_Mutex;
 #define		SE		0x20		// Sector Erase (4kB)
 #define		CE		0xC7		// Chip Erase
 
-/* SPI MEMORY BASE ADDRESSES	*/
-#define		COMS_BASE		0x00000		// COMS = 16kB: 0x00000 - 0x03FFF
-#define		EPS_BASE		0x04000		// EPS = 16kB: 0x04000 - 0x07FFF
-#define		PAY_BASE		0x08000		// PAY = 16kB: 0x08000 - 0x0BFFF
-#define		HK_BASE			0x0C000		// HK = 8kB: 0x0C000 - 0x0DFFF
-#define		EVENT_BASE		0x0E000		// EVENT = 8kB: 0x0E000 - 0x0FFFF
-#define		SCHEDULE_BASE	0x10000		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
-#define		TIME_BASE		0xFFFFC		// TIME = 4B: 0xFFFFC - 0xFFFFF
-
 /*		Global Variable Definitions		*/
 uint32_t spi_bit_map[128];		// Bit-Map to pages (256B) within SPI Memory.
-uint8_t	spi_mem_buff[4096];		// Buffer required when erasing a sector
+uint8_t	spi_mem_buff[4096];		// Buffer required when erasing a sector // Shall also be used as our fallback memory.
 uint32_t spi_mem_buff_sect_num;	// Current sector number of what is loaded into the SPI Memory Buffer.
 uint16_t msg_buff[260];			// Temporary buffer used by the read and write tasks to store data.
 

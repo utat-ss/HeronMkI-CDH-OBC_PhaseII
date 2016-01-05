@@ -465,7 +465,7 @@ static int store_hk_in_spimem(void)
 	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
 	x = spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
 	x = spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
-	offset = (offset + 137) % 8192;								// Make sure HK doesn't overflow into the next section.
+	offset = (offset + 137) % LENGTH_OF_HK;								// Make sure HK doesn't overflow into the next section.
 	if(offset == 0)
 		offset = 4;
 	current_hk_mem_offset[3] = (uint8_t)offset;

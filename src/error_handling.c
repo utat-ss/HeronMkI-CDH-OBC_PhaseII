@@ -46,7 +46,7 @@ Author: Keenan Burnett
 // 1 is returned if the error was corrected
 // If the task currently holds a mutex, this function will handle releasing it / reacquiring it. (-1 if it couldn't reacquire)
 // *data should point to an array holding 147 bytes.
-int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex)
+int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex)
 {
 	uint8_t i;
 	TickType_t wait_time = 5 * 60 * 1000;
@@ -61,6 +61,7 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 	high_error_array[149] = (uint8_t)((error & 0x0000FF00) > 8);
 	high_error_array[148] = (uint8_t)(error & 0x000000FF);
 	high_error_array[147] = task;
+	high_error_array[146] = code;
 
 	if (xSemaphoreTake(Highsev_Mutex, wait_time) == pdTRUE)		// Attempt to acquire Mutex, block for max 5 minutes.
 	{
@@ -143,7 +144,7 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 // The task ID should be placed in data[147]
 // Additional error code (if applicable) should be placed in data[146]
 // Any other desired may be placed in the lower bytes (not currently implemented)
-int errorREPORT(uint8_t task, uint32_t error, uint32_t* data)
+int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint32_t* data)
 {
 	uint8_t i;
 	TickType_t wait_time = 5 * 60 * 1000;
@@ -156,6 +157,7 @@ int errorREPORT(uint8_t task, uint32_t error, uint32_t* data)
 	high_error_array[149] = (uint8_t)((error & 0x0000FF00) > 8);
 	high_error_array[148] = (uint8_t)(error & 0x000000FF);
 	high_error_array[147] = task;
+	high_error_array[146] = code;
 	if (xSemaphoreTake(Lowsev_Mutex, wait_time) == pdTRUE)		// Attempt to acquire Mutex, block for max 5 minutes.
 	{
 		if( xQueueSendToBack(low_sev_to_fdir_fifo, high_error_array, wait_time) != pdTRUE)

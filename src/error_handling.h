@@ -84,5 +84,5 @@ uint8_t low_error_array[152];
 #define TM_OK_GO_TIMED_OUT				0x1E
 #define TM_CONSEC_TIMED_OUT				0x1F
 
-int errorREPORT(uint8_t task, uint32_t error, uint32_t* data);
-int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex);
+int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint32_t* data);
+int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex);

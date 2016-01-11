@@ -104,7 +104,8 @@ functionality. */
 
 /* Functions Prototypes. */
 static void prvOBCPacketRouterTask( void *pvParameters );
-void obc_packet_router(void);
+TaskHandle_t obc_packet_router(void);
+void opr_kill(uint8_t killer);
 static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data);
 static int receive_tc_msg(void);
 static int send_pus_packet_tm(uint8_t sender_id);
@@ -139,17 +140,18 @@ static TickType_t xTimeToWait;
 /* OBC_PACKET_ROUTER (Function)											*/
 /* @Purpose: This function is used to create the obc packet router task	*/
 /************************************************************************/
-void obc_packet_router( void )
+TaskHandle_t obc_packet_router( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvOBCPacketRouterTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) OBC_PACKET_ROUTER_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					OBC_PACKET_ROUTER_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
-	return;
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
+	return temp_HANDLE;
 }
 /*-----------------------------------------------------------*/
 
@@ -189,7 +191,6 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	mem_check_count = 0;
 	clear_current_data();
 	clear_current_command();
-
 
 	/* Initialize variable used in PUS Packets */
 	version = 0;		// First 3 bits of the packet ID. (0 is default)
@@ -320,6 +321,25 @@ static void exec_commands(void)
 	{
 		xQueueReceive(event_msg_fifo, &high, (TickType_t)1);
 		send_event_packet(high, low);
+	}
+	
+	if(xQueueReceive(fdir_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	{
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
+		if(current_command[146] == TASK_TO_OPR_TCV)
+			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
+		if(current_command[146] == TASK_TO_OPR_EVENT)
+		{
+			high = (FDIR_TASK_ID) << 28;
+			low = ((uint8_t)current_command[3]) << 24;
+			low = ((uint8_t)current_command[2]) << 16;
+			low = ((uint8_t)current_command[1]) << 8;
+			low = (uint8_t)current_command[0];
+			send_event_packet(high, low);
+		}
 	}
 	return;
 }
@@ -501,13 +521,14 @@ static int send_pus_packet_tm(uint8_t sender_id)
 {
 	uint32_t low, i;
 	uint32_t num_transfers = PACKET_LENGTH / 4;
-	uint8_t timeout = 25;
+	uint8_t timeout;
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 10;
 	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	send_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
+	timeout = obc_ok_go_timeout;
 	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
 	{
 		if(!timeout--)
@@ -517,7 +538,6 @@ static int send_pus_packet_tm(uint8_t sender_id)
 		}
 	}
 	start_tm_transferf = 0;
-	timeout = 100;
 	
 	for(i = 0; i < num_transfers; i++)
 	{
@@ -531,7 +551,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 10ms (10 * 1ms)
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
-	
+	timeout = obc_consec_trans_timeout;
 	while(!tm_transfer_completef)					// Delay for ~100 ms for the SSM to let the OBC know that
 	{												// the transfer has completed.
 		if(!timeout--)
@@ -731,7 +751,7 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 					x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Npar1 must be <= 64
 					return -1;
 				}
-				current_command[146] = HK_SERVICE;
+				current_command[146] = NEW_HK_DEFINITION;
 				current_command[145] = collection_interval;
 				current_command[144] = npar1;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue.
@@ -753,6 +773,10 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			case	REPORT_HK_DEFINITIONS:
 				current_command[146] = REPORT_HK_DEFINITIONS;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);
+				
+			// William: Put more diagnostics stuff here. This time I want the service_type in current_command[146] and
+			// The service_sub_type placed in current_command[145]
+				
 			default:
 				break;
 		}
@@ -780,9 +804,9 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			time += (uint32_t)current_command[132];
 			current_command[146] = service_sub_type;
 			if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
-			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
-			if(severity == 1)
-			xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+				xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
+			//if(severity == 1)
+			//	xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
 			if(severity == 2)
 			{
 				// Deal with command here.
@@ -794,6 +818,15 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			current_command[146] = service_sub_type;
 			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);			
 		}
+	}
+	if(service_type == FDIR_SERVICE)
+	{
+		current_command[146] = service_type;
+		current_command[145] = service_sub_type;
+		if((service_sub_type == PAUSE_SSM_OPERATIONS) || (service_sub_type == RESUME_SSM_OPERATIONS) || (service_sub_type == RESET_SSM) 
+					|| (service_sub_type == REPROGRAM_SSM) || (service_sub_type == RESET_TASK))
+			current_command[144] = current_command[129];
+		xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
 	}
 	
 	return;
@@ -875,6 +908,8 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
 		if((tc_to_decode[138] == 1) && (address > 0xFFFFF))				// Invalid memory address (too high)
 			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
+		if((tc_to_decode[138] == 1) && INTERNAL_MEMORY_FALLBACK_MODE && (address > 0x0FFF))		// Invalid memory address (too high for INT MEM FALLBACK MODE)
+			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);			
 	}
 	
 	if(service_type == TIME_SERVICE)
@@ -920,6 +955,14 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 				}
 				last_time = new_time;
 			}
+		}
+	}
+	if(service_type == FDIR_SERVICE)
+	{
+		if((service_sub_type > 12) || !service_sub_type)
+		{
+			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
+			return -1;
 		}
 	}
 	
@@ -1034,5 +1077,48 @@ static void send_event_packet(uint32_t high, uint32_t low)
 	current_data[1] = (uint8_t)((low & 0x0000FF00) >> 8);
 	current_data[0] = (uint8_t)(low & 0x000000FF);
 	resp = packetize_send_telemetry(sender, GROUND_PACKET_ROUTER_ID, 5, severity, event_report_count, 1, current_data);	// FAILURE_RECOVERY
+	return;
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void opr_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_command);
+	vPortFree(version);
+	vPortFree(type);
+	vPortFree(data_header);
+	vPortFree(flag);
+	vPortFree(sequence_flags);
+	vPortFree(sequence_count);
+	vPortFree(packet_id);
+	vPortFree(psc);
+	vPortFree(tc_sequence_count);
+	vPortFree(hk_telem_count);
+	vPortFree(hk_def_report_count);
+	vPortFree(time_report_count);
+	vPortFree(mem_dump_count);
+	vPortFree(packet_id);
+	vPortFree(tc_exec_success_count);
+	vPortFree(tc_exec_fail_count);
+	vPortFree(mem_check_count);
+	vPortFree(new_tc_msg_high);
+	vPortFree(new_tc_msg_low);
+	vPortFree(tc_verify_success_count);
+	vPortFree(tc_verify_fail_count);
+	vPortFree(event_report_count);
+	vPortFree(sched_report_count);
+	vPortFree(sched_command_count);
+	vPortFree(current_data);
+	vPortFree(current_tc);
+	vPortFree(current_tm);
+	vPortFree(tc_to_decode);
+	vPortFree(xTimeToWait);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(opr_HANDLE);
+	else
+		vTaskDelete(NULL);
 	return;
 }

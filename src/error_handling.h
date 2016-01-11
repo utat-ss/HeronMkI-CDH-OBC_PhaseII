@@ -8,7 +8,7 @@ Author: Keenan Burnett
 *
 * EXTERNAL VARIABLES:
 *
-* EXTERNAL REFERENCES: Same a File References.
+* FILE REFERENCES: global_var.h, stdint.h, FreeRTOS.h, semphr.h, task.h, can_func.h
 *
 * ABORNOMAL TERMINATION CONDITIONS, ERROR AND WARNING MESSAGES: None yet.
 *
@@ -79,6 +79,10 @@ uint8_t low_error_array[152];
 #define OBC_COMS_TC_TM_ERROR			0x19
 #define OBC_TC_PACKET_ERROR				0x1A
 #define OBC_FIFO_RW_ERROR				0x1B
+#define TC_OK_GO_TIMED_OUT				0x1C
+#define TC_CONSEC_TIMED_OUT				0x1D
+#define TM_OK_GO_TIMED_OUT				0x1E
+#define TM_CONSEC_TIMED_OUT				0x1F
 
 int errorREPORT(uint8_t task, uint32_t error, uint32_t* data);
 int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex);

@@ -23,9 +23,13 @@
 *
 */
 
+#ifndef ATOMICH
+#define ATOMICH
+
 #include "FreeRTOS.h"
 #include "task.h"
 
 void enter_atomic(void);
 void exit_atomic(void);
 
+#endif

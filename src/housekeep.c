@@ -8,7 +8,7 @@
 	*	This file is to be used to create the housekeeping task needed to monitor
 	*	housekeeping information on the satellite.
 	*
-	*	FILE REFERENCES:	stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
+	*	FILE REFERENCES:	stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h, spimem.h, error_handling.h
 	*
 	*	EXTERNAL VARIABLES:
 	*
@@ -53,6 +53,8 @@
 	*					computer gets reset (we would lose track of how much housekeeping is currently in memory)
 	*	
 	*	12/05/2015		Added error handling for exec_commands, store_housekeeping using wrapper functions
+	*
+	*	12/09/2015		Added in housekeep_suicide() so that this task can kill itself if need be (or if commanded by the fdir task).
 	*
 	*	DESCRIPTION:
 	*	
@@ -102,10 +104,10 @@ functionality. */
 #define HK_REPORT						25
 -----------------------------------------------------------*/
 
-
 /* Function Prototypes */
 static void prvHouseKeepTask( void *pvParameters );
-void housekeep(void);
+TaskHandle_t housekeep(void);
+void housekeep_kill(uint8_t killer);
 static void clear_current_hk(void);
 static int request_housekeeping_all(void);
 static void store_housekeeping(void);
@@ -121,8 +123,12 @@ static int exec_commands_H(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+
 static uint8_t get_ssm_id(uint8_t sensor_name);
 int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);	
+
+uint8_t get_ssm_id(uint8_t sensor_name);
+
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -145,23 +151,24 @@ uint32_t req_data_result;
 /* HOUSEKEEPING (Function) 												*/
 /* @Purpose: This function is used to create the housekeeping task.		*/
 /************************************************************************/
-void housekeep( void )
+TaskHandle_t housekeep( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvHouseKeepTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) HK_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					Housekeep_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
 					
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached.  If the following line does execute, then
 	there was insufficient FreeRTOS heap memory available for the idle and/or
 	timer tasks	to be created.  See the memory management section on the
 	FreeRTOS web site for more details. */
-	return;
+	return temp_HANDLE;
 }
 
 /************************************************************************/
@@ -197,8 +204,6 @@ static void prvHouseKeepTask(void *pvParameters )
 	{
 		
 		exec_commands();
-		
-		
 		request_housekeeping_all();
 		store_housekeeping();
 		send_hk_as_tm();
@@ -228,7 +233,7 @@ static void exec_commands(void){
 	if (exec_com_success != 1) {
 		errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR, exec_com_success);
 	}
-	
+	return;
 }
 
 // Will return 1 if successful, current_command if there is a FIFO error
@@ -281,8 +286,6 @@ static int exec_commands_H(void)
 	}
 	else										//Failure Recovery					
 		return current_command;
-		
-		
 }
 
 /************************************************************************/
@@ -435,9 +438,8 @@ static void store_housekeeping(void)
 	return 1;
 }
 
-
 //Returns the proper ssm_id for a given sensor
-static uint8_t get_ssm_id(uint8_t sensor_name){
+uint8_t get_ssm_id(uint8_t sensor_name){
 	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
 		return EPS_ID;
 	if ((sensor_name == 0x12) || (sensor_name == 0xFD))
@@ -449,8 +451,6 @@ static uint8_t get_ssm_id(uint8_t sensor_name){
 
 	
 }
-
-
 
 /************************************************************************/
 /* STORE_HK_IN_SPIMEM													*/
@@ -467,10 +467,12 @@ static int store_hk_in_spimem(void)
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
+
 	hk_spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
 	hk_spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
 	hk_spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
-	offset = (offset + 137) % 8192;								// Make sure HK doesn't overflow into the next section.
+	offset = (offset + 137) % LENGTH_OF_HK;								// Make sure HK doesn't overflow into the next section.
+
 	if(offset == 0)
 		offset = 4;
 	current_hk_mem_offset[3] = (uint8_t)offset;
@@ -707,5 +709,39 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
 	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	return;
+}
+
+// This function will kill the housekeeping task.
+// If it is being called by the hk task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void housekeep_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_hk);
+	vPortFree(current_command);
+	vPortFree(hk_definition0);
+	vPortFree(hk_definition1);
+	vPortFree(hk_updated);
+	vPortFree(current_hk_definition);
+	vPortFree(current_hk_definitionf);
+	vPortFree(current_eps_hk);
+	vPortFree(current_coms_hk);
+	vPortFree(current_pay_hk);
+	vPortFree(current_obc_hk);
+	vPortFree(new_hk_msg_high);
+	vPortFree(new_hk_msg_low);
+	vPortFree(current_hk_fullf);
+	vPortFree(param_report_requiredf);
+	vPortFree(collection_interval0);
+	vPortFree(collection_interval1);
+	vPortFree(xTimeToWait);
+	vPortFree(current_hk_mem_offset);
+	vPortFree(xLastWakeTime);
+	vPortFree(req_data_result);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(housekeeping_HANDLE);
+	else
+		vTaskDelete(NULL);	
 	return;
 }

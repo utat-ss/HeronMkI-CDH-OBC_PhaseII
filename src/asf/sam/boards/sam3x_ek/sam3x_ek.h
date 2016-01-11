@@ -392,6 +392,21 @@ Edited by: Keenan Burnett
 #define PIN_PCK_0_TYPE  PIO_PERIPH_B
 #define PIN_PCK_0_ATTR  PIO_DEFAULT
 
+/* ------------------------------------------------------------------------ */
+/* SSM RESET                                                                */
+/* ------------------------------------------------------------------------ */
+#define PINS_SSM_RESET   PIN_USER_LED1, PIN_USER_LED2, PIN_USER_LED3, PIN_POWER_LED, PIN_USER_LED4
+
+/* EPS RESET*/
+#define EPS_RST_GPIO       (PIO_PB26_IDX)
+#define EPS_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+/* COMS RESET*/
+#define COMS_RST_GPIO       (PIO_PB0_IDX)
+#define COMS_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+/* PAY RESET*/
+#define PAY_RST_GPIO       (PIO_PA14_IDX)
+#define PAY_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+
 /**
  * \file
  * UART

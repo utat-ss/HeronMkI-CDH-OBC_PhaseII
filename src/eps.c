@@ -1,5 +1,5 @@
 /*
-Author: Keenan Burnett
+Author: Samantha Murray, Keenan Burnett
 ***********************************************************************
 * FILE NAME: coms.c
 *
@@ -56,7 +56,8 @@ functionality. */
 
 /* Function Prototypes										 */
 static void prvEpsTask( void *pvParameters );
-void eps(void);
+TaskHandle_t eps(void);
+void eps_kill(uint8_t killer);
 static void getxDirection(void);
 static void getyDirection(void);
 static void setxDuty(void);
@@ -80,23 +81,24 @@ static uint32_t payv, payi, obcv, obci;
 /* @Purpose: This function is simply used to create the EPS task below	*/
 /* in main.c															*/
 /************************************************************************/
-void eps( void )
+TaskHandle_t eps( void )
 {
 	/* Start the two tasks as described in the comments at the top of this
 	file. */
+	TaskHandle_t temp_HANDLE = 0;
 	xTaskCreate( prvEpsTask, /* The function that implements the task. */
 		"ON", /* The text name assigned to the task - for debug only as it is not used by the kernel. */
 		configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
 		( void * ) EPS_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
 		Eps_PRIORITY, /* The priority assigned to the task. */
-		NULL ); /* The task handle is not required, so NULL is passed. */
+		&temp_HANDLE ); /* The task handle is not required, so NULL is passed. */
 
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached. If the following line does execute, then
 	there was insufficient FreeRTOS heap memory available for the idle and/or
 	timer tasks to be created. See the memory management section on the
 	FreeRTOS web site for more details. */
-	return;
+	return temp_HANDLE;
 }
 
 /************************************************************************/
@@ -305,4 +307,34 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 			status = set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);		//Otherwise try again
 	}
 	return;						//If status is 1 then we are good and we should return the sensor value
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void eps_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(xDirection);
+	vPortFree(yDirection);
+	vPortFree(xDuty);
+	vPortFree(yDuty);
+	vPortFree(pxp_last);
+	vPortFree(pyp_last);
+	vPortFree(battmv);
+	vPortFree(battv);
+	vPortFree(batti);
+	vPortFree(battemp);
+	vPortFree(epstemp);
+	vPortFree(comsv);
+	vPortFree(comsi);
+	vPortFree(payv);
+	vPortFree(payi);
+	vPortFree(obcv);
+	vPortFree(obci);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(eps_HANDLE);
+	else
+		vTaskDelete(NULL);
+	return;
 }

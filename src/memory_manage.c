@@ -92,6 +92,7 @@ static uint8_t page_buff1[256], page_buff2[256], page_buff3[256];
 /* Functions Prototypes. */
 static void prvMemoryManageTask( void *pvParameters );
 void menory_manage(void);
+void memory_manage_kill(uint8_t killer);
 static void memory_wash(void);
 static void exec_commands(void);
 static void clear_current_command(void);
@@ -107,23 +108,24 @@ static const TickType_t xTimeToWait = 60000;	// Number entered here corresponds 
 /* MEMORY_WASH (Function)												*/
 /* @Purpose: This function is used to create the memory washing task.	*/
 /************************************************************************/
-void memory_manage( void )
+TaskHandle_t memory_manage( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvMemoryManageTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) MM_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					MEMORY_MANAGE_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
 					
 	/* If all is well, the scheduler will now be running, and the following
 	line will never be reached.  If the following line does execute, then
 	there was insufficient FreeRTOS heap memory available for the idle and/or
 	timer tasks	to be created.  See the memory management section on the
 	FreeRTOS web site for more details. */
-	return;
+	return temp_HANDLE;
 }
 
 /************************************************************************/
@@ -168,6 +170,9 @@ static void memory_wash(void)
 	uint8_t spi_chip, write_required = 0, sum, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
 	uint8_t check_val = 0;
 	uint32_t page, addr, byte;
+	
+	if(INTERNAL_MEMORY_FALLBACK)	// No washing while in internal memory fallback mode.
+		return;
 	
 	if(!SPI_HEALTH1 || !SPI_HEALTH2 || !SPI_HEALTH3)
 	{
@@ -401,5 +406,21 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[1] = param1;
 	current_command[0] = param0;
 	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	return;
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void memory_manage_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_command);
+	vPortFree(minute_count);
+	vPortFree(xTimeToWait);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(memory_manage_HANDLE);
+	else
+		vTaskDelete(NULL);
 	return;
 }

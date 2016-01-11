@@ -222,6 +222,20 @@ SemaphoreHandle_t	Can0_Mutex;
 #define SEND_EVENT				0x16
 #define ASK_OBC_ALIVE			0x17
 #define OBC_IS_ALIVE			0x18
+#define SSM_ERROR_ASSERT		0x19
+#define SSM_ERROR_REPORT		0x1A
+#define ENTER_LOW_POWER_COM		0x1B
+#define EXIT_LOW_POWER_COM		0x1C
+#define ENTER_COMS_TAKEOVER_COM	0x1D
+#define EXIT_COMS_TAKEOVER_COM	0x1E
+#define PAUSE_OPERATIONS		0x1F
+#define RESUME_OPERATIONS		0x20
+#define LOW_POWER_MODE_ENTERED	0x21
+#define LOW_POWER_MODE_EXITED	0x22
+#define COMS_TAKEOVER_ENTERED	0x23
+#define COMS_TAKEOVER_EXITED	0x24
+#define OPERATIONS_PAUSED		0x25
+#define OPERATIONS_RESUMED		0x26		
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09
@@ -281,7 +295,16 @@ SemaphoreHandle_t	Can0_Mutex;
 #define ABS_TIME_S				0xF5
 #define SPI_CHIP_1				0xF4
 #define SPI_CHIP_2				0xF3
-#define SPI_CHIP_3				0xF2	
+#define SPI_CHIP_3				0xF2
+#define BALANCE_L				0xF1
+#define BALANCE_H				0xF0
+#define SSM_CTT					0xEF
+#define SSM_OGT					0xEE
+#define OBC_CTT					0xED
+#define OBC_OGT					0xEC
+#define COMS_FDIR_SIGNAL		0xEB
+#define EPS_FDIR_SIGNAL			0xEA
+#define PAY_FDIR_SIGNAL			0xE9
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

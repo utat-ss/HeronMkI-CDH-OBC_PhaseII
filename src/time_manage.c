@@ -73,9 +73,10 @@ functionality. */
 
 /*		Functions Prototypes.		*/
 static void prvTimeManageTask( void *pvParameters );
-void time_manage(void);
-static void broadcast_minute(void);
-static void update_absolute_time(void);
+TaskHandle_t time_manage(void);
+void time_manage_kill(uint8_t killer);
+void broadcast_minute(void);
+void update_absolute_time(void);
 static void report_time(void);
 static void exec_commands(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
@@ -90,17 +91,18 @@ static uint8_t current_command[10];
 /* time_manage (Function)												*/
 /* @Purpose: This function is used to create the time update task.		*/
 /************************************************************************/
-void time_manage( void )
+TaskHandle_t time_manage( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
 		file. */
+		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvTimeManageTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
 					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
 					( void * ) TIME_MANAGE_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					TIME_MANAGE_PRIORITY, 			/* The priority assigned to the task. */
-					NULL );								/* The task handle is not required, so NULL is passed. */
-	return;
+					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
+	return temp_HANDLE;
 }
 /*-----------------------------------------------------------*/
 
@@ -135,7 +137,7 @@ static void prvTimeManageTask( void *pvParameters )
 }
 /*-----------------------------------------------------------*/
 
-static void broadcast_minute(void)
+void broadcast_minute(void)
 {
 	uint32_t high;
 	high = high_command_generator(TIME_TASK_ID, EPS_ID, MT_TC, SET_TIME);
@@ -149,7 +151,7 @@ static void broadcast_minute(void)
 
 // Updates the global variables which store absolute time and stores it in SPI memory every minute.
 // This function updates absolute time, and stores it in SPI memory for safe keeping.
-static void update_absolute_time(void)
+void update_absolute_time(void)
 {
 	CURRENT_MINUTE = time.minute;
 	if(time.hour != CURRENT_HOUR)
@@ -216,5 +218,21 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[5] = (uint8_t)packet_id;
 	current_command[4] = ((uint8_t)psc) >> 8;
 	current_command[3] = (uint8_t)psc;
+	return;
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void time_manage_kill(uint8_t killer)
+{
+	// Free the memory that this task allocated.
+	vPortFree(current_command);
+	vPortFree(minute_count);
+	vPortFree(report_timeout);
+	// Kill the task.
+	if(killer)
+		vTaskDelete(time_manage_HANDLE);
+	else
+		vTaskDelete(NULL);
 	return;
 }

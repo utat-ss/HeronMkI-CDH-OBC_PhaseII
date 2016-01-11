@@ -484,20 +484,23 @@ static int store_hk_in_spimem(void)
 }
 
 
-//Wrapper function for spimem_write within this file. If the function fails after 3 attempts, 
-//Sends data_buff to error_report
+//Wrapper function for spimem_write within this file. 
+//If the function fails after 3 attempts, sends data_buff to error_report
 int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size){
 	
 	int attempts = 1;
-	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
+	//spimem_success is >0 if successful
 	int spimem_success = spimem_write(addr, data_buff, size);
-	while (attempts<3 && spimem_success <0){
+	while (attempts<3 && spimem_success<0){
 		spimem_success = spimem_write(addr, data_buff, size);
 		attempts++;
 	}
-	if (spimem_success < 0) {
+	if (spimem_success<0) {
 		errorREPORT(HK_TASK_ID,HK_SPIMEM_W_ERROR, data_buff);
+		return -1;
+		//spimem_write can return -1,-2,-3,-4 in case of an error - does FDIR treat all cases the same?
 	}
+	else {return 0;}
 }	
 
 
@@ -651,10 +654,10 @@ static void send_hk_as_tm(void)
 	
 	//TODO: MAKE THIS A FUNCTION TO BE USED WITH ALL INSTANCES OF xQueueSendToBack
 	//Maybe not for exec_commands?
-	if xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTrue{
+	if (xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE){
 		int attempts = 1;
 		int success = 0; 
-		while (attempts <3 && xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTrue){
+		while (attempts <3 && xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE){
 			success++;
 		}
 		//Alternate solution: write a hkerror_xQueueSendToBack function that does the error handling

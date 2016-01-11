@@ -219,8 +219,8 @@ static void memory_wash(void)
 				}
 			}
 			if(write_required)
-			{
-				spimem_write_h(write_required, (addr + byte), &correct_val, 1);		// FAILURE_RECOVERY if this returns a number less than zero.
+			{spimem_write_h
+				(write_required, (addr + byte), &correct_val, 1);		// FAILURE_RECOVERY if this returns a number less than zero.
 				send_event_report(1, BIT_FLIP_DETECTED, 0, 0);		
 			}
 			spimem_read_alt(write_required, (addr + byte), &check_val, 1);

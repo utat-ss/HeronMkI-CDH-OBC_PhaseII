@@ -59,7 +59,7 @@ uint8_t low_error_array[152];
 #define HK_FIFO_RW_ERROR				0x06
 #define HK_COLLECT_ERROR				0x07
 #define HK_SPIMEM_R_ERROR				0x08
-#define HK_SPIMEM_W_ERROR				0x1C
+#define HK_SPIMEM_W_ERROR				0x1C 
 #define TM_FIFO_RW_ERROR				0x08
 #define SPIMEM_BUSY_CHIP_ERROR			0x0A
 #define SPIMEM_CHIP_ERASE_ERROR			0x0B

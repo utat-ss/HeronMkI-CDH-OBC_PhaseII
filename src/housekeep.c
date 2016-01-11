@@ -122,6 +122,7 @@ static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static uint8_t get_ssm_id(uint8_t sensor_name);
+int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);	
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -461,14 +462,14 @@ static uint8_t get_ssm_id(uint8_t sensor_name){
 static int store_hk_in_spimem(void)
 {
 	uint32_t offset;
-	int x;
+	
 	offset = (uint32_t)(current_hk_mem_offset[0] << 24);
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
-	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
-	x = spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
-	x = spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
+	hk_spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	hk_spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
+	hk_spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
 	offset = (offset + 137) % 8192;								// Make sure HK doesn't overflow into the next section.
 	if(offset == 0)
 		offset = 4;
@@ -476,9 +477,27 @@ static int store_hk_in_spimem(void)
 	current_hk_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
 	current_hk_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
 	current_hk_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
-	x = spimem_write(HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
+	hk_spimem_write(HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
 	return;
 }
+
+
+//Wrapper function for spimem_write within this file. If the function fails after 3 attempts, 
+//Sends data_buff to error_report
+int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size){
+	
+	int attempts = 1;
+	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
+	int spimem_success = spimem_write(addr, data_buff, size);
+	while (attempts<3 && spimem_success <0){
+		spimem_success = spimem_write(addr, data_buff, size);
+		attempts++;
+	}
+	if (spimem_success < 0) {
+		errorREPORT(HK_TASK_ID,HK_SPIMEM_W_ERROR, data_buff);
+	}
+}	
+
 
 /************************************************************************/
 /* SETUP_DEFAULT_DEFINITION												*/
@@ -627,9 +646,28 @@ static void send_hk_as_tm(void)
 	{
 		current_command[i] = current_hk[i];
 	}
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	
+	//TODO: MAKE THIS A FUNCTION TO BE USED WITH ALL INSTANCES OF xQueueSendToBack
+	//Maybe not for exec_commands?
+	if xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTrue{
+		int attempts = 1;
+		int success = 0; 
+		while (attempts <3 && xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTrue){
+			success++;
+		}
+		//Alternate solution: write a hkerror_xQueueSendToBack function that does the error handling
+		//success will be == 2 after 3 failed attempts. if it is equal to 2, then we want to send error report
+		if (success>1){
+			errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR,current_command);
+		}
+	}
+			
 	return;
 }
+
+
+
+
 
 /************************************************************************/
 /* REPORT_SCHEDULE														*/

@@ -456,7 +456,7 @@ static int check_schedule(void)
 		if(status == 0xFF)										// The scheduled command failed.
 		{	//is this HIGHSEV or LOWSEV? 
 			
-			errorREPORT(SCHEDULING_TASK_ID, SCHED_COMMAND_EXEC_ERROR, &command_array); //FIX: what should the third parameter be?
+			errorREPORT(SCHEDULING_TASK_ID, 0, SCHED_COMMAND_EXEC_ERROR, &command_array); //FIX: what should the third parameter be?
 				
 			// Still failing: Send a failure message to the FDIR Process and wait for signal from FDIR. FAILURE_RECOVERY
 			// Still failing: (What FDIR should do: ) Send a message to the ground scheduling service letting it know that the command failed.
@@ -649,7 +649,7 @@ int spimem_write_sch(uint32_t addr, uint8_t* data_buff, uint32_t size){
 		attempts++;
 	}
 	if (spimem_success<0) {
-		errorREPORT(SCHEDULING_TASK_ID,SCHED_SPIMEM_W_ERROR, data_buff);
+		errorREPORT(SCHEDULING_TASK_ID,0,SCHED_SPIMEM_W_ERROR, data_buff);
 		return -1;
 		
 	}
@@ -673,7 +673,7 @@ static int spimem_read_sch(uint32_t addr, uint8_t* read_buff, uint32_t size){
 		spimem_success = spimem_read(addr, read_buff, size);
 		attempts++;}
 	if (spimem_success<0) {
-		errorREPORT(SCHEDULING_TASK_ID,SCHED_SPIMEM_R_ERROR, &addr);
+		errorREPORT(SCHEDULING_TASK_ID,0,SCHED_SPIMEM_R_ERROR, &addr);
 		return -1;
 		//errorREPORT assumes the last parameter to be a array with 147 elements. This one isn't.
 		//Is that a problem?

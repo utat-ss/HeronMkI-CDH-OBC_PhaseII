@@ -88,6 +88,8 @@ Author: Keenan Burnett
 #include <asf/sam/drivers/wdt/wdt.h>
 /* Includes related to atomic operation	*/
 #include "atomic.h"
+/* Includes related to SSM reprogramming	*/
+#include "ssm_programming.h"
 
 /* Priorities at which the tasks are created. */
 #define FDIR_PRIORITY		( tskIDLE_PRIORITY + 5 )
@@ -120,7 +122,6 @@ static int request_exit_coms_takeover(void);
 static int request_pause_operations(uint8_t ssmID);
 static int request_resume_operations(uint8_t ssmID);
 int reset_SSM(uint8_t ssm_id);
-int reprogram_SSM(uint8_t ssm_id);
 static uint8_t get_fdir_signal(uint8_t task);
 int delete_task(uint8_t task_id);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
@@ -824,7 +825,7 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 		return;
 	}
 	// Try reprogramming the SSM and attempt to acquire the parameter again.
-	reprogram_SSM(ssmID);
+	reprogram_ssm(ssmID);
 	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
@@ -925,7 +926,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 		return;
 	}
 	// Try reprogramming the SSM and attempt to acquire the parameter again.
-	reprogram_SSM(ssmID);
+	reprogram_ssm(ssmID);
 	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
@@ -1103,7 +1104,7 @@ static void exec_commands(void)
 					else
 						send_tc_execution_verify(0xFF, packet_id, psc);
 				case	REPROGRAM_SSM:
-					reprogram_SSM(current_command[144]);
+					reprogram_ssm(current_command[144]);
 				case	RESET_SSM:
 					reset_SSM(current_command[144]);
 				case	RESET_TASK:
@@ -1535,11 +1536,6 @@ static void time_update(void)
 		rtc_reset_a2();
 	}
 	return;
-}
-
-int reprogram_SSM(uint8_t ssm_id)
-{
-	// Code for reprogramming the SSM can go here.
 }
 
 static void clear_test_arrays(void)

@@ -231,7 +231,7 @@ static void exec_commands(void){
 		attempts++;
 	}
 	if (exec_com_success != 1) {
-		errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR, exec_com_success);
+		errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR, exec_com_success);
 	}
 	return;
 }
@@ -421,7 +421,7 @@ static void store_housekeeping(void)
 			
 			if (req_data_result == -1){
 				//malfunctioning sensor is sent to erorREPORT
-				errorREPORT(HK_TASK_ID,HK_COLLECT_ERROR, &current_hk_definition[i]);
+				errorREPORT(HK_TASK_ID,0,HK_COLLECT_ERROR, &current_hk_definition[i]);
 			}
 			else {
 				current_hk[i] = (uint8_t)(req_data_result & 0x000000FF);
@@ -496,7 +496,7 @@ int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size){
 		attempts++;
 	}
 	if (spimem_success<0) {
-		errorREPORT(HK_TASK_ID,HK_SPIMEM_W_ERROR, data_buff);
+		errorREPORT(HK_TASK_ID,0,HK_SPIMEM_W_ERROR, data_buff);
 		return -1;
 		//spimem_write can return -1,-2,-3,-4 in case of an error - does FDIR treat all cases the same?
 	}
@@ -663,7 +663,7 @@ static void send_hk_as_tm(void)
 		//Alternate solution: write a hkerror_xQueueSendToBack function that does the error handling
 		//success will be == 2 after 3 failed attempts. if it is equal to 2, then we want to send error report
 		if (success>1){
-			errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR,current_command);
+			errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR,current_command);
 		}
 	}
 			

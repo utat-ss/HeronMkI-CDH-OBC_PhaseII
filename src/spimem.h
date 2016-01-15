@@ -67,6 +67,7 @@ SemaphoreHandle_t	Spi0_Mutex;
 #define		HK_BASE			0x0C000		// HK = 8kB: 0x0C000 - 0x0DFFF
 #define		EVENT_BASE		0x0E000		// EVENT = 8kB: 0x0E000 - 0x0FFFF
 #define		SCHEDULE_BASE	0x10000		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
+#define		DIAG_BASE		0x12000		// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
 #define		TIME_BASE		0xFFFFC		// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 /*		Global Variable Definitions		*/

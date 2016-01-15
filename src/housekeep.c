@@ -299,7 +299,7 @@ static void clear_current_hk(void)
 }
 
 /************************************************************************/
-/* CLEAR_CURRENT_COMMAND												*/
+/* SET_HK_MEM_OFFSET												*/
 /* @Purpose: sets the memory offset for HK's reading/writing to SPIMEM	*
 /************************************************************************/
 static void set_hk_mem_offset(void)

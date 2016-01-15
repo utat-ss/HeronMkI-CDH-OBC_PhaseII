@@ -54,6 +54,9 @@ Author: Keenan Burnett
 *					of FDIR commands to SSMs on the SSM side of things. I also need a confirmation for entering low power mode or
 *					coms takeover mode.
 *
+* 1/15/2016			(William): Added in diagnostics functions and variables (similar to housekeeping). Put diagnostics code in
+*					exec_commands() and enter_SAFE_MODE(). I tried to label all places an error could occur with FAILURE_RECOVERY.
+*
 * DESCRIPTION:
 *
 */
@@ -93,6 +96,10 @@ Author: Keenan Burnett
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
 #define FDIR_PARAMETER			( 0xABCD )
+
+/* DIAGNOSTICS DEFINITION DEFINES */
+#define DEFAULT				0
+#define ALTERNATE			1
 
 /* Functions Prototypes. */
 static void prvFDIRTask( void *pvParameters );
@@ -141,6 +148,18 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter);
 static void resolution_sequence29(uint8_t ssmID);
 static void resolution_sequence31(void);
 
+/* Prototypes for diagnostics functions */
+static void clear_current_diag(void);
+static int request_diagnostics_all(void);
+static int store_diagnostics(void);
+static void setup_default_definition(void);
+static void set_definition(uint8_t sID);
+static void clear_alternate_diag_definition(void);
+static void send_diag_as_tm(void);
+static void send_diag_param_report(void);
+static int store_diag_in_spimem(void);
+static void set_diag_mem_offset(void);
+
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
 extern TaskHandle_t time_manage(void);
@@ -174,6 +193,22 @@ extern uint8_t get_ssm_id(uint8_t sensor_name);
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
 static uint8_t test_array1[256], test_array2[256];
 static uint32_t minute_count;
+
+TickType_t	xLastWakeTime;
+
+/* Local Variables for Diagnostics */
+static uint8_t current_diag[DATA_LENGTH];			 //stores the next diagnostics packet to downlink
+static uint8_t diag_definition0[DATA_LENGTH];		 //stores default diagnostic definition
+static uint8_t diag_definition1[DATA_LENGTH];		 //stores alternate diagnostic definition
+static uint8_t diag_updated[DATA_LENGTH];
+static uint8_t current_diag_definition[DATA_LENGTH]; //stores current diagnostic definition
+static uint8_t current_diag_definitionf;
+static uint8_t current_eps_diag[DATA_LENGTH / 4], current_coms_diag[DATA_LENGTH / 4], current_pay_diag[DATA_LENGTH / 4];
+static uint8_t new_diag_msg_high, new_diag_msg_low;
+static uint8_t current_diag_fullf, diag_param_report_requiredf;
+static uint8_t collection_interval0, collection_interval1;
+static uint8_t current_diag_mem_offset[4];
+
 
 /* Fumble Counts */
 static uint8_t housekeep_fumble_count;
@@ -242,7 +277,6 @@ TaskHandle_t fdir( void )
 static void prvFDIRTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == FDIR_PARAMETER );
-	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
 
 	// Initialize all variables which are local to FDIR
@@ -1042,18 +1076,46 @@ static void exec_commands(void)
 		service_type = current_command[146];
 		command = current_command[145];
 		if(service_type == HK_SERVICE)
-		{
+		{ // Diagnostics commands
 			switch(command)
 			{
 				case	NEW_DIAG_DEFINITION:
-					break;	// Fill in the blanks.
+					//create a new diagnostics definition and switch to the new definition
+					collection_interval1 = current_command[145];
+					for(i = 0; i < DATA_LENGTH; i++)
+					{
+						diag_definition1[i] = current_command[i];
+					}
+					diag_definition1[136] = 1;		//sID = 1
+					diag_definition1[135] = collection_interval1;
+					diag_definition1[134] = current_command[146];
+					set_definition(ALTERNATE);
+					send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
+					break;
 				case	CLEAR_DIAG_DEFINITION:
+					//clear the alternate definition and return to using the default definition
+					collection_interval1 = 30; //default interval
+					for(i = 0; i < DATA_LENGTH; i++)
+					{
+						diag_definition1[i] = 0;
+					}
+					set_definition(DEFAULT);
+					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	ENABLE_D_PARAM_REPORT:
+					//when reporting diagnostics data, also report the current definition
+					param_report_requiredf = 1;
+					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	DISABLE_D_PARAM_REPORT:
+					//stop reporting the current definition
+					param_report_requiredf = 0;
+					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	REPORT_DIAG_DEFINITIONS:
+					//same as enabled param report
+					param_report_requiredf = 1;
+					send_tc_execution_verify(1, packet_id, psc);				
 					break;
 				default:
 					break;
@@ -1496,7 +1558,21 @@ static void enter_SAFE_MODE(uint8_t reason)
 	{
 		// Reset the watchdog timer.
 		wdt_restart(WDT);
-		// Collect diagnostics (William: request_diagnostics(), store_diagnostics() can go here)
+				
+		if (CURRENT_MINUTE % 15 == 0) { // Collect diagnostics (William: request_diagnostics(), store_diagnostics() can go here)
+			//report diagnostics every 15 mins
+			
+			request_diagnostics_all();		 /* gets data from subsystems	       */
+			store_diagnostics();			 /*	-stores in SPI memory		       */
+			send_diag_as_tm();				 /*  -sends data as telemetry	       */
+			if(diag_param_report_requiredf)
+				send_param_report();		 /* sends parameter report if required */
+			/*
+			FAILURE_RECOVERY
+			request_diagnostics_all returns 1 if ok, -1 if request_housekeeping() func call fails
+			store_diagnostics() returns 1 if ok, -1 if not
+			*/
+		}
 		
 		// Update the absolute time on the satellite
 		time_update();
@@ -1587,6 +1663,24 @@ static void init_vars(void)
 	pay_fifo_from_OPR_fumble_count = 0;
 	SMERROR = 0;
 	clear_test_arrays();
+	
+	// initialize diagnostics variables
+	new_diag_msg_low = 0;
+	new_diag_msg_high = 0;
+	current_diag_fullf = 0;
+	current_diag_definitionf = 0; //start with default definition
+	diag_param_report_requiredf = 0;
+	collection_interval0 = 30;
+	collection_interval1 = 30;
+	
+	//clear diagnostics values and set up the default definition
+	clear_current_diag();
+	clear_current_command();
+	setup_default_definition();
+	set_definition(DEFAULT);
+	clear_alternate_diag_definition();
+	set_diag_mem_offset();
+	
 	return;
 }
 
@@ -1613,3 +1707,357 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	return;
 }
 
+
+
+/* --- Diagnostics functions --- */
+
+/************************************************************************/
+/* CLEAR_CURRENT_DIAG													*/
+/* @Purpose: clears the arrays current_diag[] and diag_updated[]		*/
+/* @Note: Modified version of clear_current_hk() from housekeep.c		*/
+/************************************************************************/
+static void clear_current_diag(void)
+{
+	uint8_t i;
+	for (i=0; i < DATA_LENGTH; i++)
+	{
+		current_diag[i] = 0;
+		diag_updated[i] = 0;
+	}
+	return;
+}
+
+/************************************************************************/
+/* CLEAR_ALTERNATE_HK_DEFINITION										*/
+/* @Purpose: clears the array current_hk_definition						*/
+/* @Note: Modified from housekeep.c										*/
+/************************************************************************/
+static void clear_alternate_diag_definition(void)
+{
+	uint8_t i;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		diag_definition1[i] = 0;
+	}
+	return;
+}
+
+/************************************************************************/
+/* REQUEST_DIAGNOSTICS_ALL												*/
+/* @Purpose: requests data from the subsystems							*/
+/* @Note: Straight copied from housekeep.c								*/
+/************************************************************************/
+static int request_diagnostics_all(void)
+{
+	if(request_housekeeping(EPS_ID) > 1)	// Request housekeeping from COMS.
+		return -1;
+	if(request_housekeeping(COMS_ID) > 1)	// Request housekeeping from EPS.
+		return -1;
+	if(request_housekeeping(PAY_ID) > 1)	// Request housekeeping from PAY.
+		return -1;
+	
+	// Give the SSMs >100ms to transmit their housekeeping
+	xLastWakeTime = xTaskGetTickCount();
+	vTaskDelayUntil(&xLastWakeTime, (TickType_t)100);
+	return 1;
+}
+
+/************************************************************************/
+/* STORE_DIAGNOSTICS													*/
+/* @Purpose: verifies diagnostics, then calls store_diag_in_spimem()	*/
+/* @Note: Copied and edited from housekeep.c							*/
+/************************************************************************/
+static int store_diagnostics(void)
+{
+	uint8_t sender = 0xFF;
+	uint8_t num_parameters = current_diag_definition[134];
+	int x = -1;
+	uint8_t = parameter_name = 0;
+	uint8_t i;
+	
+	if (current_diag_fullf)
+	{
+		return -1;
+	}
+	clear_current_diag();
+	
+	while(read_can_hk(&new_diag_msg_high, &new_diag_msg_low, 1234) == 1)
+	{
+		sender = (new_diag_msg_high & 0xF0000000) >> 28;			// Can be EPS_ID/COMS_ID/PAY_ID/OBC_ID
+		parameter_name = (new_diag_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for diagnostics (either sensor or variable).
+		
+		for(i = 0; i < num_parameters; i+=2)
+		{
+			if (current_diag_definition[i] == parameter_name)
+			{
+				current_diag[i] = (uint8_t)(new_diag_msg_low & 0x000000FF);
+				current_diag[i] = (uint8_t)((new_diag_msg_low & 0x0000FF00) >> 8);
+				
+				diag_updated[i] = 1;
+				diag_updated[i + 1] = 1;
+			}
+		}
+		taskYIELD();		// Allows for more messages to come in.
+	}
+	
+	for(i = 0; i < num_parameters; i+=2)
+	{
+		if(!diag_updated[i])
+		{//failed updates are requested 3 times. If they fail, error is reported
+			
+			int attempts = 1;
+			int* status = 0; // this might be wrong
+			req_data_result = 0;
+			req_data_result = request_sensor_data(FDIR_TASK_ID,get_ssm_id(current_diag_definition[i]),current_diag_definition[i],status);
+			while (attempts < 3 && req_data_result == -1){
+				attempts++;
+				req_data_result = request_sensor_data(FDIR_TASK_ID,get_ssm_id(current_diag_definition[i]),current_diag_definition[i],status);
+			}
+			
+			if (req_data_result == -1){
+				//malfunctioning sensor is sent to erorREPORT
+				errorREPORT(FDIR_TASK_ID,HK_COLLECT_ERROR, &current_diag_definition[i]); //TODO change to diagnostics specific error (?)
+			}
+			else {
+				current_diag[i] = (uint8_t)(req_data_result & 0x000000FF);
+				current_diag[i + 1] = (uint8_t)((req_data_result & 0x0000FF00) >> 8);
+				
+				diag_updated[i] = 1;
+				diag_updated[i + 1] = 1;
+			}
+		}
+	}
+	
+	/* actually store in SPI memory */
+	x = store_diag_in_spimem();
+	
+	current_diag_fullf = 1;
+	return 1;
+}
+
+/************************************************************************/
+/* SET_DIAG_MEM_OFFSET													*/
+/* @Purpose: sets the memory offset for diagnostics's					*/
+/*	reading/writing to SPIMEM											*/
+/************************************************************************/
+static void set_diag_mem_offset(void)
+{
+	uint32_t offset;
+	spimem_read(DIAG_BASE, current_diag_mem_offset, 4);	// Get the current diagnostics memory offset.
+	offset = (uint32_t)(current_diag_mem_offset[0] << 24);
+	offset += (uint32_t)(current_diag_mem_offset[1] << 16);
+	offset += (uint32_t)(current_diag_mem_offset[2] << 8);
+	offset += (uint32_t)current_diag_mem_offset[3];
+	
+	if(offset == 0) {
+		current_diag_mem_offset[3] = 4;
+		spimem_write(DIAG_BASE + 3, current_diag_mem_offset + 3, 1);
+	}
+	return;
+}
+
+/************************************************************************/
+/* STORE_DIAG_IN_SPIMEM													*/
+/* @Purpose: stores the diagnostics which was just collected in spimem	*/
+/* along with a timestamp.												*/
+/* @Note: When diag memory fills up, this function simply wraps back	*/
+/* around to the beginning of diagnostics in memory.					*/
+/************************************************************************/
+static int store_diag_in_spimem(void)
+{
+	uint32_t offset;
+	int x;
+	offset = (uint32_t)(current_diag_mem_offset[0] << 24);
+	offset += (uint32_t)(current_diag_mem_offset[1] << 16);
+	offset += (uint32_t)(current_diag_mem_offset[2] << 8);
+	offset += (uint32_t)current_diag_mem_offset[3];
+	x = spimem_write((DIAG_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	x = spimem_write((DIAG_BASE + offset + 4), &current_diag_definitionf, 1);	// Writes the sID to memory.
+	x = spimem_write((DIAG_BASE + offset + 5), current_diag, 128);		// FAILURE_RECOVERY if x < 0
+	
+	offset = (offset + 137) % 16384;								// Make sure diagnostics doesn't overflow into the next section (we gave 16kB to diagnostics = 16384 bits)
+	if(offset == 0) offset = 4;
+	
+	current_diag_mem_offset[3] = (uint8_t)offset;
+	current_diag_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
+	current_diag_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
+	current_diag_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
+	x = spimem_write(DIAG_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
+	return;
+}
+
+/************************************************************************/
+/* SETUP_DEFAULT_DEFINITION												*/
+/* @Purpose: This function will set the values stored in the default	*/
+/* diagnostics definition and will also set it as the current definition*/
+/************************************************************************/
+static void setup_default_definition(void)
+{
+	uint8_t i;
+	
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		diag_definition0[i]=0;
+	}
+	
+	//just copied from housekeep.c
+	//might want to change it later
+	diag_definition0[136] = 0;							// sID = 0
+	diag_definition0[135] = collection_interval0;			// Collection interval = 30 min
+	diag_definition0[134] = 36;							// Number of parameters (2B each)
+	diag_definition0[81] = PANELX_V;
+	diag_definition0[80] = PANELX_V;
+	diag_definition0[79] = PANELX_I;
+	diag_definition0[78] = PANELX_I;
+	diag_definition0[77] = PANELY_V;
+	diag_definition0[76] = PANELY_V;
+	diag_definition0[75] = PANELY_I;
+	diag_definition0[74] = PANELY_I;
+	diag_definition0[73] = BATTM_V;
+	diag_definition0[72] = BATTM_V;
+	diag_definition0[71] = BATT_V;
+	diag_definition0[70] = BATT_V;
+	diag_definition0[69] = BATTIN_I;
+	diag_definition0[68] = BATTIN_I;
+	diag_definition0[67] = BATTOUT_I;
+	diag_definition0[66] = BATTOUT_I;
+	diag_definition0[65] = BATT_TEMP;
+	diag_definition0[64] = BATT_TEMP;	//
+	diag_definition0[63] = EPS_TEMP;
+	diag_definition0[62] = EPS_TEMP;	//
+	diag_definition0[61] = COMS_V;
+	diag_definition0[60] = COMS_V;
+	diag_definition0[59] = COMS_I;
+	diag_definition0[58] = COMS_I;
+	diag_definition0[57] = PAY_V;
+	diag_definition0[56] = PAY_V;
+	diag_definition0[55] = PAY_I;
+	diag_definition0[54] = PAY_I;
+	diag_definition0[53] = OBC_V;
+	diag_definition0[52] = OBC_V;
+	diag_definition0[51] = OBC_I;
+	diag_definition0[50] = OBC_I;
+	diag_definition0[49] = BATT_I;
+	diag_definition0[48] = BATT_I;
+	diag_definition0[47] = COMS_TEMP;	//
+	diag_definition0[46] = COMS_TEMP;
+	diag_definition0[45] = OBC_TEMP;	//
+	diag_definition0[44] = OBC_TEMP;
+	diag_definition0[43] = PAY_TEMP0;
+	diag_definition0[42] = PAY_TEMP0;
+	diag_definition0[41] = PAY_TEMP1;
+	diag_definition0[40] = PAY_TEMP1;
+	diag_definition0[39] = PAY_TEMP2;
+	diag_definition0[38] = PAY_TEMP2;
+	diag_definition0[37] = PAY_TEMP3;
+	diag_definition0[36] = PAY_TEMP3;
+	diag_definition0[35] = PAY_TEMP4;
+	diag_definition0[34] = PAY_TEMP4;
+	diag_definition0[33] = PAY_HUM;
+	diag_definition0[32] = PAY_HUM;
+	diag_definition0[31] = PAY_PRESS;
+	diag_definition0[30] = PAY_PRESS;
+	diag_definition0[29] = PAY_ACCEL;
+	diag_definition0[28] = PAY_ACCEL;
+	diag_definition0[27] = MPPTA;
+	diag_definition0[26] = MPPTA;
+	diag_definition0[25] = MPPTB;
+	diag_definition0[24] = MPPTB;
+	diag_definition0[23] = COMS_MODE;	//
+	diag_definition0[22] = COMS_MODE;
+	diag_definition0[21] = EPS_MODE;	//
+	diag_definition0[20] = EPS_MODE;
+	diag_definition0[19] = PAY_MODE;
+	diag_definition0[18] = PAY_MODE;
+	diag_definition0[17] = OBC_MODE;
+	diag_definition0[16] = OBC_MODE;
+	diag_definition0[15] = PAY_STATE;
+	diag_definition0[14] = PAY_STATE;
+	diag_definition0[13] = ABS_TIME_D;
+	diag_definition0[12] = ABS_TIME_D;
+	diag_definition0[11] = ABS_TIME_H;
+	diag_definition0[10] = ABS_TIME_H;
+	diag_definition0[9] = ABS_TIME_M;
+	diag_definition0[8] = ABS_TIME_M;
+	diag_definition0[7] = ABS_TIME_S;
+	diag_definition0[6] = ABS_TIME_S;
+	diag_definition0[5] = SPI_CHIP_1;
+	diag_definition0[4] = SPI_CHIP_1;
+	diag_definition0[3] = SPI_CHIP_2;
+	diag_definition0[2] = SPI_CHIP_2;
+	diag_definition0[1] = SPI_CHIP_3;
+	diag_definition0[0] = SPI_CHIP_3;
+	return;
+}
+
+/************************************************************************/
+/* SENT_DEFINITION														*/
+/* @Purpose: This function will change which definition is being used	*/
+/* for creating diagnostics reports.									*/
+/* @param: sID: 0 == default, 1 = alternate.							*/
+/************************************************************************/
+static void set_definition(uint8_t sID)
+{
+	uint8_t i;
+	if(!sID)	// DEFAULT (use diag_definition0)
+	{
+		for(i = 0; i < DATA_LENGTH; i++)
+		{
+			current_diag_definition[i] = diag_definition0[i];
+		}
+		current_diag_definitionf = 0;
+		xTimeToWait = collection_interval0 * 1000 * 60;
+	}
+	if(sID == 1) // ALERNATE (use diag_definition1)
+	{
+		for(i = 0; i < DATA_LENGTH; i++)
+		{
+			current_diag_definition[i] = diag_definition1[i];
+		}
+		current_diag_definitionf = 1;
+		xTimeToWait = collection_interval1 * 1000 * 60;
+	}
+	return;
+}
+
+/************************************************************************/
+/* SEND_DIAG_AS_TM														*/
+/* @Purpose: This function will downlink all diagnostics to ground		*/
+/* by sending 128B chunks to the OBC_PACKET_ROUTER, which in turn will	*/
+/* attempt to downlink the telemetry to ground.							*/
+/************************************************************************/
+static void send_diag_as_tm(void)
+{
+	uint8_t i;
+	clear_current_command();
+	//clear previous data
+	
+	current_command[146] = DIAG_REPORT;
+	
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_command[i] = current_diag[i];
+	}
+	xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	return;
+}
+
+
+/************************************************************************/
+/* SEND_DIAG_PARAM_REPORT												*/
+/* @Purpose: This function will downlink the current diagnostics		*/
+/* definition being used to produce diagnostics reports.				*/
+/* Does this by sending current_diag_definition[] to OBC_PACKET_ROUTER.	*/
+/************************************************************************/
+static void send_diag_param_report(void)
+{
+	uint8_t i;
+	clear_current_command();
+	
+	current_command[146] = DIAG_DEFINITION_REPORT;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_command[i] = current_diag_definition[i];
+	}
+	xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+}

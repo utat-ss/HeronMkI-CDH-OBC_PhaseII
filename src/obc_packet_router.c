@@ -126,6 +126,7 @@ static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
+static uint8_t diag_telem_count, diag_def_report_count;
 static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count, sched_command_count;
@@ -180,6 +181,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	tc_verify_success_count = 0;
 	hk_telem_count = 0;
 	hk_def_report_count = 0;
+	diag_telem_count = 0;
+	diag_def_report_count = 0;
 	tc_verify_fail_count = 0;
 	tc_exec_success_count = 0;
 	tc_exec_fail_count = 0;
@@ -339,6 +342,17 @@ static void exec_commands(void)
 			low = ((uint8_t)current_command[1]) << 8;
 			low = (uint8_t)current_command[0];
 			send_event_packet(high, low);
+		}
+		//diagnostics reports
+		if (current_command[146] == DIAG_REPORT)
+		{
+			diag_telem_count++;
+			packetize_send_telemetry(FDIR_TASK_ID, FDIR_GROUND_ID, FDIR_SERVICE, DIAG_REPORT, diag_telem_count, 1, current_command);
+		}
+		if (current_command[146] == DIAG_DEFINITION_REPORT)
+		{
+			diag_def_report_count++;
+			packetize_send_telemetry(FDIR_TASK_ID, FDIR_GROUND_ID, FDIR_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
 		}
 	}
 	return;
@@ -776,6 +790,30 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				
 			// William: Put more diagnostics stuff here. This time I want the service_type in current_command[146] and
 			// The service_sub_type placed in current_command[145]
+			case	NEW_DIAG_DEFINITION:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = NEW_DIAG_DEFINITION;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	CLEAR_DIAG_DEFINITION:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = CLEAR_DIAG_DEFINITION;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	ENABLE_D_PARAM_REPORT:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = ENABLE_D_PARAM_REPORT;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	DISABLE_D_PARAM_REPORT:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = DISABLE_D_PARAM_REPORT;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	REPORT_DIAG_DEFINITIONS:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = REPORT_DIAG_DEFINITIONS;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
 				
 			default:
 				break;
@@ -1095,6 +1133,8 @@ void opr_kill(uint8_t killer)
 	vPortFree(tc_sequence_count);
 	vPortFree(hk_telem_count);
 	vPortFree(hk_def_report_count);
+	vPortFree(diag_telem_count);
+	vPortFree(diag_def_report_count);
 	vPortFree(time_report_count);
 	vPortFree(mem_dump_count);
 	vPortFree(packet_id);

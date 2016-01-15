@@ -7,7 +7,7 @@ Author: Keenan Burnett, Omar Abdeldayem
 * This file is to be used to house the time-management task (which shall manage
 * all time-related activities.
 *
-* FILE REFERENCES: stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
+* FILE REFERENCES: stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h, error_handling.h
 *
 * EXTERNAL VARIABLES:
 *
@@ -35,6 +35,7 @@ Author: Keenan Burnett, Omar Abdeldayem
 * 11/07/2015	I changed the name of this file from time_manage.c to time_manage.c to better indicate
 *				what this file is meant for.
 *
+* 01/15/2015    A: Added wrapper function to handle FIFO errors.
 * DESCRIPTION:
 */
 
@@ -51,6 +52,9 @@ Author: Keenan Burnett, Omar Abdeldayem
 
 /* Common demo includes. */
 #include "partest.h"
+
+/*    Error handling includes   */
+#include "error_handling.h"
 
 /*		RTC includes.	*/
 #include "rtc.h"
@@ -80,6 +84,9 @@ void update_absolute_time(void);
 static void report_time(void);
 static void exec_commands(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+
+static void xQueueSendToBackTM(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks);
+
 
 /* Local Variables for Time Management */
 static struct timestamp time;
@@ -185,8 +192,7 @@ static void report_time(void)
 	current_command[1] = absolute_time_arr[1];
 	current_command[0] = absolute_time_arr[0];
 	
-	if(xQueueSendToBack(time_to_obc_fifo, current_command, (TickType_t)1) != pdPASS) 			// FAILURE_RECOVERY if this doesn't return pdPASS
-		return;
+	xQueueSendToBackTM(time_to_obc_fifo, current_command, (TickType_t)1);
 	minute_count = 0;
 	return;
 }
@@ -234,5 +240,21 @@ void time_manage_kill(uint8_t killer)
 		vTaskDelete(time_manage_HANDLE);
 	else
 		vTaskDelete(NULL);
+	return;
+}
+
+
+/************************************************************************/
+/* xQueueSendToBackTM                                                   */
+/* wrapper function for xQueueSendToBack for the purpose of catching    */
+/* any FIFO errors                                                      */
+/************************************************************************/
+static void xQueueSendToBackTM(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks){
+	uint8_t attempts = 0;
+	while (attempts<3 && xQueueSendToBack(hk_fifo, itemToQueue, ticks) != pdTRUE ){
+	attempts++;}
+	if (attempts == 2){
+		errorREPORT(TIME_TASK_ID, 0, TM_FIFO_RW_ERROR, itemToQueue);
+	}
 	return;
 }

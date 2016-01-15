@@ -39,8 +39,10 @@ Author: Keenan Burnett
 *					Note that this causes many changes to occur in GPR code and scheduling code as commands are now 16B long.
 *					(I am now effecting these changes)
 *
-* 01/10/2016        Added error handling for SPIMEM errors (wrapper functions) and the failure of a scheduled command
+* 01/10/2016        A:Added error handling for SPIMEM errors (wrapper functions) and the failure of a scheduled command
 *                   (in check_commands() - needs fixing!)
+*
+* 01/10/2016        A: Added some more error reports for modify_schedule and FIFO.
 *
 * DESCRIPTION:
 *
@@ -179,22 +181,40 @@ static void prvSchedulingTask( void *pvParameters )
 /* different commands depending on what was received.					*/
 /************************************************************************/
 
-
+static uint8_t xQueueReceiveSCHED(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks){
+	uint8_t attempts = 0;
+	while (attempts<3 && xQueueReceive(hk_fifo, itemToQueue, ticks) != pdTRUE ){
+	attempts++;}
+	if (attempts == 2){
+		errorREPORT(SCHEDULING_TASK_ID, 0, SCHED_FIFO_RW_ERROR, itemToQueue);
+		return -1;
+	}
+	return 1;
+}
 
 static void exec_pus_commands(void)
 {
 	uint16_t packet_id, psc;
 	uint8_t status, kicked_count;
-	if(xQueueReceive(obc_to_sched_fifo, current_command, (TickType_t)1000) == pdTRUE)	// Only block for a single second.
+	if(xQueueReceive(obc_to_sched_fifo, current_command, (TickType_t)1000) == 1)	// Only block for a single second.
 	{
 		packet_id = ((uint16_t)current_command[140]) << 8;
 		packet_id += (uint16_t)current_command[139];
 		psc = ((uint16_t)current_command[138]) << 8;
 		psc += (uint16_t)current_command[137];
+		
+		
+		
 		switch(current_command[146])
 		{
 			case ADD_SCHEDULE:
 				x = modify_schedule(&status, &kicked_count);
+				
+				uint8_t tries = 0;
+				//Seems like we need FDIR
+				while (tries<3 && x==-1){x = modify_schedule(&status, &kicked_count);}
+				if (x==-1){errorREPORT(SCHEDULING_TASK_ID, 0,SCHED_COMMAND_EXEC_ERROR, 0);}
+				
 				if(status == -1)
 					send_tc_execution_verify(0xFF, packet_id, psc);			// The Schedule modification failed
 				if(status == 2)
@@ -425,9 +445,10 @@ static void load_buff1_to_buff0(void)
 /* @return: -1 = something went wrong, 1 = action succeeded.			*/
 /*		-2 = scheduling is currently paused.							*/
 /************************************************************************/
-static int check_schedule(void)
-{
-	uint8_t status = 0x01;										// This variable is going to contain the status returned
+static int check_schedule(void){
+
+	uint8_t status = 0x01;	//Right now, status doesn't change (!?)		
+							// This variable is going to contain the status returned
 	uint16_t cID, i;
 	uint8_t command_array[16];
 	if(!scheduling_on)
@@ -445,21 +466,16 @@ static int check_schedule(void)
 		cID += (uint16_t)command_array[8];
 		// status = exec_k_command();
 		
-		
-		// Retry for a maximum of 3 tries.
-		//I'm guessing exec_pus_commands() is what we want to repeat?
 		uint8_t tries = 0;
 		while (tries<2 && status == 0xFF){
 			exec_pus_commands();
 			tries++;
 		}
 		if(status == 0xFF)										// The scheduled command failed.
-		{	//is this HIGHSEV or LOWSEV? 
+		{	
 			
 			errorREPORT(SCHEDULING_TASK_ID, 0, SCHED_COMMAND_EXEC_ERROR, &command_array); //FIX: what should the third parameter be?
 				
-			// Still failing: Send a failure message to the FDIR Process and wait for signal from FDIR. FAILURE_RECOVERY
-			// Still failing: (What FDIR should do: ) Send a message to the ground scheduling service letting it know that the command failed.
 		}
 		else
 		{
@@ -649,7 +665,7 @@ int spimem_write_sch(uint32_t addr, uint8_t* data_buff, uint32_t size){
 		attempts++;
 	}
 	if (spimem_success<0) {
-		errorREPORT(SCHEDULING_TASK_ID,0,SCHED_SPIMEM_W_ERROR, data_buff);
+		errorREPORT(SCHEDULING_TASK_ID,spimem_success,SCHED_SPIMEM_W_ERROR, data_buff);
 		return -1;
 		
 	}
@@ -673,7 +689,7 @@ static int spimem_read_sch(uint32_t addr, uint8_t* read_buff, uint32_t size){
 		spimem_success = spimem_read(addr, read_buff, size);
 		attempts++;}
 	if (spimem_success<0) {
-		errorREPORT(SCHEDULING_TASK_ID,0,SCHED_SPIMEM_R_ERROR, &addr);
+		errorREPORT(SCHEDULING_TASK_ID,spimem_success,SCHED_SPIMEM_R_ERROR, &addr);
 		return -1;
 		//errorREPORT assumes the last parameter to be a array with 147 elements. This one isn't.
 		//Is that a problem?

@@ -52,10 +52,11 @@
 	*					The current offset of the housekeeping log needs to be stored in SPI memory just in case the main
 	*					computer gets reset (we would lose track of how much housekeeping is currently in memory)
 	*	
-	*	12/05/2015		Added error handling for exec_commands, store_housekeeping using wrapper functions
+	*	12/05/2015		A:Added error handling for exec_commands, store_housekeeping using wrapper functions
 	*
 	*	12/09/2015		Added in housekeep_suicide() so that this task can kill itself if need be (or if commanded by the fdir task).
 	*
+	*   01/15/2016      A:Added in a wrapper function for FIFO error handling in xQueueSendToBack
 	*	DESCRIPTION:
 	*	
  */
@@ -124,6 +125,7 @@ static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
+static void xQueueSendToBackHK(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks);
 static uint8_t get_ssm_id(uint8_t sensor_name);
 int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);	
 
@@ -237,6 +239,7 @@ static void exec_commands(void){
 }
 
 // Will return 1 if successful, current_command if there is a FIFO error
+
 static int exec_commands_H(void)
 {
 	uint8_t i, command;
@@ -490,13 +493,13 @@ int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size){
 	
 	int attempts = 1;
 	//spimem_success is >0 if successful
-	int spimem_success = spimem_write(addr, data_buff, size);
+	uint8_t spimem_success = spimem_write(addr, data_buff, size);
 	while (attempts<3 && spimem_success<0){
 		spimem_success = spimem_write(addr, data_buff, size);
 		attempts++;
 	}
 	if (spimem_success<0) {
-		errorREPORT(HK_TASK_ID,0,HK_SPIMEM_W_ERROR, data_buff);
+		errorREPORT(HK_TASK_ID,spimem_success,HK_SPIMEM_W_ERROR, data_buff);
 		return -1;
 		//spimem_write can return -1,-2,-3,-4 in case of an error - does FDIR treat all cases the same?
 	}
@@ -652,26 +655,29 @@ static void send_hk_as_tm(void)
 		current_command[i] = current_hk[i];
 	}
 	
-	//TODO: MAKE THIS A FUNCTION TO BE USED WITH ALL INSTANCES OF xQueueSendToBack
-	//Maybe not for exec_commands?
-	if (xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE){
-		int attempts = 1;
-		int success = 0; 
-		while (attempts <3 && xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE){
-			success++;
-		}
-		//Alternate solution: write a hkerror_xQueueSendToBack function that does the error handling
-		//success will be == 2 after 3 failed attempts. if it is equal to 2, then we want to send error report
-		if (success>1){
-			errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR,current_command);
-		}
-	}
-			
+	
+	
+	xQueueSendToBackHK(hk_to_obc_fifo, current_command, (TickType_t)1);
 	return;
 }
-
-
-
+/************************************************************************/
+/* xQueueSendToBackHK                                                   */
+/* wrapper function for xQueueSendToBack for the purpose of catching    */
+/* any FIFO errors                                                      */
+/************************************************************************/
+static void xQueueSendToBackHK(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks){
+	uint8_t attempts = 0;
+	while (attempts<3 && xQueueSendToBack(hk_fifo, itemToQueue, ticks) != pdTRUE ){
+		attempts++;}
+	if (attempts == 2){
+		errorREPORT(HK_TASK_ID, 0, HK_FIFO_RW_ERROR, itemToQueue);
+	}
+	return;
+	}
+	
+	
+	
+	 
 
 
 /************************************************************************/
@@ -689,7 +695,7 @@ static void send_param_report(void)
 	{
 		current_command[i] = current_hk_definition[i];
 	}
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackHK(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 
@@ -711,7 +717,7 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[139] = (uint8_t)packet_id;
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackHK(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 

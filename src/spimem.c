@@ -91,6 +91,9 @@ void spimem_initialize(void)
 	uint16_t dumbuf[2], i;
 	uint8_t check;
 	
+	if(INTERNAL_MEMORY_FALLBACK_MODE)
+		return;
+	
 	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off.
 	gpio_set_pin_low(SPI0_MEM1_WP);	// Turn write protection off.
 	gpio_set_pin_high(SPI0_MEM2_HOLD);	// Turn "holding" off.
@@ -122,8 +125,16 @@ void spimem_initialize(void)
 
 int erase_spimem(void)
 {
-	uint16_t dumbuf[2];
+	uint16_t dumbuf[2], i;
 	dumbuf[0] = CE;
+	if(INTERNAL_MEMORY_FALLBACK_MODE)
+	{
+		for (i = 0; i < 4096; i++)
+		{
+			spi_mem_buff[i] = 0;			// Initialize the memory buffer.
+		}
+		return;
+	}
 	uint32_t timeout = chip_erase_timeout;
 	spi_master_transfer(dumbuf, 1, 2);	// Chip-Erase (this operation can take up to 7s for each chip)
 	while((check_if_wip(2) != 0) && timeout--){ }
@@ -142,9 +153,19 @@ int erase_spimem(void)
 
 // ret > 0 == nunmber of bytes which were successfully written to memory.
 // ret < 0 ==  failure code which should be given to the FDIR task. -1 = All SPI Chips are dead.
+/* @NOTE: Writes a maximum of 256 bytes.									*/
 int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
-	int x = -1;	
+	int x = -1;
+	int i;
+	if(INTERNAL_MEMORY_FALLBACK_MODE)
+	{
+		for(i = 0; i < size; i++)
+		{
+			spi_mem_buff[addr + i] = *(data_buff + i);
+		}
+		return;
+	}
 	if(!SPI_HEALTH1 && ! SPI_HEALTH2 && !SPI_HEALTH3)
 		return -1;
 	if(SPI_HEALTH1)
@@ -187,6 +208,7 @@ int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 /* after that, the function returns -1.									*/
 /* @Note: This function is an atomic operation and hence suspends		*/
 /* interrupts temporarily.												*/
+/* @NOTE: Writes a maximum of 256 bytes.								*/
 /************************************************************************/
 int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
@@ -305,16 +327,32 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 /* @purpose: Read from the SPI memory chip.								*/
 /* @NOTE: This function is a helper and is ONLY to be used within a 	*/
 /* section of code which has acquired the Spi0_Mutex.					*/
+/* @NOTE: Reads a maximum of 256 bytes.									*/
 /************************************************************************/
 static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
 	uint32_t i;
+	uint32_t size2 = size;
+	uint32_t left_over = 0;
 
+	if (INTERNAL_MEMORY_FALLBACK_MODE)
+	{
+		if (addr > 0x0FFF)
+			return -2;
+		if ((addr + size -1) > 0x0FFF)
+			size2 = 0x0FFF - size;
+		for (i = 0; i < size2; i++)
+		{
+			*(read_buff + i) = spi_mem_buff[addr + i];
+		}
+		return size2;
+	}
+		
 	if (addr > 0xFFFFF)										// Invalid address to write to.
 		return -2;
 	if ((addr + size - 1) > 0xFFFFF)
-		size = 0xFFFFF - size;
-
+		size2 = 0xFFFFF - size;
+		
 	msg_buff[0] = RD;
 	msg_buff[1] = (uint16_t)((addr & 0x000F0000) >> 16);
 	msg_buff[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
@@ -330,12 +368,12 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 
 	spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
 
-	for(i = 4; i < 260; i++)
+	for(i = 4; i < (size2 + 4); i++)
 	{
 		*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
 	}
 
-	return size;
+	return size2;
 }
 
 /************************************************************************/
@@ -352,11 +390,28 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 /* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
 /* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
 /* after that, the function returns -1.									*/
+/* @NOTE: Reads a maximum of 256 bytes.									*/
 /************************************************************************/
 int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
 	uint32_t i;
 	uint32_t spi_chip;
+	uint32_t size2 = size;
+	uint32_t left_over = 0;
+	
+	if (INTERNAL_MEMORY_FALLBACK_MODE)
+	{
+		if (addr > 0x0FFF)
+			return -2;
+		if ((addr + size -1) > 0x0FFF)
+			size2 = 0x0FFF - size;
+		for (i = 0; i < size2; i++)
+		{
+			*(read_buff + i) = spi_mem_buff[addr + i];
+		}
+		return size2;
+	}
+	
 	if(SPI_HEALTH1)
 		spi_chip = 1;
 	else if(SPI_HEALTH2)
@@ -372,8 +427,8 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 	
 	if (addr > 0xFFFFF)										// Invalid address to write to.
 		return -2;		// USAGE_ERROR
-	if ((addr + size - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
-		size = 0xFFFFF - size;
+	if ((addr + size2 - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
+		size2 = 0xFFFFF - size2;
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
@@ -398,7 +453,7 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 		
 		spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
 
-		for(i = 4; i < 260; i++)
+		for(i = 4; i < (size2 + 4); i++)
 		{
 			*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
 		}
@@ -426,15 +481,17 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 /* @NOTE: This function first attempts to acquire the mutex for SPI0	*/
 /* it will block for a maximum of 1 Tick, if SPI0 is still occupied		*/
 /* after that, the function returns -1.									*/
+/* @NOTE: Reads a maximum of 256 bytes.									*/
 /************************************************************************/
 int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
 	uint32_t i;
+	uint32_t size2 = size;
 	
 	if (addr > 0xFFFFF)										// Invalid address to write to.
-	return -1;
-	if ((addr + size - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
-	size = 0xFFFFF - size;
+		return -1;
+	if ((addr + size2 - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
+		size2 = 0xFFFFF - size2;
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
@@ -459,7 +516,7 @@ int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32
 		
 		spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
 
-		for(i = 4; i < 260; i++)
+		for(i = 4; i < (size2 + 4); i++)
 		{
 			*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
 		}

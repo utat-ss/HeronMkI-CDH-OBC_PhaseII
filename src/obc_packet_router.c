@@ -946,6 +946,8 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
 		if((tc_to_decode[138] == 1) && (address > 0xFFFFF))				// Invalid memory address (too high)
 			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
+		if((tc_to_decode[138] == 1) && INTERNAL_MEMORY_FALLBACK_MODE && (address > 0x0FFF))		// Invalid memory address (too high for INT MEM FALLBACK MODE)
+			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);			
 	}
 	
 	if(service_type == TIME_SERVICE)

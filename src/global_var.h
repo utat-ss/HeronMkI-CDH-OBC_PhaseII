@@ -44,7 +44,7 @@
 	*	11/26/2015			Adding a couple FIFOs for error reporting / handling.
 	*
 	*	11/25/2015			Adding some the definitions that have been created since I started
-	*						working on the grounstation.
+	*						working on the groundstation.
 	*
 */
 
@@ -82,7 +82,7 @@
 /* Diagnostics							*/
 #define NEW_DIAG_DEFINITION				2
 #define CLEAR_DIAG_DEFINITION			4
-#define ENABLE_D_PARAM_REPORT			6
+#define ENABLE_D_PARAM_REPORT			7
 #define DISABLE_D_PARAM_REPORT			8
 #define REPORT_DIAG_DEFINITIONS			11
 #define DIAG_DEFINITION_REPORT			12
@@ -157,6 +157,7 @@
 #define SAFE_MODE_EXITED				0x20
 #define CAN_ERROR_WITHIN_FDIR			0x21
 #define ERROR_IN_DELETE_TASK			0x22
+#define INTERNAL_MEMORY_FALLBACK_EXITED 0x23
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -222,12 +223,13 @@ uint32_t  glob_stored_data[2];			// Initialized in can_initialize
 uint32_t  glob_stored_message[2];		// Initialized in can_initialize
 
 /* Global Mode Variables */
-uint32_t  SAFE_MODE;					// Condition which will initially hold the system in safe_mode.
-uint32_t  LOW_POWER_MODE;
-uint32_t  COMS_TAKEOVER_MODE;
-uint32_t  COMS_PAUSED;
-uint32_t  EPS_PAUSED;
-uint32_t  PAY_PAUSED;
+uint32_t	SAFE_MODE;					// Condition which will initially hold the system in safe_mode.
+uint32_t	LOW_POWER_MODE;
+uint32_t	COMS_TAKEOVER_MODE;
+uint32_t	COMS_PAUSED;
+uint32_t	EPS_PAUSED;
+uint32_t	PAY_PAUSED;
+uint32_t	INTERNAL_MEMORY_FALLBACK_MODE;
 
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;
@@ -266,5 +268,20 @@ uint32_t erase_sector_timeout;
 uint32_t chip_erase_timeout;
 uint32_t obc_ok_go_timeout;
 uint32_t obc_consec_trans_timeout;
+
+/* SPI MEMORY BASE ADDRESSES	*/
+uint32_t	COMS_BASE;			// COMS = 16kB: 0x00000 - 0x03FFF
+uint32_t	EPS_BASE;			// EPS = 16kB: 0x04000 - 0x07FFF
+uint32_t	PAY_BASE;			// PAY = 16kB: 0x08000 - 0x0BFFF
+uint32_t	HK_BASE;			// HK = 8kB: 0x0C000 - 0x0DFFF
+uint32_t	EVENT_BASE;			// EVENT = 8kB: 0x0E000 - 0x0FFFF
+uint32_t	SCHEDULE_BASE;		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
+uint32_t	SCIENCE_BASE;		// SCIENCE = 8kB: 0x12000 - 0x13FFF
+uint32_t	DIAG_BASE;			// DIAGNOSTICS = 16kB: 0x14000 - 0x17FFF
+uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
+
+/* Limits for task operations */
+uint32_t	MAX_SCHED_COMMANDS;
+uint32_t	LENGTH_OF_HK;
 
 #endif

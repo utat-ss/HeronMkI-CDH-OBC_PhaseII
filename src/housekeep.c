@@ -52,10 +52,11 @@
 	*					The current offset of the housekeeping log needs to be stored in SPI memory just in case the main
 	*					computer gets reset (we would lose track of how much housekeeping is currently in memory)
 	*	
-	*	12/05/2015		Added error handling for exec_commands, store_housekeeping using wrapper functions
+	*	12/05/2015		A:Added error handling for exec_commands, store_housekeeping using wrapper functions
 	*
 	*	12/09/2015		Added in housekeep_suicide() so that this task can kill itself if need be (or if commanded by the fdir task).
 	*
+	*   01/15/2016      A:Added in a wrapper function for FIFO error handling in xQueueSendToBack
 	*	DESCRIPTION:
 	*	
  */
@@ -123,7 +124,13 @@ static int exec_commands_H(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+
+static void xQueueSendToBackHK(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks);
+static uint8_t get_ssm_id(uint8_t sensor_name);
+int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);	
+
 uint8_t get_ssm_id(uint8_t sensor_name);
+
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -226,12 +233,13 @@ static void exec_commands(void){
 		attempts++;
 	}
 	if (exec_com_success != 1) {
-		errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR, exec_com_success);
+		errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR, exec_com_success);
 	}
 	return;
 }
 
 // Will return 1 if successful, current_command if there is a FIFO error
+
 static int exec_commands_H(void)
 {
 	uint8_t i, command;
@@ -416,7 +424,7 @@ static void store_housekeeping(void)
 			
 			if (req_data_result == -1){
 				//malfunctioning sensor is sent to erorREPORT
-				errorREPORT(HK_TASK_ID,HK_COLLECT_ERROR, &current_hk_definition[i]);
+				errorREPORT(HK_TASK_ID,0,HK_COLLECT_ERROR, &current_hk_definition[i]);
 			}
 			else {
 				current_hk[i] = (uint8_t)(req_data_result & 0x000000FF);
@@ -457,24 +465,47 @@ uint8_t get_ssm_id(uint8_t sensor_name){
 static int store_hk_in_spimem(void)
 {
 	uint32_t offset;
-	int x;
+	
 	offset = (uint32_t)(current_hk_mem_offset[0] << 24);
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
-	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
-	x = spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
-	x = spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
-	offset = (offset + 137) % 8192;								// Make sure HK doesn't overflow into the next section.
+
+	hk_spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	hk_spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
+	hk_spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
+	offset = (offset + 137) % LENGTH_OF_HK;								// Make sure HK doesn't overflow into the next section.
+
 	if(offset == 0)
 		offset = 4;
 	current_hk_mem_offset[3] = (uint8_t)offset;
 	current_hk_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
 	current_hk_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
 	current_hk_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
-	x = spimem_write(HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
+	hk_spimem_write(HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
 	return;
 }
+
+
+//Wrapper function for spimem_write within this file. 
+//If the function fails after 3 attempts, sends data_buff to error_report
+int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size){
+	
+	int attempts = 1;
+	//spimem_success is >0 if successful
+	uint8_t spimem_success = spimem_write(addr, data_buff, size);
+	while (attempts<3 && spimem_success<0){
+		spimem_success = spimem_write(addr, data_buff, size);
+		attempts++;
+	}
+	if (spimem_success<0) {
+		errorREPORT(HK_TASK_ID,spimem_success,HK_SPIMEM_W_ERROR, data_buff);
+		return -1;
+		//spimem_write can return -1,-2,-3,-4 in case of an error - does FDIR treat all cases the same?
+	}
+	else {return 0;}
+}	
+
 
 /************************************************************************/
 /* SETUP_DEFAULT_DEFINITION												*/
@@ -623,9 +654,31 @@ static void send_hk_as_tm(void)
 	{
 		current_command[i] = current_hk[i];
 	}
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	
+	
+	
+	xQueueSendToBackHK(hk_to_obc_fifo, current_command, (TickType_t)1);
 	return;
 }
+/************************************************************************/
+/* xQueueSendToBackHK                                                   */
+/* wrapper function for xQueueSendToBack for the purpose of catching    */
+/* any FIFO errors                                                      */
+/************************************************************************/
+static void xQueueSendToBackHK(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks){
+	uint8_t attempts = 0;
+	while (attempts<3 && xQueueSendToBack(hk_fifo, itemToQueue, ticks) != pdTRUE ){
+		attempts++;}
+	if (attempts == 2){
+		errorREPORT(HK_TASK_ID, 0, HK_FIFO_RW_ERROR, itemToQueue);
+	}
+	return;
+	}
+	
+	
+	
+	 
+
 
 /************************************************************************/
 /* REPORT_SCHEDULE														*/
@@ -642,7 +695,7 @@ static void send_param_report(void)
 	{
 		current_command[i] = current_hk_definition[i];
 	}
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackHK(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 
@@ -664,7 +717,7 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[139] = (uint8_t)packet_id;
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackHK(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 

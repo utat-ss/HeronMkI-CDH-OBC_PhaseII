@@ -62,15 +62,14 @@ static void prvPayloadTask( void *pvParameters );
 TaskHandle_t payload(void);
 void payload_kill(uint8_t killer);
 
-static void readTemp(void);
-static void readEnv(void);
-static void readHum(void);
-static void readPres(void);
-static void readAccel(void);
-static void readFL(void);
-static void readMIC(void);
+static void readTemp();
+static void readEnv();
+static void readHum();
+static void readPres();
+static void readAccel();
+static void readFL();
+static void readMIC();
 static void activate_heater(uint32_t tempval, int sensor_index);
-static void setUpSens(void);
 
 /*-----------------------------------------------------------*/
 
@@ -147,7 +146,7 @@ static void prvPayloadTask(void *pvParameters )
 		
 				if(CURRENT_MINUTE - last_FL_time >= FL_timebetween){
 					readFL();
-					last_FL_time = CURRENT_MINUTE;
+					last_FL_time = CURRENT_MINUTE
 				}
 				
 				if(CURRENT_MINUTE - last_MIC_time > MIC_timebetween){
@@ -172,15 +171,15 @@ static void prvPayloadTask(void *pvParameters )
 			the sensors									
 																						*/
 /****************************************************************************************/
-static void setUpSens(void)
+static void setUpSens()
 {
 	//time between in ms in hexadecimal
-	temp_timebetween = 0x1F4; //0.5 min
-	hum_timebetween = 0x3E8; //1 min
-	pres_timebetween = 0x3E8; 
-	accel_timebetween = 0x3E8;
-	MIC_timebetween = 0x1E; //30 min
-	FL_timebetween = 0x1E; 
+	temp_timebetween = 0x1F4 //0.5 min
+	hum_timebetween = 0x3E8 //1 min
+	pres_timebetween = 0x3E8 
+	accel_timebetween = 0x3E8
+	MIC_timebetween = 0x1E //30 min
+	FL_timebetween = 0x1E 
 	last_temp_time = 0x0;
 	last_hum_time = 0x0;
 	last_pres_time = 0x0;
@@ -225,29 +224,28 @@ static void readEnv(){
 	readAccel();
 }
 
-static void readHum(void){
+static void readHum(){
 	uint32_t humval = 0;
 	humval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, 0); //status???
 	//spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 	//spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size) //super confused how to use these
-}
 
 
-static void readPres(void){
+static void readPres(){
 	uint32_t presval = 0;
 	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, 0); //status???
 	//spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 	//spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size) //super confused how to use these
 }
 
-static void readAccel(void){
+static void readAccel(){
 	uint32_t accelval = 0;
 	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, 0); //status???
 	//spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 	//spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size) //super confused how to use these
 }
 
-static void readFL(void){
+static void readFL(){
 	uint32_t FLval = 0;
 	uint32_t ODval = 0;
 	uint8_t OD_PD = PAY_FL_OD_PD0;
@@ -263,7 +261,7 @@ static void readFL(void){
 	}
 }
 
-static void readMIC(void){
+static void readMIC(){
 	uint32_t ODval = 0;
 	uint8_t OD_PD = PAY_MIC_OD_PD0;	
 	

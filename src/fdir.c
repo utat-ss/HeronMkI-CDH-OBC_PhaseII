@@ -907,6 +907,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 	uint32_t data = 0;
 	int* status = 0;
 	
+	ssmID = get_ssm_id(parameter);
 	// Otherwise, increase the timeout and try again.
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
 	if(req_data_timeout > 10000000)
@@ -945,21 +946,21 @@ static void resolution_sequence29(uint8_t ssmID)
 	ssm_consec_trans_timeout += 10;		// Increase the timeout by 1ms.
 
 	if(ssm_consec_trans_timeout < 250)
-		set_variable_value(SSM_CTT, ssm_consec_trans_timeout);
+		set_variable(FDIR_TASK_ID, COMS_ID, SSM_CTT, ssm_consec_trans_timeout);
 	
 	if(ssm_consec_trans_timeout == 230)			// Try resetting the SSM and hope that this resolves the issue.
 		reset_SSM(ssmID);
 	if(ssm_consec_trans_timeout == 240)			// Try reprogramming the SSm and hope that this resolves the issue.
-		reprogram_SSM(ssmID);
+		reprogram_ssm(ssmID);
 	if (ssm_consec_trans_timeout > 240)			// If the timeout gets too long, we enter into SAFE_MODE.
 		enter_SAFE_MODE(SSM_CTT_TOO_LONG);
 
 	if(!ssmID)
-		set_variable_value(COMS_FDIR_SIGNAL, 0);
+		set_variable(FDIR_TASK_ID, COMS_ID, COMS_FDIR_SIGNAL, 0);
 	if(ssmID == 1)
-		set_variable_value(EPS_FDIR_SIGNAL, 0);
+		set_variable(FDIR_TASK_ID, EPS_ID, EPS_FDIR_SIGNAL, 0);
 	if(ssmID == 2)
-		set_variable_value(PAY_FDIR_SIGNAL, 0);
+		set_variable(FDIR_TASK_ID, PAY_ID, PAY_FDIR_SIGNAL, 0);
 	return;
 }
 

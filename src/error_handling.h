@@ -60,7 +60,7 @@ uint8_t low_error_array[152];
 #define HK_COLLECT_ERROR				0x07 //implemented
 #define HK_SPIMEM_R_ERROR				0x08 //implemented
 #define HK_SPIMEM_W_ERROR				0x1C //implemented
-#define TM_FIFO_RW_ERROR				0x08 //done
+#define TM_FIFO_RW_ERROR				0x09 //done
 #define SPIMEM_BUSY_CHIP_ERROR			0x0A //done    //all errors in spimem.c send msg_buff as data
 #define SPIMEM_CHIP_ERASE_ERROR			0x0B //done
 #define SPIMEM_LOAD_SECTOR_ERROR		0x0C //done
@@ -68,14 +68,14 @@ uint8_t low_error_array[152];
 #define SPIMEM_ERASE_SECTOR_ERROR		0x0E //done
 #define SPIMEM_WRITE_SECTOR_ERROR		0x0F //done
 #define SPIMEM_WR_ERROR					0x10 //done
-#define SPIMEM_ALL_CHIPS_ERROR			0x11  // done; assuming this is a highsev error?
-#define RTC_SPIMEM_R_ERROR				0x12  //done, not sure about what to send as data
-#define MEM_SPIMEM_CHIPS_ERROR			0x13
-#define MEM_SPIMEM_MEM_WASH_ERROR		0x14
+#define SPIMEM_ALL_CHIPS_ERROR			0x11 //done; assuming this is a highsev error?
+#define RTC_SPIMEM_R_ERROR				0x12 //done; not sure about what to send as data
+#define MEM_SPIMEM_CHIPS_ERROR			0x13 //done: hi or low sev?
+#define MEM_SPIMEM_MEM_WASH_ERROR		0x14 //TODO
 #define MEM_OTHER_SPIMEM_ERROR			0x15
 #define MEM_FIFO_RW_ERROR				0x16  //todo: same solution as SCHED_FIFO_RW_ERROR
-#define EPS_SSM_GET_SENSOR_DATA_ERROR	0x17
-#define EPS_SET_VARIABLE_ERROR			0x18
+#define EPS_SSM_GET_SENSOR_DATA_ERROR	0x17 //done
+#define EPS_SET_VARIABLE_ERROR			0x18 //done, question about res_seq7
 #define OBC_COMS_TC_TM_ERROR			0x19
 #define OBC_TC_PACKET_ERROR				0x1A
 #define OBC_FIFO_RW_ERROR				0x1B  //todo: same solution as SCHED_FIFO_RW_ERROR

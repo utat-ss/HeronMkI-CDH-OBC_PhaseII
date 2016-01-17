@@ -174,6 +174,15 @@ static void memory_wash(void)
 	if(INTERNAL_MEMORY_FALLBACK)	// No washing while in internal memory fallback mode.
 		return;
 	
+	//adding this to check for MEM_SPIMEM_CHIPS_ERROR
+	if(!SPI_HEALTH1 && !SPI_HEALTH2 && !SPI_HEALTH3){
+		errorASSERT(MEMORY_TASK_ID, 0, MEM_SPIMEM_CHIPS_ERROR, 0, 0);
+		//3 dead spimem chips is highsev?
+		//no mutex
+		return;
+	}
+	
+	
 	if(!SPI_HEALTH1 || !SPI_HEALTH2 || !SPI_HEALTH3)
 	{
 		// If one of the chips is dead, we can't do any memory washing.
@@ -183,15 +192,28 @@ static void memory_wash(void)
 	for(page = 0; page < 4096; page++)	// Loop through each page in memory.
 	{
 		addr = page << 8;
-			
+		
+		
+		//TODO: make this less ugly
 		for(spi_chip = 1; spi_chip < 4; spi_chip++)
 		{
 			x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
 			y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
 			z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
 				
-			if((x < 0) || (y < 0) || (z < 0))
-			x = x;									// FAILURE_RECOVERY.
+			if((x < 0) || (y < 0) || (z < 0)){
+				x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
+				y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
+				z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
+				
+				if((x < 0) || (y < 0) || (z < 0)){
+					x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
+					y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
+					z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
+					if((x < 0) || (y < 0) || (z < 0)){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
+					}
+			}
+												
 		}
 			
 		for(byte = 0; byte < 256; byte++)

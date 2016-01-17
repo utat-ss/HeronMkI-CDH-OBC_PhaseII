@@ -196,6 +196,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define GROUND_PACKET_ROUTER_ID 0x13
 #define FDIR_GROUND_ID			0x14
 #define SCHED_GROUND_ID			0x15
+#define SPIMEM_SENDER_ID		0x0A //Added 01/16/16 for errorREPORT()
+
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01

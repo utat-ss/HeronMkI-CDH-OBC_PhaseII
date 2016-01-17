@@ -60,15 +60,15 @@ uint8_t low_error_array[152];
 #define HK_COLLECT_ERROR				0x07 //implemented
 #define HK_SPIMEM_R_ERROR				0x08 //implemented
 #define HK_SPIMEM_W_ERROR				0x1C //implemented
-#define TM_FIFO_RW_ERROR				0x08 //todo: same solution as SCHED_FIFO_RW_ERROR
-#define SPIMEM_BUSY_CHIP_ERROR			0x0A
-#define SPIMEM_CHIP_ERASE_ERROR			0x0B
-#define SPIMEM_LOAD_SECTOR_ERROR		0x0C
-#define SPIMEM_UPDATE_SPIBUFFER_ERROR	0x0D
-#define SPIMEM_ERASE_SECTOR_ERROR		0x0E
-#define SPIMEM_WRITE_SECTOR_ERROR		0x0F
-#define SPIMEM_WR_ERROR					0x10
-#define SPIMEM_ALL_CHIPS_ERROR			0x11
+#define TM_FIFO_RW_ERROR				0x08 //done
+#define SPIMEM_BUSY_CHIP_ERROR			0x0A //done    //all errors in spimem.c send msg_buff as data
+#define SPIMEM_CHIP_ERASE_ERROR			0x0B //done
+#define SPIMEM_LOAD_SECTOR_ERROR		0x0C //done
+#define SPIMEM_UPDATE_SPIBUFFER_ERROR	0x0D //done
+#define SPIMEM_ERASE_SECTOR_ERROR		0x0E //done
+#define SPIMEM_WRITE_SECTOR_ERROR		0x0F //done
+#define SPIMEM_WR_ERROR					0x10 //done
+#define SPIMEM_ALL_CHIPS_ERROR			0x11  // done; assuming this is a highsev error?
 #define RTC_SPIMEM_R_ERROR				0x12  //todo: same solution as SCHED_SPIMEM_R_ERROR
 #define MEM_SPIMEM_CHIPS_ERROR			0x13
 #define MEM_SPIMEM_MEM_WASH_ERROR		0x14

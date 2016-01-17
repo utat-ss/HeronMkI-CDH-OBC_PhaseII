@@ -50,12 +50,13 @@ uint8_t low_error_array[152];
 // Note that currently acquired mutex locks should be released during the waiting process.
 
 //ERROR IDs as defined in FDIR document
+	//Note: check these with the cases in decode_error in fdir.c. I think some might be off.
 
 #define SCHED_SPIMEM_R_ERROR			0x01 //implemented
 #define SCHED_SPIMEM_W_ERROR			0x02 //implemented
 #define SCHED_SPIMEM_CHIP_ERROR			0x03 //Does 0x01 and 0x02 cover this case? 
 #define SCHED_COMMAND_EXEC_ERROR		0x04 //Almost implemented, check check_schedule() for details
-#define SCHED_FIFO_RW_ERROR		        0x05 //todo: might need to create helper/wrapper functions for xQueue Receive
+#define SCHED_FIFO_RW_ERROR		        0x05 //done
 #define HK_FIFO_RW_ERROR				0x06 //implemented
 #define HK_COLLECT_ERROR				0x07 //implemented
 #define HK_SPIMEM_R_ERROR				0x08 //implemented
@@ -75,9 +76,9 @@ uint8_t low_error_array[152];
 #define MEM_OTHER_SPIMEM_ERROR			0x15
 #define MEM_FIFO_RW_ERROR				0x16  //todo: same solution as SCHED_FIFO_RW_ERROR
 #define EPS_SSM_GET_SENSOR_DATA_ERROR	0x17 //done
-#define EPS_SET_VARIABLE_ERROR			0x18 //done, question about res_seq7
-#define OBC_COMS_TC_TM_ERROR			0x19
-#define OBC_TC_PACKET_ERROR				0x1A
+#define EPS_SET_VARIABLE_ERROR			0x18 //done
+#define OBC_COMS_TC_TM_ERROR			0x19 // ignore
+#define OBC_TC_PACKET_ERROR				0x1A //There is no FDIR sequence for this!! -> goes to SAFE_MODE
 #define OBC_FIFO_RW_ERROR				0x1B  //todo: same solution as SCHED_FIFO_RW_ERROR
 #define TC_OK_GO_TIMED_OUT				0x1C
 #define TC_CONSEC_TIMED_OUT				0x1D

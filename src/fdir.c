@@ -903,11 +903,11 @@ static void resolution_sequence20(uint8_t task)
 
 static void resolution_sequence25(uint8_t task, uint8_t parameter)
 {
-	uint8_t ssmID = 0xFF;
+	uint8_t ssmID = COMS_ID;
 	uint32_t data = 0;
 	int* status = 0;
 	
-	ssmID = get_ssm_id(parameter);
+	//ssmID = get_ssm_id(parameter);
 	// Otherwise, increase the timeout and try again.
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
 	if(req_data_timeout > 10000000)

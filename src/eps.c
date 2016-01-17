@@ -77,8 +77,7 @@ static uint32_t epstemp, comsv, comsi;
 static uint32_t payv, payi, obcv, obci;
 /*-----------------------------------------------------------*/
 
-/* External functions used for diagnostics */
-extern uint8_t get_ssm_id(uint8_t sensor_name);
+
 
 /************************************************************************/
 /* EPS (Function) 														*/
@@ -311,7 +310,7 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 	{
 		if (tries++ > MAX_NUM_TRIES){
 			
-			errorREPORT(EPS_TASK_ID, get_ssm_id(variable_name), EPS_SET_VARIABLE_ERROR, 0);
+			errorREPORT(EPS_TASK_ID, variable_name, EPS_SET_VARIABLE_ERROR, 0);
 			return;}								// FAILURE_RECOVERY
 		else
 			status = set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);		//Otherwise try again

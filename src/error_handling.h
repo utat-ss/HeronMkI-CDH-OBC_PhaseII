@@ -69,7 +69,7 @@ uint8_t low_error_array[152];
 #define SPIMEM_WRITE_SECTOR_ERROR		0x0F //done
 #define SPIMEM_WR_ERROR					0x10 //done
 #define SPIMEM_ALL_CHIPS_ERROR			0x11  // done; assuming this is a highsev error?
-#define RTC_SPIMEM_R_ERROR				0x12  //todo: same solution as SCHED_SPIMEM_R_ERROR
+#define RTC_SPIMEM_R_ERROR				0x12  //done, not sure about what to send as data
 #define MEM_SPIMEM_CHIPS_ERROR			0x13
 #define MEM_SPIMEM_MEM_WASH_ERROR		0x14
 #define MEM_OTHER_SPIMEM_ERROR			0x15

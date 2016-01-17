@@ -82,10 +82,18 @@ static uint8_t bcdtodec(uint8_t val)
 /************************************************************************/
 void rtc_init(uint16_t ctrl_reg_val)
 {	
-    int x;
+    int attempts,x;
 	rtc_set_creg(ctrl_reg_val);
 	
-	x = spimem_read(TIME_BASE, absolute_time_arr, 4);	// Get the absolute time which may be stored in memory.
+	attempts = 0; x = -1;
+	while(attempts<3 && x<0){
+		x = spimem_read(TIME_BASE, absolute_time_arr, 4);	
+	}
+	if (x<0) {errorREPORT(TIME_TASK_ID, 0, RTC_SPIMEM_R_ERROR, &ctrl_reg_val);}
+	
+	
+	
+	// Get the absolute time which may be stored in memory.
 	ABSOLUTE_DAY = absolute_time_arr[0];
 	CURRENT_HOUR = absolute_time_arr[1];
 	CURRENT_MINUTE = absolute_time_arr[2];

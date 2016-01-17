@@ -294,7 +294,7 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 			
 			
 			//erase_sector call with error handling
-			attempts = 0; check = 0;
+			attempts = 0; check = -1;
 			while (attempts<3 && check<0){
 				check = erase_sector_on_chip(spi_chip, sect_num);
 				attempts++;
@@ -303,7 +303,7 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 			
 			//write_sector call with error handling
 			
-			attempts = 0; check = 0;
+			attempts = 0; check = -1;
 			while (attempts<3 && check<0){
 				check = write_sector_back_to_spimem(spi_chip);
 				attempts++;
@@ -364,7 +364,7 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 				
 				//write_sector call with error handling
 				
-				attempts = 0; check = 0;
+				attempts = 0; check = -1;
 				while (attempts<3 && (check<0 || check == 0xFFFFFFFF)){
 					check = write_sector_back_to_spimem(spi_chip);
 					attempts++;
@@ -447,7 +447,7 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 		msg_buff[i] = 0;
 	}
 	
-	attempts = 0; check = 0;
+	attempts = 0; check = -1;
 	while (attempts<3 && check != 0){
 		check = check_if_wip(spi_chip);
 		attempts++;
@@ -536,7 +536,7 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 		}
 	
 	
-		attempts = 0; check = 0;
+		attempts = 0; check = -1;
 		while (attempts<3 && check != 0){
 			check = check_if_wip(spi_chip);
 			attempts++;
@@ -604,7 +604,7 @@ int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32
 		}
 	
 	
-		attempts = 0; check = 0;
+		attempts = 0; check = -1;
 		while (attempts<3 && check != 0){
 			check = check_if_wip(spi_chip);
 			attempts++;

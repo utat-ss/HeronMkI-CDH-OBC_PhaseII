@@ -44,6 +44,7 @@
 #include "semphr.h"
 #include "atomic.h"
 #include "global_var.h"
+#include "error_handling.h"
 
 SemaphoreHandle_t	Spi0_Mutex;
 

@@ -54,8 +54,8 @@ uint8_t low_error_array[152];
 #define SCHED_SPIMEM_R_ERROR			0x01 //implemented
 #define SCHED_SPIMEM_W_ERROR			0x02 //implemented
 #define SCHED_SPIMEM_CHIP_ERROR			0x03 //Does 0x01 and 0x02 cover this case? 
-#define SCHED_COMMAND_EXEC_ERROR		0x04 //Come back to this: check_schedule() for details
-#define SCHED_FIFO_RW_ERROR		        0x05 //implemented
+#define SCHED_COMMAND_EXEC_ERROR		0x04 //Almost implemented, check check_schedule() for details
+#define SCHED_FIFO_RW_ERROR		        0x05 //todo: might need to create helper/wrapper functions for xQueue Receive
 #define HK_FIFO_RW_ERROR				0x06 //implemented
 #define HK_COLLECT_ERROR				0x07 //implemented
 #define HK_SPIMEM_R_ERROR				0x08 //implemented

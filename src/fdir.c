@@ -1,5 +1,5 @@
 /*
-Author: Keenan Burnett
+Author: Keenan Burnett, William Bateman
 ***********************************************************************
 * FILE NAME: fdir.c
 *

@@ -126,7 +126,7 @@ static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
 static void xQueueSendToBackHK(QueueHandle_t hk_fifo, uint8_t *itemToQueue, TickType_t ticks);
-static uint8_t get_ssm_id(uint8_t sensor_name);
+
 int hk_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);	
 
 uint8_t get_ssm_id(uint8_t sensor_name);
@@ -441,8 +441,9 @@ static void store_housekeeping(void)
 	return 1;
 }
 
-//Returns the proper ssm_id for a given sensor
+//Returns the proper ssm_id for a given sensor/variable
 uint8_t get_ssm_id(uint8_t sensor_name){
+	//for sensors:
 	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
 		return EPS_ID;
 	if ((sensor_name == 0x12) || (sensor_name == 0xFD))
@@ -451,7 +452,17 @@ uint8_t get_ssm_id(uint8_t sensor_name){
 		return OBC_ID; //not sure if this is right
 	if ((sensor_name>0x13 && sensor_name <= 0x1B) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
 		return PAY_ID;
-
+	//for global variables:
+	if ((sensor_name == MPPTA) || (sensor_name == MPPTB) || (sensor_name == EPS_MODE) || (sensor_name == EPS_FDIR_SIGNAL))
+		return EPS_ID;
+	if ((sensor_name == COMS_MODE) || (sensor_name == SSM_CTT) || (sensor_name == SSM_OGT) || (sensor_name == BALANCE_H) || (sensor_name == BALANCE_L))
+		return COMS_ID;
+	if ((sensor_name == PAY_MODE) || (sensor_name == PAY_STATE) || (sensor_name == PAY_FDIR_SIGNAL))
+		return PAY_ID;
+	if ((sensor_name == OBC_MODE) || (sensor_name == ABS_TIME_D) || (sensor_name == ABS_TIME_H) || (sensor_name == ABS_TIME_M) || (sensor_name == ABS_TIME_S) || (sensor_name == SPI_CHIP_1) || (sensor_name == SPI_CHIP_2) || (sensor_name == SPI_CHIP_3) || (sensor_name == OBC_CTT) || (sensor_name == OBC_OGT))
+		return OBC_ID;
+	//assume the worst:
+	return OBC_ID;
 	
 }
 

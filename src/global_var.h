@@ -276,9 +276,10 @@ uint32_t	PAY_BASE;			// PAY = 16kB: 0x08000 - 0x0BFFF
 uint32_t	HK_BASE;			// HK = 8kB: 0x0C000 - 0x0DFFF
 uint32_t	EVENT_BASE;			// EVENT = 8kB: 0x0E000 - 0x0FFFF
 uint32_t	SCHEDULE_BASE;		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
-uint32_t	SCIENCE_BASE;		// SCIENCE = 8kB: 0x12000 - 0x13FFF
-uint32_t	DIAG_BASE;			// DIAGNOSTICS = 16kB: 0x14000 - 0x17FFF
+uint32_t	DIAG_BASE;			// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
+uint32_t	SCIENCE_BASE;		// SCIENCE = 256kB: 0x16000 - 0x25FFF (memory listed is 64kB, 256kB is 0x16000 - 0x55FFF)
 uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
+
 
 /* Limits for task operations */
 uint32_t	MAX_SCHED_COMMANDS;

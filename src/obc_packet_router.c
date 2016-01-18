@@ -669,7 +669,7 @@ static void store_current_tc(void)
 static int decode_telecommand(void)
 {
 	uint8_t data_field_headerf, apid;
-	int x;
+	int x, attempts;
 	uint8_t packet_length;
 	uint16_t pec1, pec0;
 	uint8_t ack, service_type, service_sub_type, source_id;
@@ -709,10 +709,17 @@ static int decode_telecommand(void)
 	/* Check that the packet error control is correct		*/
 	pec0 = fletcher16(tc_to_decode + 2, 150);
 	/* Verify that the telecommand is ready to be decoded.	*/
-	x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
-	if(x < 0)
-		return -1;
 	
+	attempts = 0; x = 0;
+	while (attempts<3 && x<0){
+		x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
+		attempts++;
+	}
+	if(x < 0)
+	{	
+		errorREPORT(OBC_ID, service_type, OBC_TC_PACKET_ERROR, 0);
+		return -1;
+	}
 	/* Decode the telecommand packet						*/		// To be updated on a rolling basis
 	decode_telecommand_h(service_type, service_sub_type);
 	return;

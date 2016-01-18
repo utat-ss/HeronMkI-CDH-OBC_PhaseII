@@ -72,8 +72,8 @@ uint8_t low_error_array[152];
 #define SPIMEM_ALL_CHIPS_ERROR			0x11 //done; assuming this is a highsev error?
 #define RTC_SPIMEM_R_ERROR				0x12 //done; not sure about what to send as data
 #define MEM_SPIMEM_CHIPS_ERROR			0x13 //done: hi or low sev?
-#define MEM_SPIMEM_MEM_WASH_ERROR		0x14 //TODO
-#define MEM_OTHER_SPIMEM_ERROR			0x15
+#define MEM_SPIMEM_MEM_WASH_ERROR		0x14 //done  //added errorREPORT for spimem_read as well in mem_manage.c
+#define MEM_OTHER_SPIMEM_ERROR			0x15 //done
 #define MEM_FIFO_RW_ERROR				0x16  //todo: same solution as SCHED_FIFO_RW_ERROR
 #define EPS_SSM_GET_SENSOR_DATA_ERROR	0x17 //done
 #define EPS_SET_VARIABLE_ERROR			0x18 //done

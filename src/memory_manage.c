@@ -166,7 +166,7 @@ static void prvMemoryManageTask(void *pvParameters )
 /************************************************************************/
 static void memory_wash(void)
 {
-	int x, y, z;
+	int x, y, z, check, attempts;
 	uint8_t spi_chip, write_required = 0, sum, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
 	uint8_t check_val = 0;
 	uint32_t page, addr, byte;
@@ -241,11 +241,24 @@ static void memory_wash(void)
 				}
 			}
 			if(write_required)
-			{spimem_write_h
-				(write_required, (addr + byte), &correct_val, 1);		// FAILURE_RECOVERY if this returns a number less than zero.
+			{
+				attempts = 0; check = -1;
+				while (attempts<3 && check<0){
+					check = spimem_write_h(write_required,(addr+byte), &correct_val, 1);
+					attempts++;
+				}
+				if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
 				send_event_report(1, BIT_FLIP_DETECTED, 0, 0);		
 			}
-			spimem_read_alt(write_required, (addr + byte), &check_val, 1);
+			
+			attempts = 0; check = -1;
+			
+			while (attempts<3 && check<0){
+				check = spimem_read_alt(write_required, (addr+byte), &check_val, 1);
+				attemps++;
+			}
+			if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
+		
 			if(check_val != correct_val)
 			{
 				// SPI_CHIP: write_required has something wrong with it
@@ -278,7 +291,7 @@ static void exec_commands(void)
 	uint16_t packet_id, psc;
 	uint8_t* mem_ptr = 0;
 	uint32_t address, length, last_len = 0, num_transfers = 0;
-	uint64_t check = 0;
+	uint64_t check = 0; int attempts = 0;
 	clear_current_command();
 	if(xQueueReceive(obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
 	{
@@ -309,8 +322,16 @@ static void exec_commands(void)
 				}
 				else
 				{
-					if(spimem_write(address, current_command, length) < 0)				// FAILURE_RECOVERY
-						send_tc_execution_verify(0xFF, packet_id, psc);
+					attempts = 0; check = -1;
+					
+					while (attempts<3 && check<0){
+						check = spimem_write(address, current_command, length)
+						attempts++;
+					}
+					
+					if (check <0){
+						errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR);
+						send_tc_execution_verify(0xFF, packet_id, psc);}
 				}
 				send_tc_execution_verify(1, packet_id, psc);
 			case	DUMP_REQUEST_ABS:
@@ -332,8 +353,17 @@ static void exec_commands(void)
 					}
 					else
 					{
-						if(spimem_read(address, current_command, length) < 0)		// FAILURE_RECOVERY
+						check = -1; attempts = 0;
+						while (attempts<3 && check<0){
+							check = spimem_read(address, current_command, length);
+							attemps++;
+						}
+						
+						if (check<0){
+							errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR);
 							send_tc_execution_verify(0xFF, packet_id, psc);
+						}
+						
 					}
 					current_command[146] = MEMORY_DUMP_ABS;
 					current_command[145] = num_transfers - j;

@@ -159,6 +159,8 @@
 #define ERROR_IN_DELETE_TASK			0x22
 #define INTERNAL_MEMORY_FALLBACK_EXITED 0x23
 #define DIAG_ERROR_IN_FDIR				0x24
+#define DIAG_SPIMEM_ERROR_IN_FDIR		0x25
+#define DIAG_SENSOR_ERROR_IN_FDIR		0x26
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/

@@ -1,5 +1,5 @@
 /*
-Author: Keenan Burnett, William Bateman
+Author: Keenan Burnett, Bill Bateman
 ***********************************************************************
 * FILE NAME: fdir.c
 *
@@ -56,8 +56,11 @@ Author: Keenan Burnett, William Bateman
 *
 * 01/05/2016		I am adding in some code for the INTERNAL_MEMORY_FALLBACK mode which is used when all 3 SPI memory chips appear to be dead.		
 *	
-* 1/15/2016			(William): Added in diagnostics functions and variables (similar to housekeeping). Put diagnostics code in
+* 1/15/2016			Bill: Added in diagnostics functions and variables (similar to housekeeping). Put diagnostics code in
 *					exec_commands() and enter_SAFE_MODE(). I tried to label all places an error could occur with FAILURE_RECOVERY.
+*
+* 1/20/2016			Bill: When errors occur in diagnostics, now calls send_event_report(). Defined some errors in global_var.h.
+					Also fixed some wrong variables (still had hk names). 
 *
 * DESCRIPTION:
 *
@@ -198,7 +201,6 @@ static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands whic
 static uint8_t test_array1[256], test_array2[256];
 static uint32_t minute_count;
 
-TickType_t	xLastWakeTime;
 
 /* Local Variables for Diagnostics */
 static uint8_t current_diag[DATA_LENGTH];			 //stores the next diagnostics packet to downlink
@@ -1108,17 +1110,17 @@ static void exec_commands(void)
 					break;
 				case	ENABLE_D_PARAM_REPORT:
 					//when reporting diagnostics data, also report the current definition
-					param_report_requiredf = 1;
+					diag_param_report_requiredf = 1;
 					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	DISABLE_D_PARAM_REPORT:
 					//stop reporting the current definition
-					param_report_requiredf = 0;
+					diag_param_report_requiredf = 0;
 					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	REPORT_DIAG_DEFINITIONS:
 					//same as enabled param report
-					param_report_requiredf = 1;
+					diag_param_report_requiredf = 1;
 					send_tc_execution_verify(1, packet_id, psc);				
 					break;
 				default:
@@ -1180,7 +1182,7 @@ static void exec_commands(void)
 		}
 		return;
 	}
-	else										//Failure Recovery
+	else										//FAILURE_RECOVERY
 		return;
 }
 
@@ -1566,16 +1568,19 @@ static void enter_SAFE_MODE(uint8_t reason)
 		if (CURRENT_MINUTE % 15 == 0) { // Collect diagnostics (William: request_diagnostics(), store_diagnostics() can go here)
 			//report diagnostics every 15 mins
 			
-			request_diagnostics_all();		 /* gets data from subsystems	       */
-			store_diagnostics();			 /*	-stores in SPI memory		       */
+			int x;
+			x = request_diagnostics_all();	 /* gets data from subsystems	       */
+			if (x < 0)
+				send_event_report(3, DIAG_ERROR_IN_FDIR, 0, 0); //log an error
+			
+			x = store_diagnostics();		 /*	-stores in SPI memory		       */
+			if (x < 0)
+				send_event_report(2, DIAG_ERROR_IN_FDIR, 0, current_diag_fullf); //log an error
+			
 			send_diag_as_tm();				 /*  -sends data as telemetry	       */
 			if(diag_param_report_requiredf)
-				send_param_report();		 /* sends parameter report if required */
-			/*
-			FAILURE_RECOVERY
-			request_diagnostics_all returns 1 if ok, -1 if request_housekeeping() func call fails
-			store_diagnostics() returns 1 if ok, -1 if not
-			*/
+				send_diag_param_report();	 /* sends parameter report if required */
+				
 		}
 		
 		// Update the absolute time on the satellite
@@ -1784,8 +1789,7 @@ static int request_diagnostics_all(void)
 		return -1;
 	
 	// Give the SSMs >100ms to transmit their housekeeping
-	xLastWakeTime = xTaskGetTickCount();
-	vTaskDelayUntil(&xLastWakeTime, (TickType_t)100);
+	delay_ms(100);
 	return 1;
 }
 
@@ -1824,8 +1828,8 @@ static int store_diagnostics(void)
 				diag_updated[i + 1] = 1;
 			}
 		}
-		taskYIELD();		// Allows for more messages to come in.
-	}
+		delay_ms(1); // Allows for more messages to come in. 
+	} 
 	
 	for(i = 0; i < num_parameters; i+=2)
 	{
@@ -1842,8 +1846,8 @@ static int store_diagnostics(void)
 			}
 			
 			if (req_data_result == -1){
-				//malfunctioning sensor is sent to erorREPORT
-				errorREPORT(FDIR_TASK_ID,HK_COLLECT_ERROR, &current_diag_definition[i]); //TODO change to diagnostics specific error (?)
+				//log malfunctioning sensor
+				send_event_report(2, DIAG_SENSOR_ERROR_IN_FDIR, get_ssm_id(current_diag_definition[i]), current_diag_definition[i]); //put ssm id and sensor id as data in log
 			}
 			else {
 				current_diag[i] = (uint8_t)(req_data_result & 0x000000FF);
@@ -1856,9 +1860,13 @@ static int store_diagnostics(void)
 	}
 	
 	/* actually store in SPI memory */
-	x = store_diag_in_spimem();
+	x = store_diag_in_spimem();  // event report if x < 0, current full =0
+	if (x < 0) 
+	{
+		send_event_report(2, DIAG_SPIMEM_ERROR_IN_FDIR, 0, 0);
+		current_diag_fullf = 0;
+	}
 	
-	current_diag_fullf = 1;
 	return 1;
 }
 
@@ -1898,19 +1906,26 @@ static int store_diag_in_spimem(void)
 	offset += (uint32_t)(current_diag_mem_offset[1] << 16);
 	offset += (uint32_t)(current_diag_mem_offset[2] << 8);
 	offset += (uint32_t)current_diag_mem_offset[3];
+	current_diag_fullf = 0;
+	
 	x = spimem_write((DIAG_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	if (x < 0) return -1; 
+	
 	x = spimem_write((DIAG_BASE + offset + 4), &current_diag_definitionf, 1);	// Writes the sID to memory.
-	x = spimem_write((DIAG_BASE + offset + 5), current_diag, 128);		// FAILURE_RECOVERY if x < 0
+	if (x < 0) return -1; 
+	
+	x = spimem_write((DIAG_BASE + offset + 5), current_diag, 128);
+	if (x < 0) return -1; 
 	
 	offset = (offset + 137) % 16384;								// Make sure diagnostics doesn't overflow into the next section (we gave 16kB to diagnostics = 16384 bits)
-	if(offset == 0) offset = 4;
+	if(offset < 4) offset = 4;
 	
 	current_diag_mem_offset[3] = (uint8_t)offset;
 	current_diag_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
 	current_diag_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
 	current_diag_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
-	x = spimem_write(DIAG_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
-	return;
+	x = spimem_write(DIAG_BASE, current_diag_mem_offset, 4);			
+	return x;
 }
 
 /************************************************************************/
@@ -2065,7 +2080,11 @@ static void send_diag_as_tm(void)
 	{
 		current_command[i] = current_diag[i];
 	}
-	xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	
+	if (xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE) {
+		send_event_report(3, DIAG_ERROR_IN_FDIR, 0, current_command[146]); //log an error
+	}
+	
 	return;
 }
 
@@ -2086,5 +2105,8 @@ static void send_diag_param_report(void)
 	{
 		current_command[i] = current_diag_definition[i];
 	}
-	xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	
+	if (xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE) {
+		send_event_report(3, DIAG_ERROR_IN_FDIR, 0, current_command[146]); //log an error
+	}
 }

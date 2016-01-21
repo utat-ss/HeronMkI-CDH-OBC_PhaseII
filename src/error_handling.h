@@ -28,6 +28,7 @@ Author: Keenan Burnett
 #include <stdint.h>
 #include "FreeRTOS.h"
 #include "semphr.h"
+#include "queue.h"
 #include "task.h"
 #include "can_func.h"
 
@@ -84,6 +85,9 @@ uint8_t low_error_array[152];
 #define TC_CONSEC_TIMED_OUT				0x1D
 #define TM_OK_GO_TIMED_OUT				0x1E
 #define TM_CONSEC_TIMED_OUT				0x1F
+#define PAY_SPIMEM_RW_ERROR				0x20
 
 int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint32_t* data);
 int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex);
+void xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks)
+void xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks);

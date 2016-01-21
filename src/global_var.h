@@ -104,6 +104,8 @@
 #define PAUSE_SCHEDULE					5
 #define RESUME_SCHEDULE					6
 #define COMPLETED_SCHED_COM_REPORT		7
+#define START_EXPERIMENT_ARM			8
+#define START_EXPERIMENT_FIRE			9
 /* FDIR Service							*/
 #define ENTER_LOW_POWER_MODE			1
 #define EXIT_LOW_POWER_MODE				2
@@ -283,9 +285,12 @@ uint32_t	DIAG_BASE;			// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
 uint32_t	SCIENCE_BASE;		// SCIENCE = 256kB: 0x16000 - 0x25FFF (memory listed is 64kB, 256kB is 0x16000 - 0x55FFF)
 uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
 
-
 /* Limits for task operations */
 uint32_t	MAX_SCHED_COMMANDS;
 uint32_t	LENGTH_OF_HK;
+
+/* Global variables for experiment commencement */
+uint8_t		experiment_armed;
+uint8_t		experiment_started;
 
 #endif

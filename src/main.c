@@ -472,6 +472,10 @@ static void prvInitializeGlobalVars(void)
 		LENGTH_OF_HK = 8192;
 	}
 	
+	/* Variables used for starting the science experiment */
+	experiment_armed = 0;
+	experiment_started = 0;
+	
 	return;
 }
 

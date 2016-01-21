@@ -293,7 +293,7 @@ static void exec_commands(void)
 	uint32_t address, length, last_len = 0, num_transfers = 0;
 	uint64_t check = 0; int attempts = 0;
 	clear_current_command();
-	if(xQueueReceive(obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
+	if(xQueueReceiveTask(MEMORY_TASK_ID, 0, obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
 	{
 		command = current_command[146];
 		packet_id = ((uint16_t)current_command[140]) << 8;
@@ -367,7 +367,7 @@ static void exec_commands(void)
 					}
 					current_command[146] = MEMORY_DUMP_ABS;
 					current_command[145] = num_transfers - j;
-					xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
+					xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
 					taskYIELD();	// Give the packet router a chance to downlink the dump packet.				
 				}
 				send_tc_execution_verify(1, packet_id, psc);
@@ -396,7 +396,7 @@ static void exec_commands(void)
 				current_command[2] = ((uint8_t)(check & 0xFF00000000000000)) >> 26;
 				current_command[1] = ((uint8_t)(check & 0xFF00000000000000)) >> 8;
 				current_command[0] = (uint8_t)(check & 0xFF00000000000000);
-				xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);
+				xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);
 			default:
 				return;
 		}
@@ -436,7 +436,7 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[139] = (uint8_t)packet_id;
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
-	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 
@@ -457,7 +457,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[2] = report_id;
 	current_command[1] = param1;
 	current_command[0] = param0;
-	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }
 

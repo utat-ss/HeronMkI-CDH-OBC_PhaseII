@@ -848,18 +848,26 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			time += ((uint32_t)current_command[133]) << 8;
 			time += (uint32_t)current_command[132];
 			current_command[146] = service_sub_type;
-			if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
-				xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
-			//if(severity == 1)
-			//	xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
-			if(severity == 2)
+			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);	// All scheduled commands should be sent to scheduling.		
+		}
+		if(service_sub_type == START_EXPERIMENT_ARM)
+		{
+			experiment_armed = 1;
+			send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);	// Successful command execution report.
+		}
+		if(service_sub_type == START_EXPERIMENT_FIRE)
+		{
+			if(experiment_armed)
 			{
-				// Deal with command here.
-			}			
+				experiment_started = 1;
+				send_tc_verification(packet_id, psc, OBC_PACKET_ROUTER_ID, 0, 2);	// Successful command execution report.
+			}
+			else
+				send_tc_verification(packet_id, psc, 0xFF, 5, 0, 1);				// Failed telecommand acceptance report (usage error due to experiment_armed = 0)
 		}
 		else
 		{
-			// Everything else should be sent to the scheduling task.
+			/* Everything else should be sent to the scheduling task. */
 			current_command[146] = service_sub_type;
 			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);			
 		}
@@ -975,7 +983,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	{
 		length = tc_to_decode[136];
 		
-		if((service_sub_type > 7) || !service_sub_type)
+		if((service_sub_type > 11) || !service_sub_type)
 		{
 			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
 			return -1;

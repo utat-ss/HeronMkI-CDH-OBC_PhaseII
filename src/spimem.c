@@ -1044,3 +1044,67 @@ static uint32_t ready_for_command_h(uint32_t spi_chip)
 		
 	return 1;
 }
+
+// Meant to be used by either housekeeping, scheduling, or payload, but can be extended to other tasks easily.
+int task_spimem_write(uint8_t task, uint32_t addr, uint8_t* data_buff, uint32_t size)
+{
+	uint8_t error, attempts, spimem_success;
+	switch(task)
+	{
+		case HK_TASK_ID:
+			error = HK_SPIMEM_W_ERROR;
+		case SCHEDULING_TASK_ID:
+			error = SCHED_SPIMEM_W_ERROR;
+		case PAY_TASK_ID:
+			error = PAY_SPIMEM_RW_ERROR;
+		default:
+			return -1;
+	}
+	spimem_success = spimem_write(addr, data_buff, size);
+	while (attempts < 3 && spimem_success < 0)
+	{
+		spimem_success = spimem_write(addr, data_buff, size);
+		attempts++;
+	}
+	if (spimem_success < 0) 
+	{
+		if(task == PAY_TASK_ID)
+			errorASSERT(task, spimem_success, error, data_buff);
+		else
+			errorREPORT(task, spimem_success, error, data_buff);
+		return -1;
+	}
+	else
+		return 0;
+}
+
+// Meant to be used by either housekeeping, scheduling, or payload, but can be extended to other tasks easily.
+int task_spimem_read(uint8_t task, uint32_t addr, uint8_t* read_buff, uint32_t size)
+{
+	uint8_t error, attempts, spimem_success
+	switch(task)
+	{
+		case HK_TASK_ID:
+			error = HK_SPIMEM_W_ERROR;
+		case SCHEDULING_TASK_ID:
+			error = SCHED_SPIMEM_W_ERROR;
+		case PAY_TASK_ID:
+			error = PAY_SPIMEM_RW_ERROR;
+		default:
+			return -1;
+	}
+	spimem_success = spimem_read(addr, read_buff, size);
+	while (attempts < 3 && spimem_success < 0)
+	{
+		spimem_success = spimem_read(addr, read_buff, size);
+		attempts++;
+	}
+	if (spimem_success < 0) 
+	{
+		errorREPORT(task, spimem_success, error, read_buff);
+		return -1;
+	}
+	else
+		return 0;
+}
+	

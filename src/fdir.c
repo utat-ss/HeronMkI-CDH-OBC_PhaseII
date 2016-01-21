@@ -336,6 +336,7 @@ static void check_error(void)
 	return;
 }
 
+// Both high and low severity errors can be sent to decode_error().
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code)
 {
 	// This is where the resolution sequences are going to go.
@@ -344,7 +345,7 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 	uint8_t i, chip, status, ssmID;
 	int x;
 	uint32_t sect_num = 0xFFFFFFFF;
-	if(severity == 1)
+	if(severity)
 	{
 		switch(error)
 		{
@@ -451,6 +452,10 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				if(task != OBC_PACKET_ROUTER_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence31();
+			case 32:
+				if(task != PAY_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence1(task);
 			default:
 				enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);			
 		}
@@ -569,7 +574,7 @@ static void resolution_sequence1_4(uint8_t task)
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
-		x = spimem_read(0x00, test_array2, 256);
+		if( spimem_read(0x00, test_array2, 256) < 0)
 		{
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);

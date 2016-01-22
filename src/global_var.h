@@ -163,6 +163,8 @@
 #define DIAG_ERROR_IN_FDIR				0x24
 #define DIAG_SPIMEM_ERROR_IN_FDIR		0x25
 #define DIAG_SENSOR_ERROR_IN_FDIR		0x26
+#define TC_BUFFER_FULL					0x27
+#define TM_BUFFER_FULL					0x28
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -193,6 +195,10 @@ QueueHandle_t obc_to_fdir_fifo;			// ob_packet_router		-->		fdir
 /* ERROR HANDLING FIFOs				*/
 QueueHandle_t high_sev_to_fdir_fifo;	// Any task				-->		fdir
 QueueHandle_t low_sev_to_fdir_fifo;		// Any task				-->		fdir
+
+/* BUFFERS FOR TC/TM PACKETS		*/
+QueueHandle_t tc_buffer;				// Telecommand packet buffer.
+QueueHandle_t tm_buffer;				// Telemetry packet buffer.
 
 /* MUTEX LOCKS FOR ERROR HANDLING FIFOs	*/
 SemaphoreHandle_t Highsev_Mutex;
@@ -239,7 +245,7 @@ uint32_t	INTERNAL_MEMORY_FALLBACK_MODE;
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;
 uint8_t start_tm_transferf;
-uint8_t current_tc_fullf, receiving_tcf;
+uint8_t current_tc_fullf, receiving_tcf, current_tm_fullf, tm_down_fullf;
 
 /* Global variables for time management	*/
 uint8_t ABSOLUTE_DAY;

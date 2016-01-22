@@ -363,6 +363,13 @@ static void prvInitializeFifos(void)
 	item_size = 152;	
 	high_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
 	low_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+	
+	/* Initialize PUS packet buffers				*/
+	fifo_length = 10;
+	item_size = 152;
+	tc_buffer = xQueueCreate(fifo_length, item_size);
+	tm_buffer = xQueueCreate(fifo_length, item_size);
+	
 	return;
 }
 
@@ -434,6 +441,8 @@ static void prvInitializeGlobalVars(void)
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	current_tc_fullf = 0;
+	current_tm_fullf = 0;
+	tm_down_fullf = 0;
 	receiving_tcf = 0;
 	
 	/* FDIR signals that individuals tasks loop on */

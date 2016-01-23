@@ -215,6 +215,10 @@ static uint8_t current_diag_fullf, diag_param_report_requiredf;
 static uint8_t collection_interval0, collection_interval1;
 static uint8_t current_diag_mem_offset[4];
 
+static uint32_t diag_time_to_wait;
+static uint32_t diag_last_report_minutes;
+static uint32_t diag_num_hours;
+static uint32_t diag_old_minute;
 
 /* Fumble Counts */
 static uint8_t housekeep_fumble_count;
@@ -1545,6 +1549,9 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 static void enter_SAFE_MODE(uint8_t reason)
 {
 	minute_count = 0;
+	diag_last_report_minutes = CURRENT_MINUTE; //will send the first diagnostics report in (collectioninterval) minutes
+	diag_old_minute = CURRENT_MINUTE;
+	diag_num_hours = 0;
 	SAFE_MODE = 1;
 	SMERROR = reason;
 	// Let the ground the error that occurred, and that we're entering into SAFE_MODE.
@@ -1569,9 +1576,9 @@ static void enter_SAFE_MODE(uint8_t reason)
 	{
 		// Reset the watchdog timer.
 		wdt_restart(WDT);
-				
-		if (CURRENT_MINUTE % 15 == 0) { // Collect diagnostics (William: request_diagnostics(), store_diagnostics() can go here)
-			//report diagnostics every 15 mins
+		
+		if ((CURRENT_MINUTE + 60*diag_num_hours) - diag_last_report_minutes > diag_time_to_wait) { // Collect diagnostics (William: request_diagnostics(), store_diagnostics() can go here)
+			//report diagnostics every (collectioninterval) mins
 			
 			int x;
 			x = request_diagnostics_all();	 /* gets data from subsystems	       */
@@ -1586,7 +1593,17 @@ static void enter_SAFE_MODE(uint8_t reason)
 			if(diag_param_report_requiredf)
 				send_diag_param_report();	 /* sends parameter report if required */
 				
+				
+			//update the time of last diagnostics report
+			diag_last_report_minutes = CURRENT_MINUTE;
+			diag_num_hours = 0;
 		}
+		else if (diag_old_minute > CURRENT_MINUTE) {
+			//count how many hours have gone by (i.e. when CURRENT_MINUTE goes from 59 to 0)
+			diag_num_hours++;
+		}
+		diag_old_minute = CURRENT_MINUTE;
+		
 		
 		// Update the absolute time on the satellite
 		time_update();
@@ -2053,7 +2070,7 @@ static void set_definition(uint8_t sID)
 			current_diag_definition[i] = diag_definition0[i];
 		}
 		current_diag_definitionf = 0;
-		xTimeToWait = collection_interval0 * 1000 * 60;
+		diag_time_to_wait = collection_interval0 * 1000 * 60;
 	}
 	if(sID == 1) // ALERNATE (use diag_definition1)
 	{
@@ -2062,7 +2079,7 @@ static void set_definition(uint8_t sID)
 			current_diag_definition[i] = diag_definition1[i];
 		}
 		current_diag_definitionf = 1;
-		xTimeToWait = collection_interval1 * 1000 * 60;
+		diag_time_to_wait = collection_interval1 * 1000 * 60;
 	}
 	return;
 }

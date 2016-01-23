@@ -355,15 +355,16 @@ static void exec_commands(void)
 			send_event_packet(high, low);
 		}
 		//diagnostics reports
+		//send diagnostics reports to the housekeeping ground service
 		if (current_command[146] == DIAG_REPORT)
 		{
 			diag_telem_count++;
-			packetize_send_telemetry(FDIR_TASK_ID, FDIR_GROUND_ID, FDIR_SERVICE, DIAG_REPORT, diag_telem_count, 1, current_command);
+			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_REPORT, diag_telem_count, 1, current_command);
 		}
 		if (current_command[146] == DIAG_DEFINITION_REPORT)
 		{
 			diag_def_report_count++;
-			packetize_send_telemetry(FDIR_TASK_ID, FDIR_GROUND_ID, FDIR_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
+			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
 		}
 	}
 	return;

@@ -255,7 +255,7 @@ static void memory_wash(void)
 			
 			while (attempts<3 && check<0){
 				check = spimem_read_alt(write_required, (addr+byte), &check_val, 1);
-				attemps++;
+				attempts++;
 			}
 			if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
 		
@@ -325,12 +325,12 @@ static void exec_commands(void)
 					attempts = 0; check = -1;
 					
 					while (attempts<3 && check<0){
-						check = spimem_write(address, current_command, length)
+						check = spimem_write(address, current_command, length);
 						attempts++;
 					}
 					
 					if (check <0){
-						errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR);
+						errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR, NULL); //didn't have enough parameters - just putting NULL for now
 						send_tc_execution_verify(0xFF, packet_id, psc);}
 				}
 				send_tc_execution_verify(1, packet_id, psc);
@@ -356,11 +356,11 @@ static void exec_commands(void)
 						check = -1; attempts = 0;
 						while (attempts<3 && check<0){
 							check = spimem_read(address, current_command, length);
-							attemps++;
+							attempts++;
 						}
 						
 						if (check<0){
-							errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR);
+							errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR,NULL); //didn't have enough parameters - just putting NULL for now
 							send_tc_execution_verify(0xFF, packet_id, psc);
 						}
 						

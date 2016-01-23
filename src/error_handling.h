@@ -89,5 +89,5 @@ uint8_t low_error_array[152];
 
 int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint32_t* data);
 int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex);
-void xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks)
+void xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks);
 void xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks);

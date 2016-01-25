@@ -556,8 +556,8 @@ static void setup_default_definition(void)
 	hk_definition0[52] = OBC_V;
 	hk_definition0[51] = OBC_I;
 	hk_definition0[50] = OBC_I;
-	hk_definition0[49] = BATT_I;
-	hk_definition0[48] = BATT_I;
+	hk_definition0[49] = SHUNT_DPOT;
+	hk_definition0[48] = SHUNT_DPOT;
 	hk_definition0[47] = COMS_TEMP;	//
 	hk_definition0[46] = COMS_TEMP;
 	hk_definition0[45] = OBC_TEMP;	//
@@ -578,10 +578,10 @@ static void setup_default_definition(void)
 	hk_definition0[30] = PAY_PRESS;
 	hk_definition0[29] = PAY_ACCEL;
 	hk_definition0[28] = PAY_ACCEL;
-	hk_definition0[27] = MPPTA;
-	hk_definition0[26] = MPPTA;
-	hk_definition0[25] = MPPTB;
-	hk_definition0[24] = MPPTB;
+	hk_definition0[27] = MPPTX;
+	hk_definition0[26] = MPPTX;
+	hk_definition0[25] = MPPTY;
+	hk_definition0[24] = MPPTY;
 	hk_definition0[23] = COMS_MODE;	//
 	hk_definition0[22] = COMS_MODE;
 	hk_definition0[21] = EPS_MODE;	//
@@ -674,11 +674,6 @@ static void xQueueSendToBackHK(QueueHandle_t hk_fifo, uint8_t *itemToQueue, Tick
 	}
 	return;
 	}
-	
-	
-	
-	 
-
 
 /************************************************************************/
 /* REPORT_SCHEDULE														*/

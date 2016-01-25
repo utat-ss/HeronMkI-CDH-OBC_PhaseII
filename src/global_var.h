@@ -158,6 +158,7 @@
 #define CAN_ERROR_WITHIN_FDIR			0x21
 #define ERROR_IN_DELETE_TASK			0x22
 #define INTERNAL_MEMORY_FALLBACK_EXITED 0x23
+#define EPS_SENSOR_VALUE_OUT_OF_RANGE	0X24
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -176,6 +177,7 @@ QueueHandle_t time_to_obc_fifo;			// time_manage	-->		obc_packet_router
 QueueHandle_t mem_to_obc_fifo;			// memory		-->		obc_packet_router
 QueueHandle_t sched_to_obc_fifo;		// scheduling	-->		obc_packet_router
 QueueHandle_t fdir_to_obc_fifo;			// fdir			-->		obc_packet_router
+QueueHandle_t eps_to_obc_fifo;			// eps			-->		obc_packet_router
 
 /* GLOBAL COMMAND FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/

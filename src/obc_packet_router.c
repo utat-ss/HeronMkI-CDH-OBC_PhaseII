@@ -341,6 +341,22 @@ static void exec_commands(void)
 			send_event_packet(high, low);
 		}
 	}
+	if(xQueueReceive(eps_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	{
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
+		if(current_command[146] == TASK_TO_OPR_EVENT)
+		{
+			high = (EPS_TASK_ID) << 28;
+			low = ((uint8_t)current_command[3]) << 24;
+			low = ((uint8_t)current_command[2]) << 16;
+			low = ((uint8_t)current_command[1]) << 8;
+			low = (uint8_t)current_command[0];
+			send_event_packet(high, low);
+		}
+	}
 	return;
 }
 

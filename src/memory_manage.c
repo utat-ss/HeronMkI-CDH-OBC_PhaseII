@@ -166,13 +166,22 @@ static void prvMemoryManageTask(void *pvParameters )
 /************************************************************************/
 static void memory_wash(void)
 {
-	int x, y, z;
+	int x, y, z, check, attempts;
 	uint8_t spi_chip, write_required = 0, sum, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
 	uint8_t check_val = 0;
 	uint32_t page, addr, byte;
 	
 	if(INTERNAL_MEMORY_FALLBACK)	// No washing while in internal memory fallback mode.
 		return;
+	
+	//adding this to check for MEM_SPIMEM_CHIPS_ERROR
+	if(!SPI_HEALTH1 && !SPI_HEALTH2 && !SPI_HEALTH3){
+		errorASSERT(MEMORY_TASK_ID, 0, MEM_SPIMEM_CHIPS_ERROR, 0, 0);
+		//3 dead spimem chips is highsev?
+		//no mutex
+		return;
+	}
+	
 	
 	if(!SPI_HEALTH1 || !SPI_HEALTH2 || !SPI_HEALTH3)
 	{
@@ -183,15 +192,28 @@ static void memory_wash(void)
 	for(page = 0; page < 4096; page++)	// Loop through each page in memory.
 	{
 		addr = page << 8;
-			
+		
+		
+		//TODO: make this less ugly
 		for(spi_chip = 1; spi_chip < 4; spi_chip++)
 		{
 			x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
 			y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
 			z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
 				
-			if((x < 0) || (y < 0) || (z < 0))
-			x = x;									// FAILURE_RECOVERY.
+			if((x < 0) || (y < 0) || (z < 0)){
+				x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
+				y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
+				z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
+				
+				if((x < 0) || (y < 0) || (z < 0)){
+					x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
+					y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
+					z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
+					if((x < 0) || (y < 0) || (z < 0)){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
+					}
+			}
+												
 		}
 			
 		for(byte = 0; byte < 256; byte++)
@@ -219,11 +241,24 @@ static void memory_wash(void)
 				}
 			}
 			if(write_required)
-			{spimem_write_h
-				(write_required, (addr + byte), &correct_val, 1);		// FAILURE_RECOVERY if this returns a number less than zero.
+			{
+				attempts = 0; check = -1;
+				while (attempts<3 && check<0){
+					check = spimem_write_h(write_required,(addr+byte), &correct_val, 1);
+					attempts++;
+				}
+				if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
 				send_event_report(1, BIT_FLIP_DETECTED, 0, 0);		
 			}
-			spimem_read_alt(write_required, (addr + byte), &check_val, 1);
+			
+			attempts = 0; check = -1;
+			
+			while (attempts<3 && check<0){
+				check = spimem_read_alt(write_required, (addr+byte), &check_val, 1);
+				attempts++;
+			}
+			if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
+		
 			if(check_val != correct_val)
 			{
 				// SPI_CHIP: write_required has something wrong with it
@@ -256,9 +291,9 @@ static void exec_commands(void)
 	uint16_t packet_id, psc;
 	uint8_t* mem_ptr = 0;
 	uint32_t address, length, last_len = 0, num_transfers = 0;
-	uint64_t check = 0;
+	uint64_t check = 0; int attempts = 0;
 	clear_current_command();
-	if(xQueueReceive(obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
+	if(xQueueReceiveTask(MEMORY_TASK_ID, 0, obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
 	{
 		command = current_command[146];
 		packet_id = ((uint16_t)current_command[140]) << 8;
@@ -287,8 +322,16 @@ static void exec_commands(void)
 				}
 				else
 				{
-					if(spimem_write(address, current_command, length) < 0)				// FAILURE_RECOVERY
-						send_tc_execution_verify(0xFF, packet_id, psc);
+					attempts = 0; check = -1;
+					
+					while (attempts<3 && check<0){
+						check = spimem_write(address, current_command, length);
+						attempts++;
+					}
+					
+					if (check <0){
+						errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR, NULL); //didn't have enough parameters - just putting NULL for now
+						send_tc_execution_verify(0xFF, packet_id, psc);}
 				}
 				send_tc_execution_verify(1, packet_id, psc);
 			case	DUMP_REQUEST_ABS:
@@ -310,12 +353,21 @@ static void exec_commands(void)
 					}
 					else
 					{
-						if(spimem_read(address, current_command, length) < 0)		// FAILURE_RECOVERY
+						check = -1; attempts = 0;
+						while (attempts<3 && check<0){
+							check = spimem_read(address, current_command, length);
+							attempts++;
+						}
+						
+						if (check<0){
+							errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR,NULL); //didn't have enough parameters - just putting NULL for now
 							send_tc_execution_verify(0xFF, packet_id, psc);
+						}
+						
 					}
 					current_command[146] = MEMORY_DUMP_ABS;
 					current_command[145] = num_transfers - j;
-					xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
+					xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
 					taskYIELD();	// Give the packet router a chance to downlink the dump packet.				
 				}
 				send_tc_execution_verify(1, packet_id, psc);
@@ -344,7 +396,7 @@ static void exec_commands(void)
 				current_command[2] = ((uint8_t)(check & 0xFF00000000000000)) >> 26;
 				current_command[1] = ((uint8_t)(check & 0xFF00000000000000)) >> 8;
 				current_command[0] = (uint8_t)(check & 0xFF00000000000000);
-				xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);
+				xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);
 			default:
 				return;
 		}
@@ -384,7 +436,7 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[139] = (uint8_t)packet_id;
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
-	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 
@@ -405,7 +457,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[2] = report_id;
 	current_command[1] = param1;
 	current_command[0] = param0;
-	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }
 

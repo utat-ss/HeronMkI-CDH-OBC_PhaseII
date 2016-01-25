@@ -126,6 +126,7 @@ static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
+static uint8_t diag_telem_count, diag_def_report_count;
 static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count, sched_command_count;
@@ -133,7 +134,7 @@ static uint8_t current_data[DATA_LENGTH];
 static uint8_t current_command[DATA_LENGTH + 10];
 /* Latest TC packet received, next TM packet to send	*/
 static uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];	// Arrays are 144B for ease of implementation.
-static uint8_t tc_to_decode[PACKET_LENGTH];
+static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH];
 static TickType_t xTimeToWait;
 
 /************************************************************************/
@@ -180,6 +181,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	tc_verify_success_count = 0;
 	hk_telem_count = 0;
 	hk_def_report_count = 0;
+	diag_telem_count = 0;
+	diag_def_report_count = 0;
 	tc_verify_fail_count = 0;
 	tc_exec_success_count = 0;
 	tc_exec_fail_count = 0;
@@ -204,8 +207,19 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			xQueueReceive(tc_msg_fifo, &new_tc_msg_high, xTimeToWait);
 			status = receive_tc_msg();					// FAILURE_RECOVERY if status == -1.
 		}
-		if(current_tc_fullf)
+		if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
 			decode_telecommand();
+		if (tm_down_fullf)
+		{
+			sender = tm_to_downlink[150];
+			send_pus_packet_tm(sender);		// FAILURE_RECOVERY			
+		}
+		else if(xQueueReceive(tm_buffer, tm_to_downlink, (TickType_t)1) == pdTRUE)
+		{
+			tm_down_fullf = 1;
+			sender = tm_to_downlink[150];
+			send_pus_packet_tm(sender);		// FAILURE_RECOVERY
+		}	
 
 		exec_commands();
 			
@@ -340,6 +354,18 @@ static void exec_commands(void)
 			low = (uint8_t)current_command[0];
 			send_event_packet(high, low);
 		}
+		//diagnostics reports
+		//send diagnostics reports to the housekeeping ground service
+		if (current_command[146] == DIAG_REPORT)
+		{
+			diag_telem_count++;
+			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_REPORT, diag_telem_count, 1, current_command);
+		}
+		if (current_command[146] == DIAG_DEFINITION_REPORT)
+		{
+			diag_def_report_count++;
+			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
+		}
 	}
 	if(xQueueReceive(eps_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
 	{
@@ -392,6 +418,9 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	abs_time = ((uint16_t)absolute_time_arr[2]) << 4;	// MINUTE
 	abs_time = (uint16_t)absolute_time_arr[3];			// SECOND
 	
+	if(current_tm_fullf)		// Current_tm should not normally be full.
+		return -1;
+	
 	if(num_packets > 1)
 		sequence_flags = 0x1;	// Indicates that this is the first packet in a series of packets.
 	else
@@ -428,8 +457,9 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		packet_error_control = fletcher16(current_tm + 2, 150);
 		current_tm[1] = (uint8_t)(packet_error_control >> 8);
 		current_tm[0] = (uint8_t)(packet_error_control & 0x00FF);
+		current_tm_fullf = 1;
 		
-		if( send_pus_packet_tm(sender) < 0)
+		if(store_current_tm() < 0)
 			return -1;
 		
 		return 1;
@@ -455,8 +485,8 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		packet_error_control = fletcher16(current_tm + 2, 150);
 		current_tm[1] = (uint8_t)(packet_error_control >> 8);
 		current_tm[0] = (uint8_t)(packet_error_control & 0x00FF);
-		
-		if(send_pus_packet_tm(sender) < 0)
+		current_tm_fullf = 1;
+		if(store_current_tm() < 0)
 			return i;
 	}
 	
@@ -525,7 +555,7 @@ static int receive_tc_msg(void)
 /* messages that are sent in turn and then placed into a telemetry		*/
 /* buffer on the side of the SSM.										*/
 /* @Note: It is assumed that the PUS packet shall be located in			*/
-/* current_tm[] which is defined in glob_var.h							*/
+/* tm_to_downlink[] which is defined in this file						*/
 /* @Note: Instead on putting time in Byte 4, I'm going to use it for	*/
 /* sequence control so that the SSM can check to make sure that no		*/
 /* chunks of the packet were lost.										*/
@@ -559,10 +589,10 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	{
 		if(tm_transfer_completef == 0xFF)			// The transaction has failed.
 			return -1;
-		low =	(uint32_t)current_tm[(i * 4)];			// Place the data into the lower 4 bytes of the CAN message.
-		low += (uint32_t)(current_tm[(i * 4) + 1] << 8);
-		low += (uint32_t)(current_tm[(i * 4) + 2] << 16);
-		low += (uint32_t)(current_tm[(i * 4) + 3] << 24);
+		low =	(uint32_t)tm_to_downlink[(i * 4)];			// Place the data into the lower 4 bytes of the CAN message.
+		low += (uint32_t)(tm_to_downlink[(i * 4) + 1] << 8);
+		low += (uint32_t)(tm_to_downlink[(i * 4) + 2] << 16);
+		low += (uint32_t)(tm_to_downlink[(i * 4) + 3] << 24);
 		send_can_command(low, i, sender_id, COMS_ID, SEND_TM, COMMAND_PRIO);
 		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 10ms (10 * 1ms)
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
@@ -585,6 +615,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	else
 	{
 		tm_transfer_completef = 0;
+		tm_down_fullf = 0;
 		return tm_transfer_completef;
 	}
 }
@@ -648,16 +679,36 @@ static void clear_current_command(void)
 
 /************************************************************************/
 /* STORE_CURRENT_TC			                                            */
-/* @Purpose: copies the contents of current_tc[] into tc_to_decode[]	*/
+/* @Purpose: copies the contents of current_tc[] into the tc_buffer		*/
 /************************************************************************/
 static void store_current_tc(void)
 {
 	uint8_t i;
-	for(i = 0; i < PACKET_LENGTH; i++)
+	if(xQueueSendToBack(tc_buffer, current_tc, (TickType_t)1) != pdPASS)
 	{
-		tc_to_decode[i] = current_tc[i];
+		send_event_report(1, TC_BUFFER_FULL, 0, 0);		// FAILURE_RECOVERY
+		return;
 	}
+	current_tc_fullf = 0;
+	return;
 }
+
+/************************************************************************/
+/* STORE_CURRENT_TM			                                            */
+/* @Purpose: copies the contents of current_tc[] into the tc_buffer		*/
+/************************************************************************/
+static int store_current_tm(void)
+{
+	uint8_t i;
+	if(xQueueSendToBack(tm_buffer, current_tm, (TickType_t)1) != pdPASS)
+	{
+		return -1;										// FAILURE_RECOVERY
+	}
+	current_tc_fullf = 0;
+	return;
+}
+
+
 
 /************************************************************************/
 /* DECODE_TELECOMMAND		                                            */
@@ -666,20 +717,16 @@ static void store_current_tc(void)
 /* route a message to a task or send a CAN message to an SSM			*/
 /* @Note: This function assumes that the telecommand to decode is		*/
 /* contained in tc_to_decode[]											*/
-/* current_tc_fullf should also be 1 before executing this function		*/
 /************************************************************************/
 static int decode_telecommand(void)
 {
 	uint8_t data_field_headerf, apid;
-	int x;
+	int x, attempts;
 	uint8_t packet_length;
 	uint16_t pec1, pec0;
 	uint8_t ack, service_type, service_sub_type, source_id;
 	uint8_t version1, type1, sequence_flags1, sequence_count1;
 	uint8_t ccsds_flag, packet_version;
-	
-	if(!current_tc_fullf)
-		return -1;
 	
 	packet_id = (uint16_t)(tc_to_decode[151]);
 	packet_id = packet_id << 8;
@@ -711,10 +758,17 @@ static int decode_telecommand(void)
 	/* Check that the packet error control is correct		*/
 	pec0 = fletcher16(tc_to_decode + 2, 150);
 	/* Verify that the telecommand is ready to be decoded.	*/
-	x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
-	if(x < 0)
-		return -1;
 	
+	attempts = 0; x = 0;
+	while (attempts<3 && x<0){
+		x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
+		attempts++;
+	}
+	if(x < 0)
+	{	
+		errorREPORT(OBC_ID, service_type, OBC_TC_PACKET_ERROR, 0);
+		return -1;
+	}
 	/* Decode the telecommand packet						*/		// To be updated on a rolling basis
 	decode_telecommand_h(service_type, service_sub_type);
 	return;
@@ -742,7 +796,6 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 	{
 		current_command[i] = tc_to_decode[i + 2];
 	}
-	current_tc_fullf = 0;
 	
 	current_command[140] = ((uint8_t)packet_id) >> 8;	// Place packet_id and psc inside command in case a TC verification is needed.
 	current_command[139] = (uint8_t)packet_id;
@@ -792,6 +845,30 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				
 			// William: Put more diagnostics stuff here. This time I want the service_type in current_command[146] and
 			// The service_sub_type placed in current_command[145]
+			case	NEW_DIAG_DEFINITION:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = NEW_DIAG_DEFINITION;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	CLEAR_DIAG_DEFINITION:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = CLEAR_DIAG_DEFINITION;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	ENABLE_D_PARAM_REPORT:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = ENABLE_D_PARAM_REPORT;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	DISABLE_D_PARAM_REPORT:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = DISABLE_D_PARAM_REPORT;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	REPORT_DIAG_DEFINITIONS:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = REPORT_DIAG_DEFINITIONS;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
 				
 			default:
 				break;
@@ -819,18 +896,26 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			time += ((uint32_t)current_command[133]) << 8;
 			time += (uint32_t)current_command[132];
 			current_command[146] = service_sub_type;
-			if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
-				xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
-			//if(severity == 1)
-			//	xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
-			if(severity == 2)
+			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);	// All scheduled commands should be sent to scheduling.		
+		}
+		if(service_sub_type == START_EXPERIMENT_ARM)
+		{
+			experiment_armed = 1;
+			send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);	// Successful command execution report.
+		}
+		if(service_sub_type == START_EXPERIMENT_FIRE)
+		{
+			if(experiment_armed)
 			{
-				// Deal with command here.
-			}			
+				experiment_started = 1;
+				send_tc_verification(packet_id, psc, OBC_PACKET_ROUTER_ID, 0, 2);	// Successful command execution report.
+			}
+			else
+				send_tc_verification(packet_id, psc, 0xFF, 5, 0, 1);				// Failed telecommand acceptance report (usage error due to experiment_armed = 0)
 		}
 		else
 		{
-			// Everything else should be sent to the scheduling task.
+			/* Everything else should be sent to the scheduling task. */
 			current_command[146] = service_sub_type;
 			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);			
 		}
@@ -946,7 +1031,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	{
 		length = tc_to_decode[136];
 		
-		if((service_sub_type > 7) || !service_sub_type)
+		if((service_sub_type > 11) || !service_sub_type)
 		{
 			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
 			return -1;
@@ -1048,7 +1133,6 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 			current_data[7] = (uint8_t)(packet_id & 0x00FF);
 			current_data[8] = (uint8_t)((packet_id & 0xFF00) >> 8);
 			resp = packetize_send_telemetry(OBC_PACKET_ROUTER_ID, GROUND_PACKET_ROUTER_ID, 1, 2, tc_verify_success_count, 1, current_data);
-			current_tc_fullf = 0;
 		}		
 	}
 	if(tc_type == 2)
@@ -1113,6 +1197,8 @@ void opr_kill(uint8_t killer)
 	vPortFree(tc_sequence_count);
 	vPortFree(hk_telem_count);
 	vPortFree(hk_def_report_count);
+	vPortFree(diag_telem_count);
+	vPortFree(diag_def_report_count);
 	vPortFree(time_report_count);
 	vPortFree(mem_dump_count);
 	vPortFree(packet_id);

@@ -71,6 +71,8 @@ static void readFL(void);
 static void readMIC(void);
 static void activate_heater(uint32_t tempval, int sensor_index);
 static void setUpSens(void);
+static int store_science(uint8_t type, uint8_t* data);
+static int pay_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);
 
 /*-----------------------------------------------------------*/
 
@@ -285,4 +287,45 @@ void payload_kill(uint8_t killer)
 	else
 		vTaskDelete(NULL);
 	return;
+}
+
+int store_science(uint8_t type, uint8_t* data)
+{
+	uint32_t offset;
+	uint8_t size;
+	uint8_t* temp_ptr;
+	*temp_ptr = type;
+	if (spimem_read(SCIENCE_BASE, &offset, 4) < 0)								// FAILURE_RECOVERY needed for each SPI operation.
+		return -1;
+	spimem_write(SCIENCE_BASE + offset, &temp_ptr, 1);					// Data Type
+	spimem_write(SCIENCE_BASE + offset + 1, absolute_time_arr, 4);		// Time Stamp
+	if(!type)			// Temperature collection
+		size = 10;
+	if(type == 1)		// Environmental Sensor Collection
+		size = 12;
+	if(type == 2)		// Photosensor collection
+		size = 144;
+	spimem_write(SCIENCE_BASE + offset + 5, data, size);
+	offset += (5 + size);
+	spimem_write(SCIENCE_BASE, offset, 4);
+	return size;
+}
+
+//Wrapper function for spimem_write within this file.
+//If the function fails after 3 attempts, sends data_buff to error_report
+int pay_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
+{
+	int attempts = 1;
+	//spimem_success is >0 if successful
+	uint8_t spimem_success = spimem_write(addr, data_buff, size);
+	while (attempts<3 && spimem_success<0){
+		spimem_success = spimem_write(addr, data_buff, size);
+		attempts++;
+	}
+	if (spimem_success<0) {
+		errorASSERT(PAY_TASK_ID,spimem_success,PAY_SPIMEM_RW_ERROR, data_buff);
+		return -1;
+		//spimem_write can return -1,-2,-3,-4 in case of an error - does FDIR treat all cases the same?
+	}
+	else {return 0;}
 }

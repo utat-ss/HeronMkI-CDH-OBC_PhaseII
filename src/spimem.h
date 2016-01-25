@@ -69,8 +69,10 @@ uint16_t msg_buff[260];			// Temporary buffer used by the read and write tasks t
 
 /*		Function Prototypes				*/
 void spimem_initialize(void);																	// Driver
+int task_spimem_write(uint8_t task, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 3 TICK, TRIES 3 TIMES, ERROR HANDLING INCLUDED.
 int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);								// API, BLOCKS FOR 3 TICK
 int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
+int task_spimem_read(uint8_t task, uint32_t addr, uint8_t* read_buff, uint32_t size);							// API, BLOCKS FOR 1 TICK, TRIES 3 TIMES, ERROR HANDLING INCLUDED.
 int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size);								// API, BLOCKS FOR 1 TICK
 int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);		// API, BLOCKS FOR 1 TICK
 uint32_t check_page(uint32_t page_num);															// Helper
@@ -85,4 +87,3 @@ uint32_t update_spibuffer_with_new_page(uint32_t addr, uint8_t* data_buff, uint3
 uint32_t erase_sector_on_chip(uint32_t spi_chip, uint32_t sect_num);							// Driver
 uint32_t write_sector_back_to_spimem(uint32_t spi_chip);										// Driver
 int erase_spimem(void);																			// Helper
-

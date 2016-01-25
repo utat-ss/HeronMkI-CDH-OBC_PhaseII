@@ -254,7 +254,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 	//assert(controller);				// CAN0 or CAN1 are nonzero.
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
-	uint8_t sender, destination, big_type, small_type;
+	uint8_t sender, destination, big_type, small_type, received_minute, minute_diff = 2;
 	BaseType_t wake_task;	// Not needed here.
 	uint8_t dumbuf[152];
 	uint8_t i;
@@ -267,6 +267,13 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 	destination = (uint8_t)((uh_data_incom & 0x0F000000)>>24);
 	big_type = (uint8_t)((uh_data_incom & 0x00FF0000)>>16);
 	small_type = (uint8_t)((uh_data_incom & 0x0000FF00)>>8);
+	received_minute = (uint8_t)(uh_data_incom & 0x000000FF);
+	minute_diff = CURRENT_MINUTE - received_minute;
+	if((CURRENT_MINUTE == 59) && (received_minute == 0))
+		minute_diff = 1;
+	
+	if((small_type < 0x0D) && (small_type > 0x14) && (minute_diff > 1))		// CURRENT_MINUTE which was received was invalid.
+		return;
 
 	if(big_type != MT_COM)
 		return;

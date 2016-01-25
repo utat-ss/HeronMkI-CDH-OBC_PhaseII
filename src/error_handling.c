@@ -171,3 +171,64 @@ int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint32_t* data)
 	else
 		return -1;
 }
+
+/************************************************************************/
+/* xQueueSendToBackTask                                                 */
+/* wrapper function for xQueueSendToBack for the purpose of catching    */
+/* any FIFO errors                                                      */
+/* @Note: For use with FIFO to/from OPR									*/
+/************************************************************************/
+// direction: 1 = TO OPR, 0 = FROM OPR
+void xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks)
+{
+	
+	uint8_t attempts = 0, error = 0;
+	switch(task)
+	{
+		case HK_TASK_ID:
+			error = HK_FIFO_RW_ERROR;
+		case SCHEDULING_TASK_ID:
+			error = SCHED_FIFO_RW_ERROR;
+		case TIME_TASK_ID:
+			error = TM_FIFO_RW_ERROR;
+		case MEMORY_TASK_ID:
+			error = MEM_FIFO_RW_ERROR;
+		default:
+			return -1;
+	}
+	while (attempts < 3 && xQueueSendToBack(fifo, itemToQueue, ticks) != pdTRUE )
+	{
+		attempts++;
+	}
+	if (attempts == 3)
+		errorREPORT(task, direction, error, itemToQueue);
+	return;
+}
+
+/************************************************************************/
+// direction: 1 = TO OPR, 0 = FROM OPR
+void xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks)
+{
+	
+	uint8_t attempts = 0, error = 0;
+	switch(task)
+	{
+		case HK_TASK_ID:
+			error = HK_FIFO_RW_ERROR;
+		case SCHEDULING_TASK_ID:
+			error = SCHED_FIFO_RW_ERROR;
+		case TIME_TASK_ID:
+			error = TM_FIFO_RW_ERROR;
+		case MEMORY_TASK_ID:
+			error = MEM_FIFO_RW_ERROR;
+		default:
+			return -1;
+	}
+	while (attempts < 3 && xQueueReceive(fifo, itemToQueue, ticks) != pdPASS )
+	{
+		attempts++;
+	}
+	if (attempts == 3)
+		errorREPORT(task, direction, error, itemToQueue);
+	return;
+}

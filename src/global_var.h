@@ -82,7 +82,7 @@
 /* Diagnostics							*/
 #define NEW_DIAG_DEFINITION				2
 #define CLEAR_DIAG_DEFINITION			4
-#define ENABLE_D_PARAM_REPORT			6
+#define ENABLE_D_PARAM_REPORT			7
 #define DISABLE_D_PARAM_REPORT			8
 #define REPORT_DIAG_DEFINITIONS			11
 #define DIAG_DEFINITION_REPORT			12
@@ -104,6 +104,8 @@
 #define PAUSE_SCHEDULE					5
 #define RESUME_SCHEDULE					6
 #define COMPLETED_SCHED_COM_REPORT		7
+#define START_EXPERIMENT_ARM			8
+#define START_EXPERIMENT_FIRE			9
 /* FDIR Service							*/
 #define ENTER_LOW_POWER_MODE			1
 #define EXIT_LOW_POWER_MODE				2
@@ -158,7 +160,12 @@
 #define CAN_ERROR_WITHIN_FDIR			0x21
 #define ERROR_IN_DELETE_TASK			0x22
 #define INTERNAL_MEMORY_FALLBACK_EXITED 0x23
-#define EPS_SENSOR_VALUE_OUT_OF_RANGE	0X24
+#define DIAG_ERROR_IN_FDIR				0x24
+#define DIAG_SPIMEM_ERROR_IN_FDIR		0x25
+#define DIAG_SENSOR_ERROR_IN_FDIR		0x26
+#define TC_BUFFER_FULL					0x27
+#define TM_BUFFER_FULL					0x28
+#define EPS_SENSOR_VALUE_OUT_OF_RANGE	0X29
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -190,6 +197,10 @@ QueueHandle_t obc_to_fdir_fifo;			// ob_packet_router		-->		fdir
 /* ERROR HANDLING FIFOs				*/
 QueueHandle_t high_sev_to_fdir_fifo;	// Any task				-->		fdir
 QueueHandle_t low_sev_to_fdir_fifo;		// Any task				-->		fdir
+
+/* BUFFERS FOR TC/TM PACKETS		*/
+QueueHandle_t tc_buffer;				// Telecommand packet buffer.
+QueueHandle_t tm_buffer;				// Telemetry packet buffer.
 
 /* MUTEX LOCKS FOR ERROR HANDLING FIFOs	*/
 SemaphoreHandle_t Highsev_Mutex;
@@ -236,7 +247,7 @@ uint32_t	INTERNAL_MEMORY_FALLBACK_MODE;
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;
 uint8_t start_tm_transferf;
-uint8_t current_tc_fullf, receiving_tcf;
+uint8_t current_tc_fullf, receiving_tcf, current_tm_fullf, tm_down_fullf;
 
 /* Global variables for time management	*/
 uint8_t ABSOLUTE_DAY;
@@ -278,11 +289,16 @@ uint32_t	PAY_BASE;			// PAY = 16kB: 0x08000 - 0x0BFFF
 uint32_t	HK_BASE;			// HK = 8kB: 0x0C000 - 0x0DFFF
 uint32_t	EVENT_BASE;			// EVENT = 8kB: 0x0E000 - 0x0FFFF
 uint32_t	SCHEDULE_BASE;		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
-uint32_t	SCIENCE_BASE;		// SCIENCE = 8kB: 0x12000 - 0x13FFF
+uint32_t	DIAG_BASE;			// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
+uint32_t	SCIENCE_BASE;		// SCIENCE = 256kB: 0x16000 - 0x25FFF (memory listed is 64kB, 256kB is 0x16000 - 0x55FFF)
 uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 /* Limits for task operations */
 uint32_t	MAX_SCHED_COMMANDS;
 uint32_t	LENGTH_OF_HK;
+
+/* Global variables for experiment commencement */
+uint8_t		experiment_armed;
+uint8_t		experiment_started;
 
 #endif

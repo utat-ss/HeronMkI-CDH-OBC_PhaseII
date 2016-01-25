@@ -43,8 +43,11 @@ Author: Samantha Murray, Keenan Burnett
 #include "partest.h"
 /* CAN Function includes */
 #include "can_func.h"
+
 /* Global variables */
 #include "global_var.h" 
+#include "error_handling.h"
+
 /* Priorities at which the tasks are created. */
 #define Eps_PRIORITY	( tskIDLE_PRIORITY + 1 ) // Lower the # means lower the priority
 /* Values passed to the two tasks just to check the task parameter
@@ -98,6 +101,8 @@ static uint16_t payv_high, payv_low, payi_high, payi_low, obcv_high, obcv_low, o
 // For the SEND_EVENT_REPORT service
 static uint8_t current_command[DATA_LENGTH + 10];
 /*-----------------------------------------------------------*/
+
+
 
 /************************************************************************/
 /* EPS (Function) 														*/
@@ -304,7 +309,11 @@ static uint32_t get_sensor_data(uint8_t sensor_id)
 	while (*status == 0xFFFFFFFF)								//If there is an error, check the status
 	{
 		if (tries++ > MAX_NUM_TRIES)
-			return 0xFFFFFFFF;							// FAILURE_RECOVERY
+			{
+				errorREPORT(EPS_TASK_ID, sensor_id, EPS_SSM_GET_SENSOR_DATA_ERROR, 0);
+				return 0xFFFFFFFF;
+			}
+										
 		else
 			sensor_value = request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//Otherwise try again
 	}
@@ -335,8 +344,11 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 	status = set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);
 	while (status == 0xFF)								//If there is an error, check the status
 	{
-		if (tries++ > MAX_NUM_TRIES)
-			return;									// FAILURE_RECOVERY
+		if (tries++ > MAX_NUM_TRIES) {
+			
+			errorREPORT(EPS_TASK_ID, variable_name, EPS_SET_VARIABLE_ERROR, 0);
+			return;
+		}								// FAILURE_RECOVERY
 		else
 			status = set_variable(EPS_TASK_ID, EPS_ID, variable_name, new_var_value);		//Otherwise try again
 	}

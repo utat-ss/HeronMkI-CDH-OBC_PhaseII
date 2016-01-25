@@ -365,6 +365,13 @@ static void prvInitializeFifos(void)
 	item_size = 152;	
 	high_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
 	low_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+	
+	/* Initialize PUS packet buffers				*/
+	fifo_length = 10;
+	item_size = 152;
+	tc_buffer = xQueueCreate(fifo_length, item_size);
+	tm_buffer = xQueueCreate(fifo_length, item_size);
+	
 	return;
 }
 
@@ -436,6 +443,8 @@ static void prvInitializeGlobalVars(void)
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	current_tc_fullf = 0;
+	current_tm_fullf = 0;
+	tm_down_fullf = 0;
 	receiving_tcf = 0;
 	
 	/* FDIR signals that individuals tasks loop on */
@@ -463,7 +472,8 @@ static void prvInitializeGlobalVars(void)
 	HK_BASE			=	0x0C000;	// HK = 8kB: 0x0C000 - 0x0DFFF
 	EVENT_BASE		=	0x0E000;	// EVENT = 8kB: 0x0E000 - 0x0FFFF
 	SCHEDULE_BASE	=	0x10000;	// SCHEDULE = 8kB: 0x10000 - 0x11FFF
-	SCIENCE_BASE	=	0x12000;	// SCIENCE = 8kB: 0x12000 - 0x13FFF
+	DIAG_BASE		=	0x12000;	// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
+	SCIENCE_BASE	=	0x16000;	// SCIENCE = 256kB: 0x16000 - 0x25FFF (memory listed is 64kB, 256kB is 0x16000 - 0x55FFF)
 	TIME_BASE		=	0xFFFFC;	// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 	/* Limits for task operations */
@@ -472,6 +482,10 @@ static void prvInitializeGlobalVars(void)
 		MAX_SCHED_COMMANDS = 511;
 		LENGTH_OF_HK = 8192;
 	}
+	
+	/* Variables used for starting the science experiment */
+	experiment_armed = 0;
+	experiment_started = 0;
 	
 	return;
 }

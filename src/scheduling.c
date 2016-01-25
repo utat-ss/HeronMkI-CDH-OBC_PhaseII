@@ -605,10 +605,17 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 {
 	clear_current_command();
 	current_command[146] = TASK_TO_OPR_EVENT;
-	current_command[3] = severity;
-	current_command[2] = report_id;
-	current_command[1] = param1;
-	current_command[0] = param0;
+	current_command[145] = severity;
+	current_command[136] = report_id;
+	current_command[135] = 2;
+	current_command[134] = 0x00;
+	current_command[133] = 0x00;
+	current_command[132] = 0x00;
+	current_command[131] = param0
+	current_command[130] = 0x00;
+	current_command[129] = 0x00;
+	current_command[128] = 0x00;
+	current_command[127] = param1;
 	xQueueSendToBackTask(SCHEDULING_TASK_ID, 1, sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }

@@ -74,7 +74,7 @@ static void setUpMPPT(void);
 static void battery_balance(void);
 static void verify_eps_sensor_value(uint8_t sensor_id);
 static void init_eps_sensor_bounds(void);
-static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
+static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_params, uint32_t* data)
 /*-----------------------------------------------------------*/
 
 
@@ -591,19 +591,32 @@ void init_eps_sensor_bounds(void){
 /* @Purpose: sends a message to the OBC_PACKET_ROUTER using				*/
 /* sched_to_obc_fifo. The intent is to an event report downlinked to	*/
 /* the ground station.													*/
-/* @param: severity: 1 = Normal.										*/
+/* @param: severity: 1 = Normal. (2|3|4) = increasing sev of error		*/
 /* @param: report_id: Unique to the event report, ex: BIT_FLIP_DETECTED */
-/* @param: param1,0 extra information that can be sent to ground.		*/
+/* @param: num_params: The number of 32-bit parameters that are being	*/
+/* transmitted to ground.												*/
+/* @param: *data: A pointer to where the data for the parameters is		*/
+/* currently stored.													*/
+/* @Note: This PUS packet shall be left-adjusted.						*/
 /************************************************************************/
-void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0){
+static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_params, uint32_t* data)
+{
 	clear_current_command();
+	if(num_params > 34)
+		return -1;		// Invalid number of parameters.
 	current_command[146] = TASK_TO_OPR_EVENT;
-	current_command[3] = severity;
-	current_command[2] = report_id;
-	current_command[1] = param1;
-	current_command[0] = param0;
+	current_command[145] = severity;
+	current_command[136] = report_id;
+	current_command[135] = num_params;
+	for(uint8_t i = 0; i < num_params; i++)
+	{
+		current_command[134 - (i * 4)]		= (uint8_t)((*(data + i) & 0xFF000000) >> 24);
+		current_command[134 - (i * 4) - 1]	= (uint8_t)((*(data + i) & 0x00FF0000) >> 16);
+		current_command[134 - (i * 4) - 2]	= (uint8_t)((*(data + i) & 0x0000FF00) >> 8);
+		current_command[134 - (i * 4) - 3]	= (uint8_t)(*(data + i) & 0x000000FF);
+	}
 	xQueueSendToBack(eps_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
-	return;
+	return 1;
 }
 
 // This function will kill this task.

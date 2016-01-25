@@ -295,12 +295,7 @@ static void exec_commands(void)
 		}
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			high = (MEMORY_TASK_ID) << 28;
-			low = ((uint8_t)current_command[3]) << 24;
-			low = ((uint8_t)current_command[2]) << 16;
-			low = ((uint8_t)current_command[1]) << 8;
-			low = (uint8_t)current_command[0];
-			send_event_packet(high, low);
+			send_event_packet(MEMORY_TASK_ID, current_command[145]);
 		}
 	}
 	if(xQueueReceive(sched_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
@@ -318,12 +313,7 @@ static void exec_commands(void)
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			high = (SCHEDULING_TASK_ID) << 28;
-			low = ((uint8_t)current_command[3]) << 24;
-			low = ((uint8_t)current_command[2]) << 16;
-			low = ((uint8_t)current_command[1]) << 8;
-			low = (uint8_t)current_command[0];
-			send_event_packet(high, low);
+			send_event_packet(SCHEDULING_TASK_ID, current_command[145]);
 		}
 		if(current_command[146] == COMPLETED_SCHED_COM_REPORT)
 		{
@@ -347,12 +337,7 @@ static void exec_commands(void)
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			high = (FDIR_TASK_ID) << 28;
-			low = ((uint8_t)current_command[3]) << 24;
-			low = ((uint8_t)current_command[2]) << 16;
-			low = ((uint8_t)current_command[1]) << 8;
-			low = (uint8_t)current_command[0];
-			send_event_packet(high, low);
+			send_event_packet(FDIR_TASK_ID, current_command[145]);
 		}
 		//diagnostics reports
 		//send diagnostics reports to the housekeeping ground service
@@ -369,18 +354,9 @@ static void exec_commands(void)
 	}
 	if(xQueueReceive(eps_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
 	{
-		packet_id = ((uint16_t)current_command[140]) << 8;
-		packet_id += (uint16_t)current_command[139];
-		psc = ((uint16_t)current_command[138]) << 8;
-		psc += (uint16_t)current_command[137];
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			high = (EPS_TASK_ID) << 28;
-			low = ((uint8_t)current_command[3]) << 24;
-			low = ((uint8_t)current_command[2]) << 16;
-			low = ((uint8_t)current_command[1]) << 8;
-			low = (uint8_t)current_command[0];
-			send_event_packet(high, low);
+			send_event_packet(EPS_TASK_ID, current_command[145]);
 		}
 	}
 	return;
@@ -1162,20 +1138,18 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 /* SEND_EVENT_PACKET		                                            */
 /* @Purpose: Takes information in high & low and turns them into an		*/
 /* event report which is then downlinked to the ground station.			*/
-/* @param: high: (high & 0xF0000000) is the sender ID.					*/
-/* @param: low: B3 = severity, B2 = reportID, B1,0 = parameters			*/
+/* @param: sender: The ID of the task / SSM which is transmitting this	*/
+/* event report.														*/
+/* @param: severity: (1|2|3|4), where 1 = NORMAL, 1,2,3 = increasing	*/
+/* severity of error.													*/
+/* @Note: The task event report function is now responsible for setting */
+/* up the data portion of the packet, and hence this function assumes	*/
+/* that the array current_data[] has the data necessary for this report	*/
 /************************************************************************/
-static void send_event_packet(uint32_t high, uint32_t low)
+static void send_event_packet(uint8_t sender, uint8_t severity)
 {
-	uint8_t sender, severity;
 	int resp;
-	clear_current_data();
 	event_report_count++;
-	sender = (uint8_t)((high & 0xF0000000) >> 28);
-	severity = (uint8_t)((low & 0xFF000000) >> 24);
-	current_data[2] = (uint8_t)((low & 0x00FF0000) >> 16);
-	current_data[1] = (uint8_t)((low & 0x0000FF00) >> 8);
-	current_data[0] = (uint8_t)(low & 0x000000FF);
 	resp = packetize_send_telemetry(sender, GROUND_PACKET_ROUTER_ID, 5, severity, event_report_count, 1, current_data);	// FAILURE_RECOVERY
 	return;
 }

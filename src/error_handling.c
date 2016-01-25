@@ -193,6 +193,8 @@ void xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, u
 			error = TM_FIFO_RW_ERROR;
 		case MEMORY_TASK_ID:
 			error = MEM_FIFO_RW_ERROR;
+		case EPS_TASK_ID:
+			error = EPS_FIFO_W_ERROR;
 		default:
 			return -1;
 	}

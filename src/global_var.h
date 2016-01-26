@@ -166,6 +166,7 @@
 #define TC_BUFFER_FULL					0x27
 #define TM_BUFFER_FULL					0x28
 #define EPS_SENSOR_VALUE_OUT_OF_RANGE	0X29
+#define BATTERY_HEATER_STATUS			0x30
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/

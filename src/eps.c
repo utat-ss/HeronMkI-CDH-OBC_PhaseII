@@ -58,6 +58,7 @@ functionality. */
 #define MAX_NUM_TRIES			0xA
 #define DUTY_INCREMENT			0x6
 #define EPS_BALANCE_INTERVAL	0x2
+#define EPS_HEATER_INTERVAL		0x5
 /*-----------------------------------------------------------*/
 
 /* Function Prototypes										 */
@@ -72,6 +73,7 @@ static uint32_t get_sensor_data(uint8_t sensor_id);
 static void set_variable_value(uint8_t variable_name, uint8_t new_var_value);
 static void setUpMPPT(void);
 static void battery_balance(void);
+static void battery_heater(void);
 static void verify_eps_sensor_value(uint8_t sensor_id);
 static void init_eps_sensor_bounds(void);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
@@ -86,6 +88,10 @@ static uint32_t pxp_last, pyp_last;
 
 // For Battery Balancing
 static uint8_t last_balance_minute = 0;
+
+// For Battery Heater
+static uint8_t last_heater_control_minute = 0;
+static uint32_t eps_target_temp, eps_temp_interval;
 
 // Sensor values
 static uint32_t battmv, battv, battin, battout;
@@ -159,6 +165,10 @@ static void prvEpsTask(void *pvParameters )
 		if ((CURRENT_MINUTE - last_balance_minute) > EPS_BALANCE_INTERVAL)
 		{
 			battery_balance();
+		}
+		if ((CURRENT_MINUTE - last_heater_control_minute) > EPS_HEATER_INTERVAL)
+		{
+			battery_heater();
 		}
 	}
 
@@ -360,15 +370,17 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 /*																		*/
 /* @Purpose: This function runns battery balancing for the eps		 	*/
 /*				subsystem. It will only run when the batteries are		*/
-/*				charging and it will currently only run every 								*/
+/*				charging and it will currently only run every X minutes	*/
 /*																		*/
-/* @return:								returns sensor value requested	*/
 /* NOTE: This function will wait for a maximum of X * 25ms. for the		*/
 /* operation to complete.												*/
 /************************************************************************/
 static void battery_balance(void){
 	//Declare variables
 	uint32_t balance_l, balance_h, top_battery, bottom_battery;		//These are 8 bit values, but they are 32 here b/c that is what the set_sensor_data function returns
+
+	// Timestamp the occurrence of this function
+	last_balance_minute = CURRENT_MINUTE;
 
 	//Update all the values we need to make decisions for battery balancing 
 	balance_h = get_sensor_data(BALANCE_H);
@@ -413,6 +425,44 @@ static void battery_balance(void){
 		{
 			set_variable_value(BALANCE_L, 0); // Turn off balancing if the difference in cells is now small
 		}
+	}
+}
+
+/************************************************************************/
+/* BATTERY_HEATER														*/
+/*																		*/
+/* @Purpose: This function decides when to turn on and off the battery	*/
+/*				heater attached to the EPS subsystem. It will run with 	*/
+/*				a hysteresis algorithm where the +/- from the center	*/
+/*				and the set target value can be changed from the ground */
+/*																		*/
+/************************************************************************/
+static void battery_heater(void){
+	
+	//Declare variables
+	uint32_t batt_heater_control;
+
+	// Timestamp the occurrence of this function
+	last_heater_control_minute = CURRENT_MINUTE;
+
+	//Update all the values we need to make decisions for battery heater
+	epstemp = get_sensor_data(EPS_TEMP);
+	batt_heater_control = get_sensor_data(BATT_HEAT);
+
+	//Check if we should turn off the heater if it is currently on
+	if ((batt_heater_control == 1) && (epstemp >= (eps_target_temp + eps_temp_interval)))
+	{
+		set_variable_value(BATT_HEAT, 0);
+		//Report that we turned the heater off 
+		send_event_report(1, BATTERY_HEATER_STATUS, 0, 0);
+	}
+		
+	//Check if we should turn on the heater if it is currently off
+	if ((batt_heater_control == 0) && (epstemp <= (eps_target_temp - eps_temp_interval)))
+	{
+		set_variable_value(BATT_HEAT, 1);
+		//Report that we turned the heater on
+		send_event_report(1, BATTERY_HEATER_STATUS, 0, 1);
 	}
 }
 

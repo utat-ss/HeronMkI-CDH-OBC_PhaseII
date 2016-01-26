@@ -449,9 +449,9 @@ uint8_t get_ssm_id(uint8_t sensor_name){
 	if ((sensor_name>0x13 && sensor_name <= 0x1B) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
 		return PAY_ID;
 	//for global variables:
-	if ((sensor_name == MPPTA) || (sensor_name == MPPTB) || (sensor_name == EPS_MODE) || (sensor_name == EPS_FDIR_SIGNAL))
+	if ((sensor_name == MPPTX) || (sensor_name == MPPTY) || (sensor_name == EPS_MODE) || (sensor_name == EPS_FDIR_SIGNAL) || (sensor_name == BALANCE_H) || (sensor_name == BALANCE_L) || (sensor_name == BATT_HEAT))
 		return EPS_ID;
-	if ((sensor_name == COMS_MODE) || (sensor_name == SSM_CTT) || (sensor_name == SSM_OGT) || (sensor_name == BALANCE_H) || (sensor_name == BALANCE_L))
+	if ((sensor_name == COMS_MODE) || (sensor_name == SSM_CTT) || (sensor_name == SSM_OGT))
 		return COMS_ID;
 	if ((sensor_name == PAY_MODE) || (sensor_name == PAY_STATE) || (sensor_name == PAY_FDIR_SIGNAL))
 		return PAY_ID;

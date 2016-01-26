@@ -380,6 +380,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define COMS_FDIR_SIGNAL		0xEB
 #define EPS_FDIR_SIGNAL			0xEA
 #define PAY_FDIR_SIGNAL			0xE9
+#define BATT_HEAT				0xE8
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

@@ -81,7 +81,7 @@ TaskHandle_t time_manage(void);
 void time_manage_kill(uint8_t killer);
 void broadcast_minute(void);
 void update_absolute_time(void);
-static void report_time(void);
+void report_time(void);
 static void exec_commands(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
@@ -180,7 +180,7 @@ void update_absolute_time(void)
 	return;
 }
 
-static void report_time(void)
+void report_time(void)
 {
 	clear_current_command();
 	current_command[9] = TIME_REPORT;
@@ -229,9 +229,9 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 void time_manage_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
-	vPortFree(current_command);
-	vPortFree(minute_count);
-	vPortFree(report_timeout);
+	//vPortFree(current_command);
+	//vPortFree(minute_count);
+	//vPortFree(report_timeout);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(time_manage_HANDLE);

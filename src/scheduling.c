@@ -182,7 +182,7 @@ static void exec_pus_commands(void)
 {
 	uint16_t packet_id, psc;
 	uint8_t status, kicked_count;
-	if(xQueueReceiveTask(SCHEDULING_TASK_ID, 0, obc_to_sched_fifo, current_command, (TickType_t)1000) == 1)	// Only block for a single second.
+	if(xQueueReceiveTask(SCHEDULING_TASK_ID, 0, obc_to_sched_fifo, current_command, (TickType_t)1000) == pdTRUE)	// Only block for a single second.
 	{
 		packet_id = ((uint16_t)current_command[140]) << 8;
 		packet_id += (uint16_t)current_command[139];
@@ -611,7 +611,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[134] = 0x00;
 	current_command[133] = 0x00;
 	current_command[132] = 0x00;
-	current_command[131] = param0
+	current_command[131] = param0;
 	current_command[130] = 0x00;
 	current_command[129] = 0x00;
 	current_command[128] = 0x00;
@@ -625,14 +625,14 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 void scheduling_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
-	vPortFree(current_command);
-	vPortFree(num_commands);
-	vPortFree(next_command_time);
-	vPortFree(furthest_command_time);
-	vPortFree(scheduling_on);
-	vPortFree(sched_buff0);
-	vPortFree(sched_buff1);
-	vPortFree(x);
+	//vPortFree(current_command);
+	//vPortFree(num_commands);
+	//vPortFree(next_command_time);
+	//vPortFree(furthest_command_time);
+	//vPortFree(scheduling_on);
+	//vPortFree(sched_buff0);
+	//vPortFree(sched_buff1);
+	//vPortFree(x);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(scheduling_HANDLE);

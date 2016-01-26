@@ -74,7 +74,8 @@ static void setUpMPPT(void);
 static void battery_balance(void);
 static void verify_eps_sensor_value(uint8_t sensor_id);
 static void init_eps_sensor_bounds(void);
-static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_params, uint32_t* data)
+static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_params, uint32_t* data);
+static void clear_current_command(void);
 /*-----------------------------------------------------------*/
 
 
@@ -303,10 +304,9 @@ static uint32_t get_sensor_data(uint8_t sensor_id)
 	int* status = 0;
 	uint8_t tries = 0;
 	uint32_t sensor_value = 0;
-	uint32_t temp = 0;
 	
 	sensor_value = request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//request a value
-	while (*status == 0xFFFFFFFF)								//If there is an error, check the status
+	while (*status == -1)								//If there is an error, check the status
 	{
 		if (tries++ > MAX_NUM_TRIES)
 			{
@@ -317,7 +317,6 @@ static uint32_t get_sensor_data(uint8_t sensor_id)
 		else
 			sensor_value = request_sensor_data(EPS_TASK_ID, EPS_ID, sensor_id, status);		//Otherwise try again
 	}
-	temp = *status;
 	return sensor_value;
 }
 
@@ -427,97 +426,100 @@ static void battery_balance(void){
 /* operation to complete.												*/
 /************************************************************************/
 
-void verify_eps_sensor_value(uint8_t sensor_id){
+void verify_eps_sensor_value(uint8_t sensor_id)
+{
+	uint32_t* val = 0;
+	*val = sensor_id;
 	switch(sensor_id){
 		//NEED TO ADD IN A REPORTING FUNCTION THAT SOMEHOW NOTIFIES US
 		case PANELX_V :
 			if ((pxv < pxv_low) || (pxv > pxv_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, PANELX_V);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case PANELX_I :
 			if ((pxi < pxi_low) || (pxi > pxi_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, PANELX_I);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case PANELY_V :
 			if ((pyv < pyv_low) || (pyv > pyv_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, PANELY_V);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case PANELY_I :
 			if ((pyi < pyi_low) || (pyi > pyi_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, PANELY_I);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case BATTM_V :
 			if ((battmv < battmv_low) || (battmv > battmv_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, BATTM_V);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case BATT_V :
 			if ((battv < battv_low) || (battv > battv_low))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, BATT_V);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case BATTIN_I :
 			if ((battin < battin_low) || (battin > battin_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, BATTIN_I);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case BATTOUT_I :
 			if ((battout < battout_low) || (battout > battout_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, BATTOUT_I);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case EPS_TEMP :
 			if ((epstemp < epstemp_low) || (epstemp > epstemp_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, EPS_TEMP);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case COMS_V	:
 			if ((comsv < comsv_low) || (comsv > comsv_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, COMS_V);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case COMS_I :
 			if ((comsi < comsi_low) || (comsi > comsi_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, COMS_I);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case PAY_V :
 			if ((payv < payv_low) || (payv > payv_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, PAY_V);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case PAY_I :
 			if ((payi < payi_low) || (payi > payi_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, PAY_I);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case OBC_V :
 			if ((obcv < obcv_low) || (obcv > obcv_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, OBC_V);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		case OBC_I :
 			if ((obci < obci_low) || (obci > obcv_high))
 			{
-				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 0, OBC_I);
+				send_event_report(1, EPS_SENSOR_VALUE_OUT_OF_RANGE, 1, val);
 			}
 			break;
 		default :
@@ -623,27 +625,41 @@ static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_pa
 // If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
 void eps_kill(uint8_t killer){
 	// Free the memory that this task allocated.
-	vPortFree(xDirection);
-	vPortFree(yDirection);
-	vPortFree(xDuty);
-	vPortFree(yDuty);
-	vPortFree(pxp_last);
-	vPortFree(pyp_last);
-	vPortFree(battmv);
-	vPortFree(battv);
-	vPortFree(battin);
-	vPortFree(battout);
-	vPortFree(epstemp);
-	vPortFree(comsv);
-	vPortFree(comsi);
-	vPortFree(payv);
-	vPortFree(payi);
-	vPortFree(obcv);
-	vPortFree(obci);
+	//vPortFree(xDirection);
+	//vPortFree(yDirection);
+	//vPortFree(xDuty);
+	//vPortFree(yDuty);
+	//vPortFree(pxp_last);
+	//vPortFree(pyp_last);
+	//vPortFree(battmv);
+	//vPortFree(battv);
+	//vPortFree(battin);
+	//vPortFree(battout);
+	//vPortFree(epstemp);
+	//vPortFree(comsv);
+	//vPortFree(comsi);
+	//vPortFree(payv);
+	//vPortFree(payi);
+	//vPortFree(obcv);
+	//vPortFree(obci);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(eps_HANDLE);
 	else
 		vTaskDelete(NULL);
+	return;
+}
+
+/************************************************************************/
+/* CLEAR_CURRENT_COMMAND												*/
+/* @Purpose: clears the array current_command[]							*/
+/************************************************************************/
+static void clear_current_command(void)
+{
+	uint8_t i;
+	for(i = 0; i < (DATA_LENGTH + 10); i++)
+	{
+		current_command[i] = 0;
+	}
 	return;
 }

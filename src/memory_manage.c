@@ -167,7 +167,7 @@ static void prvMemoryManageTask(void *pvParameters )
 static void memory_wash(void)
 {
 	int x, y, z, check, attempts;
-	uint8_t spi_chip, write_required = 0, sum, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
+	uint8_t spi_chip, write_required = 0, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
 	uint8_t check_val = 0;
 	uint32_t page, addr, byte;
 	
@@ -290,8 +290,9 @@ static void exec_commands(void)
 	uint16_t i, j;
 	uint16_t packet_id, psc;
 	uint8_t* mem_ptr = 0;
-	uint32_t address, length, last_len = 0, num_transfers = 0;
-	uint64_t check = 0; int attempts = 0;
+	uint32_t address, length, num_transfers = 0;
+	uint32_t* temp_address = 0;
+	int check = 0; int attempts = 0;
 	clear_current_command();
 	if(xQueueReceiveTask(MEMORY_TASK_ID, 0, obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
 	{
@@ -336,7 +337,6 @@ static void exec_commands(void)
 				send_tc_execution_verify(1, packet_id, psc);
 			case	DUMP_REQUEST_ABS:
 				clear_current_command();		// Only clears lower data section.
-				last_len = 0;
 				if(length > 128)
 				{
 					num_transfers = length / 128;
@@ -374,7 +374,8 @@ static void exec_commands(void)
 			case	CHECK_MEM_REQUEST:
 				if(!memid)
 				{
-					check = fletcher64(address, length);
+					temp_address = address;
+					check = fletcher64(temp_address, length);
 					send_tc_execution_verify(1, packet_id, psc);
 				}
 				else
@@ -388,14 +389,14 @@ static void exec_commands(void)
 					send_tc_execution_verify(1, packet_id, psc);
 				}
 				current_command[146] = MEMORY_CHECK_ABS;
-				current_command[7] = ((uint8_t)(check & 0xFF00000000000000)) >> 56;
-				current_command[6] = ((uint8_t)(check & 0xFF00000000000000)) >> 48;
-				current_command[5] = ((uint8_t)(check & 0xFF00000000000000)) >> 40;
-				current_command[4] = ((uint8_t)(check & 0xFF00000000000000)) >> 32;
-				current_command[3] = ((uint8_t)(check & 0xFF00000000000000)) >> 24;
-				current_command[2] = ((uint8_t)(check & 0xFF00000000000000)) >> 26;
-				current_command[1] = ((uint8_t)(check & 0xFF00000000000000)) >> 8;
-				current_command[0] = (uint8_t)(check & 0xFF00000000000000);
+				current_command[7] = (uint8_t)((check & 0xFF00000000000000) >> 56);
+				current_command[6] = (uint8_t)((check & 0x00FF000000000000) >> 48);
+				current_command[5] = (uint8_t)((check & 0x0000FF0000000000) >> 40);
+				current_command[4] = (uint8_t)((check & 0xFF0000FF00000000) >> 32);
+				current_command[3] = (uint8_t)((check & 0xFF000000FF000000) >> 24);
+				current_command[2] = (uint8_t)((check & 0xFF00000000FF0000) >> 26);
+				current_command[1] = (uint8_t)((check & 0xFF0000000000FF00) >> 8);
+				current_command[0] = (uint8_t)(check & 0x00000000000000FF);
 				xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);
 			default:
 				return;
@@ -459,7 +460,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[134] = 0x00;
 	current_command[133] = 0x00;
 	current_command[132] = 0x00;
-	current_command[131] = param0
+	current_command[131] = param0;
 	current_command[130] = 0x00;
 	current_command[129] = 0x00;
 	current_command[128] = 0x00;
@@ -473,9 +474,9 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 void memory_manage_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
-	vPortFree(current_command);
-	vPortFree(minute_count);
-	vPortFree(xTimeToWait);
+	//vPortFree(current_command);
+	//vPortFree(minute_count);
+	//vPortFree(xTimeToWait);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(memory_manage_HANDLE);

@@ -61,14 +61,14 @@ extern "C" {
  * \param p_buf Pointer to buffer to transfer.
  * \param size Size of the buffer.
  */
-static void spi_slave_transfer(void *p_buf, uint32_t size)
-{
-	gs_puc_transfer_buffer = p_buf;
-	gs_ul_transfer_length = size;
-	gs_ul_transfer_index = 0;
-	spi_write(SPI_SLAVE_BASE, gs_puc_transfer_buffer[gs_ul_transfer_index], 0,
-			0);
-}
+//static void spi_slave_transfer(void *p_buf, uint32_t size)
+//{
+	//gs_puc_transfer_buffer = p_buf;
+	//gs_ul_transfer_length = size;
+	//gs_ul_transfer_index = 0;
+	//spi_write(SPI_SLAVE_BASE, gs_puc_transfer_buffer[gs_ul_transfer_index], 0,
+			//0);
+//}
 
 /**
  * \brief Interrupt handler for the SPI slave.
@@ -93,36 +93,36 @@ void SPI_Handler(void)
 /**
  * \brief Initialize SPI as slave.
  */
-static void spi_slave_initialize(void)
-{
-	uint32_t i;
-
-	/* Reset status */
-	gs_spi_status.ul_total_block_number = 0;
-	gs_spi_status.ul_total_command_number = 0;
-	for (i = 0; i < NB_STATUS_CMD; i++) {
-		gs_spi_status.ul_cmd_list[i] = 0;
-	}
-	
-	gs_ul_spi_state = SLAVE_STATE_DATA;
-	gs_ul_spi_cmd = RC_SYN;
-
-	/* Configure an SPI peripheral. */
-	spi_enable_clock(SPI_SLAVE_BASE);
-	spi_disable(SPI_SLAVE_BASE);
-	spi_reset(SPI_SLAVE_BASE);
-	spi_set_slave_mode(SPI_SLAVE_BASE);
-	spi_disable_mode_fault_detect(SPI_SLAVE_BASE);
-	spi_set_peripheral_chip_select_value(SPI_SLAVE_BASE, SPI_CHIP_PCS);
-	spi_set_clock_polarity(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_POLARITY);
-	spi_set_clock_phase(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_PHASE);
-	spi_set_bits_per_transfer(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CSR_BITS_8_BIT);
-	spi_enable_interrupt(SPI_SLAVE_BASE, SPI_IER_RDRF);
-	spi_enable(SPI_SLAVE_BASE);
-
-	/* Start waiting command. */
-	spi_slave_transfer(&gs_ul_spi_cmd, sizeof(gs_ul_spi_cmd));
-}
+//static void spi_slave_initialize(void)
+//{
+	//uint32_t i;
+//
+	///* Reset status */
+	//gs_spi_status.ul_total_block_number = 0;
+	//gs_spi_status.ul_total_command_number = 0;
+	//for (i = 0; i < NB_STATUS_CMD; i++) {
+		//gs_spi_status.ul_cmd_list[i] = 0;
+	//}
+	//
+	//gs_ul_spi_state = SLAVE_STATE_DATA;
+	//gs_ul_spi_cmd = RC_SYN;
+//
+	///* Configure an SPI peripheral. */
+	//spi_enable_clock(SPI_SLAVE_BASE);
+	//spi_disable(SPI_SLAVE_BASE);
+	//spi_reset(SPI_SLAVE_BASE);
+	//spi_set_slave_mode(SPI_SLAVE_BASE);
+	//spi_disable_mode_fault_detect(SPI_SLAVE_BASE);
+	//spi_set_peripheral_chip_select_value(SPI_SLAVE_BASE, SPI_CHIP_PCS);
+	//spi_set_clock_polarity(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_POLARITY);
+	//spi_set_clock_phase(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_PHASE);
+	//spi_set_bits_per_transfer(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CSR_BITS_8_BIT);
+	//spi_enable_interrupt(SPI_SLAVE_BASE, SPI_IER_RDRF);
+	//spi_enable(SPI_SLAVE_BASE);
+//
+	///* Start waiting command. */
+	//spi_slave_transfer(&gs_ul_spi_cmd, sizeof(gs_ul_spi_cmd));
+//}
 
 /**
  * \brief Initialize SPI as master.
@@ -190,11 +190,11 @@ static void spi_master_initialize(void)
  *
  * \param configuration  Index of the configuration to set.
  */
-static void spi_set_clock_configuration(uint8_t configuration)
-{
-	gs_ul_spi_clock = gs_ul_clock_configurations[configuration];
-	spi_master_initialize();
-}
+//static void spi_set_clock_configuration(uint8_t configuration)
+//{
+	//gs_ul_spi_clock = gs_ul_clock_configurations[configuration];
+	//spi_master_initialize();
+//}
 
 /**
  * \brief Perform SPI master transfer.
@@ -208,7 +208,7 @@ void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 	uint8_t pcs;
 	pcs = spi_get_pcs(chip_sel);
 	uint16_t data;
-	uint8_t	timeout = 84;	// ~1us timeout for getting the read status back.
+	//uint8_t	timeout = 84;	// ~1us timeout for getting the read status back.
 
 	uint16_t *p_buffer;
 

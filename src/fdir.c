@@ -192,6 +192,7 @@ extern void opr_kill(uint8_t killer);
 /* External functions used for time management	*/
 extern void broadcast_minute(void);
 extern void update_absolute_time(void);
+extern void report_time(void);
 
 /* External functions used for diagnostics */
 extern uint8_t get_ssm_id(uint8_t sensor_name);
@@ -210,7 +211,7 @@ static uint8_t diag_updated[DATA_LENGTH];
 static uint8_t current_diag_definition[DATA_LENGTH]; //stores current diagnostic definition
 static uint8_t current_diag_definitionf;
 static uint8_t current_eps_diag[DATA_LENGTH / 4], current_coms_diag[DATA_LENGTH / 4], current_pay_diag[DATA_LENGTH / 4];
-static uint8_t new_diag_msg_high, new_diag_msg_low;
+static uint32_t new_diag_msg_high, new_diag_msg_low;
 static uint8_t current_diag_fullf, diag_param_report_requiredf;
 static uint8_t collection_interval0, collection_interval1;
 static uint8_t current_diag_mem_offset[4];
@@ -287,8 +288,6 @@ TaskHandle_t fdir( void )
 static void prvFDIRTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == FDIR_PARAMETER );
-	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
-
 	// Initialize all variables which are local to FDIR
 	init_vars();
 
@@ -344,10 +343,7 @@ static void check_error(void)
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code)
 {
 	// This is where the resolution sequences are going to go.
-	TaskHandle_t temp_task = 0;
-	eTaskState task_state = 0;
-	uint8_t i, chip, status, ssmID;
-	int x;
+	uint8_t chip, ssmID;
 	uint32_t sect_num = 0xFFFFFFFF;
 	if(severity)
 	{
@@ -459,7 +455,7 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 			case 32:
 				if(task != PAY_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
-				resolution_sequence1(task);
+				resolution_sequence1(code, task);
 			case 33:
 				if(task != EPS_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -544,8 +540,7 @@ static void resolution_sequence1_3(uint8_t task)
 
 static void resolution_sequence1_4(uint8_t task)
 {					
-	uint8_t i;
-	int x;
+	uint16_t i;
 	if(SPI_HEALTH1)
 	{
 		SPI_CHIP_1_fumble_count++;
@@ -571,7 +566,7 @@ static void resolution_sequence1_4(uint8_t task)
 	clear_test_arrays();
 	for(i = 0; i < 256; i++)
 	{
-		test_array1[i] = i;
+		test_array1[(uint8_t)i] = (uint8_t)i;
 	}
 	
 	// Check to see if reading/writing is possible from the chip which malfunctioned.
@@ -589,7 +584,7 @@ static void resolution_sequence1_4(uint8_t task)
 		}
 		for(i = 0; i < 256; i++)
 		{
-			if(test_array2[i] != test_array1[i])
+			if(test_array2[(uint8_t)i] != test_array1[(uint8_t)i])
 			SPI_HEALTH1 = 0;
 		}
 		if(SPI_HEALTH1)
@@ -605,14 +600,14 @@ static void resolution_sequence1_4(uint8_t task)
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
-		x = spimem_read(0x00, test_array2, 256);
+		spimem_read(0x00, test_array2, 256);
 		{
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
 		{
-			if(test_array2[i] != test_array1[i])
+			if(test_array2[(uint8_t)i] != test_array1[(uint8_t)i])
 			SPI_HEALTH2 = 0;	// Try with a different chip.
 		}
 		if(SPI_HEALTH2)
@@ -628,14 +623,14 @@ static void resolution_sequence1_4(uint8_t task)
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
-		x = spimem_read(0x00, test_array2, 256);
+		spimem_read(0x00, test_array2, 256);
 		{
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
 		{
-			if(test_array2[i] != test_array1[i])
+			if(test_array2[(uint8_t)i] != test_array1[(uint8_t)i])
 			SPI_HEALTH3 = 0;	// Try with a different chip.
 		}
 		if(SPI_HEALTH3)
@@ -845,9 +840,7 @@ static void resolution_sequence5(uint8_t task, uint8_t code)
 static void resolution_sequence7(uint8_t task, uint8_t parameter)
 {
 	uint8_t ssmID = 0xFF;
-	uint32_t data = 0;
-	int *status;
-	*status = 0;
+	int *status = 0;
 	ssmID = get_ssm_id(parameter);
 	// If the parameter is internal to the OBC, enter SAFE_MODE.
 	if(ssmID == OBC_ID)
@@ -859,7 +852,7 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
 	if(req_data_timeout > 10000000)
 		enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -867,7 +860,7 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 	}
 	// Try resetting the SSM which has the malfunctioning variable and attempt to acquire the parameter again.
 	reset_SSM(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -875,7 +868,7 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 	}
 	// Try reprogramming the SSM and attempt to acquire the parameter again.
 	reprogram_ssm(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -953,7 +946,6 @@ static void resolution_sequence20(uint8_t task)
 static void resolution_sequence25(uint8_t task, uint8_t parameter)
 {
 	uint8_t ssmID = COMS_ID;
-	uint32_t data = 0;
 	int* status = 0;
 	
 	//ssmID = get_ssm_id(parameter);
@@ -961,7 +953,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
 	if(req_data_timeout > 10000000)
 		enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -969,7 +961,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 	}
 	// Try resetting the SSM which has the malfunctioning variable and attempt to acquire the parameter again.
 	reset_SSM(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -977,7 +969,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 	}
 	// Try reprogramming the SSM and attempt to acquire the parameter again.
 	reprogram_ssm(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -991,7 +983,8 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 static void resolution_sequence29(uint8_t ssmID)
 {
 	uint8_t ssm_consec_trans_timeout = 0;
-	ssm_consec_trans_timeout = get_sensor_data(SSM_CTT);
+	int status = 0;
+	ssm_consec_trans_timeout = request_sensor_data(FDIR_TASK_ID, COMS_ID, SSM_CTT, &status);
 	ssm_consec_trans_timeout += 10;		// Increase the timeout by 1ms.
 
 	if(ssm_consec_trans_timeout < 250)
@@ -1548,7 +1541,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[134] = 0x00;
 	current_command[133] = 0x00;
 	current_command[132] = 0x00;
-	current_command[131] = param0
+	current_command[131] = param0;
 	current_command[130] = 0x00;
 	current_command[129] = 0x00;
 	current_command[128] = 0x00;
@@ -1655,11 +1648,11 @@ static void time_update(void)
 
 static void clear_test_arrays(void)
 {
-	uint8_t i;
+	uint16_t i;
 	for (i = 0; i < 256; i++)
 	{
-		test_array1[i] = 0;
-		test_array2[i] = 0;
+		test_array1[(uint8_t)i] = 0;
+		test_array2[(uint8_t)i] = 0;
 	}
 	return;
 }
@@ -1833,11 +1826,13 @@ static int request_diagnostics_all(void)
 /************************************************************************/
 static int store_diagnostics(void)
 {
-	uint8_t sender = 0xFF;
 	uint8_t num_parameters = current_diag_definition[134];
 	int x = -1;
-	uint8_t = parameter_name = 0;
+	uint8_t parameter_name = 0;
 	uint8_t i;
+	int attempts = 1;
+	int* status = 0; // this might be wrong
+	int req_data_result = 0;
 	
 	if (current_diag_fullf)
 	{
@@ -1847,7 +1842,6 @@ static int store_diagnostics(void)
 	
 	while(read_can_hk(&new_diag_msg_high, &new_diag_msg_low, 1234) == 1)
 	{
-		sender = (new_diag_msg_high & 0xF0000000) >> 28;			// Can be EPS_ID/COMS_ID/PAY_ID/OBC_ID
 		parameter_name = (new_diag_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for diagnostics (either sensor or variable).
 		
 		for(i = 0; i < num_parameters; i+=2)
@@ -1868,10 +1862,6 @@ static int store_diagnostics(void)
 	{
 		if(!diag_updated[i])
 		{//failed updates are requested 3 times. If they fail, error is reported
-			
-			int attempts = 1;
-			int* status = 0; // this might be wrong
-			req_data_result = 0;
 			req_data_result = request_sensor_data(FDIR_TASK_ID,get_ssm_id(current_diag_definition[i]),current_diag_definition[i],status);
 			while (attempts < 3 && req_data_result == -1){
 				attempts++;
@@ -2012,8 +2002,8 @@ static void setup_default_definition(void)
 	diag_definition0[52] = OBC_V;
 	diag_definition0[51] = OBC_I;
 	diag_definition0[50] = OBC_I;
-	diag_definition0[49] = BATT_I;
-	diag_definition0[48] = BATT_I;
+	diag_definition0[49] = SHUNT_DPOT;
+	diag_definition0[48] = SHUNT_DPOT;
 	diag_definition0[47] = COMS_TEMP;	//
 	diag_definition0[46] = COMS_TEMP;
 	diag_definition0[45] = OBC_TEMP;	//
@@ -2034,10 +2024,10 @@ static void setup_default_definition(void)
 	diag_definition0[30] = PAY_PRESS;
 	diag_definition0[29] = PAY_ACCEL;
 	diag_definition0[28] = PAY_ACCEL;
-	diag_definition0[27] = MPPTA;
-	diag_definition0[26] = MPPTA;
-	diag_definition0[25] = MPPTB;
-	diag_definition0[24] = MPPTB;
+	diag_definition0[27] = MPPTX;
+	diag_definition0[26] = MPPTX;
+	diag_definition0[25] = MPPTY;
+	diag_definition0[24] = MPPTY;
 	diag_definition0[23] = COMS_MODE;	//
 	diag_definition0[22] = COMS_MODE;
 	diag_definition0[21] = EPS_MODE;	//

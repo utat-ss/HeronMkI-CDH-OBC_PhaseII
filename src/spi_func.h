@@ -49,6 +49,7 @@
 //#include "conf_spi.h"
 #include "pio.h"
 #include "gpio.h"
+#include "time.h"
 
 /* SPI clock frequency (Hz) */
 #define SPI_CLK_FREQ 4000000
@@ -133,32 +134,6 @@ struct status_block_t {
 	/** Command list. */
 	uint32_t ul_cmd_list[NB_STATUS_CMD];
 };
-
-/* SPI clock setting (Hz). */
-static uint32_t gs_ul_spi_clock = 62500;
-
-/* Current SPI return code. */
-static uint32_t gs_ul_spi_cmd = RC_SYN;
-
-/* Current SPI state. */
-static uint32_t gs_ul_spi_state = 0;
-
-/* 64 bytes data buffer for SPI transfer and receive. */
-static uint8_t gs_uc_spi_buffer[COMM_BUFFER_SIZE];
-
-/* Pointer to transfer buffer. */
-static uint8_t *gs_puc_transfer_buffer;
-
-/* Transfer buffer index. */
-static uint32_t gs_ul_transfer_index;
-
-/* Transfer buffer length. */
-static uint32_t gs_ul_transfer_length;
-
-/* SPI Status. */
-static struct status_block_t gs_spi_status;
-
-static uint32_t gs_ul_test_block_number;
 
 /* SPI clock configuration. */
 static const uint32_t gs_ul_clock_configurations[] =

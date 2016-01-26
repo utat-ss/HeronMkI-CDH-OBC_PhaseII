@@ -88,7 +88,7 @@ uint8_t low_error_array[152];
 #define PAY_SPIMEM_RW_ERROR				0x20
 #define EPS_FIFO_W_ERROR				0x21
 
-int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint32_t* data);
+int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data);
 int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex);
-void xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks);
-void xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks);
+BaseType_t xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks);
+BaseType_t xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks);

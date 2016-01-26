@@ -245,8 +245,9 @@ int main(void)
 static void safe_mode(void)
 {
 	extern void SystemCoreClockUpdate(void);
-	uint32_t timeout = 80000000, low=0, high=0;
-	uint32_t MEM_LOCATION = 0x00080000;
+	uint32_t timeout = 80000000, low=0;
+	uint32_t* MEM_LOCATION;
+	MEM_LOCATION = 0x00080000;
 	size_t SIZE = 10;
 	/* ASF function to setup clocking. */
 	sysclk_init();

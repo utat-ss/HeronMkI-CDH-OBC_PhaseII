@@ -44,6 +44,8 @@ Author: Keenan Burnett
 #include "partest.h"
 /* CAN Function includes */
 #include "can_func.h"
+
+#include "error_handling.h"
 /* Priorities at which the tasks are created. */
 #define Payload_PRIORITY	( tskIDLE_PRIORITY + 1 ) // Lower the # means lower the priority
 /* Values passed to the two tasks just to check the task parameter
@@ -323,7 +325,7 @@ int pay_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 		attempts++;
 	}
 	if (spimem_success<0) {
-		errorASSERT(PAY_TASK_ID,spimem_success,PAY_SPIMEM_RW_ERROR, data_buff);
+		errorASSERT(PAY_TASK_ID,spimem_success,PAY_SPIMEM_RW_ERROR, data_buff, 0);
 		return -1;
 		//spimem_write can return -1,-2,-3,-4 in case of an error - does FDIR treat all cases the same?
 	}

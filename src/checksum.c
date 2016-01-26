@@ -74,7 +74,7 @@ uint64_t fletcher64(uint32_t* data, int count)
 /************************************************************************/
 uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status)
 {
-	uint8_t i, j;
+	uint32_t i, j;
 	int num = 0;
 	uint64_t sum1 = 0, sum2 = 0;
 	uint8_t num_pages = (count / 256);
@@ -111,7 +111,7 @@ uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status)
 /* @param: words: how many WORDS in memory, you would like to hash		*/
 /* @return: the 32-bit checksum value.									*/
 /************************************************************************/
-uint32_t fletcher32( uint16_t const *data, size_t words )
+uint32_t fletcher32(uint32_t *data, size_t words )
 {
 	/* sum1 and sum2 should never be 0 */
 	uint32_t sum1 = 0xffff;

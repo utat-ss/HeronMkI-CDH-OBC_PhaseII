@@ -70,6 +70,7 @@
 */
 
 #include "spimem.h"
+#include "error_handling.h"
 
 static uint8_t get_spimem_status_h(uint32_t spi_chip);
 static uint32_t write_page_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);
@@ -1069,7 +1070,7 @@ int task_spimem_write(uint8_t task, uint32_t addr, uint8_t* data_buff, uint32_t 
 	if (spimem_success < 0) 
 	{
 		if(task == PAY_TASK_ID)
-			errorASSERT(task, spimem_success, error, data_buff);
+			errorASSERT(task, spimem_success, error, data_buff, 0);
 		else
 			errorREPORT(task, spimem_success, error, data_buff);
 		return -1;
@@ -1081,7 +1082,7 @@ int task_spimem_write(uint8_t task, uint32_t addr, uint8_t* data_buff, uint32_t 
 // Meant to be used by either housekeeping, scheduling, or payload, but can be extended to other tasks easily.
 int task_spimem_read(uint8_t task, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
-	uint8_t error, attempts, spimem_success
+	uint8_t error, attempts, spimem_success;
 	switch(task)
 	{
 		case HK_TASK_ID:

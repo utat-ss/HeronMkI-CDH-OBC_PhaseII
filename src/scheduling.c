@@ -434,7 +434,8 @@ static void load_buff1_to_buff0(void)
 /************************************************************************/
 static int check_schedule(void){
 
-	uint8_t status = 0x01;	//Right now, status doesn't change (!?)		
+	uint8_t status = 0x01;	//Right now, status doesn't change (!?)
+	int ret_val;	
 							// This variable is going to contain the status returned
 	uint16_t cID, i;
 
@@ -451,18 +452,16 @@ static int check_schedule(void){
 		task_spimem_read(SCHEDULING_TASK_ID, SCHEDULE_BASE + 4, command_array, 16);
 		cID = ((uint16_t)command_array[7]) << 8;
 		cID += (uint16_t)command_array[8];
-		// status = exec_k_command();
+		ret_val = exec_k_commands();
 		
 		uint8_t tries = 0;
-		while (tries<2 && status == 0xFF){
+		while (tries<2 && ret_val == -1){
 			exec_k_commands();
 			tries++;
 		}
-		if(status == 0xFF)										// The scheduled command failed.
+		if(ret_val == -1)										// The scheduled command failed.
 		{	
-			
-			errorREPORT(SCHEDULING_TASK_ID, 0, SCHED_COMMAND_EXEC_ERROR, &command_array); //FIX: what should the third parameter be?
-				
+			errorREPORT(SCHEDULING_TASK_ID, 0, SCHED_COMMAND_EXEC_ERROR, &command_array); //FIX: what should the third parameter be?	
 		}
 		else
 		{
@@ -513,7 +512,7 @@ static int exec_k_commands(void)
 		case TIME_SERVICE:
 			xQueueSendToBack(sched_to_time_fifo, current_command, (TickType_t)1);
 		case 0:
-		
+			// Exec K command.
 		default:
 			return -1;
 	}

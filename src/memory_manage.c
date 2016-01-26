@@ -286,6 +286,16 @@ static void memory_wash(void)
 /************************************************************************/
 static void exec_commands(void)
 {
+	clear_current_command();
+	if(xQueueReceiveTask(MEMORY_TASK_ID, 0, obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
+		exec_commands_H();
+	else if(xQueueReceive(sched_to_memory_fifo, current_command, (TickType_t)1))
+		exec_commands_H();
+	return;
+}
+
+static void exec_commands(void)
+{
 	uint8_t command, memid, status;
 	uint16_t i, j;
 	uint16_t packet_id, psc;
@@ -293,114 +303,110 @@ static void exec_commands(void)
 	uint32_t address, length, num_transfers = 0;
 	uint32_t* temp_address = 0;
 	int check = 0; int attempts = 0;
-	clear_current_command();
-	if(xQueueReceiveTask(MEMORY_TASK_ID, 0, obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
+	command = current_command[146];
+	packet_id = ((uint16_t)current_command[140]) << 8;
+	packet_id += (uint16_t)current_command[139];
+	psc = ((uint16_t)current_command[138]) << 8;
+	psc += (uint16_t)current_command[137];
+	memid = current_command[136];
+	address =  ((uint32_t)current_command[135]) << 24;
+	address += ((uint32_t)current_command[134]) << 16;
+	address += ((uint32_t)current_command[133]) << 8;
+	address += (uint32_t)current_command[132];
+	length =  ((uint32_t)current_command[131]) << 24;
+	length += ((uint32_t)current_command[130]) << 16;
+	length += ((uint32_t)current_command[129]) << 8;
+	length += (uint32_t)current_command[128];
+	switch(command)
 	{
-		command = current_command[146];
-		packet_id = ((uint16_t)current_command[140]) << 8;
-		packet_id += (uint16_t)current_command[139];
-		psc = ((uint16_t)current_command[138]) << 8;
-		psc += (uint16_t)current_command[137];
-		memid = current_command[136];
-		address =  ((uint32_t)current_command[135]) << 24;
-		address += ((uint32_t)current_command[134]) << 16;
-		address += ((uint32_t)current_command[133]) << 8;
-		address += (uint32_t)current_command[132];
-		length =  ((uint32_t)current_command[131]) << 24;
-		length += ((uint32_t)current_command[130]) << 16;
-		length += ((uint32_t)current_command[129]) << 8;
-		length += (uint32_t)current_command[128];
-		switch(command)
-		{
-			case	MEMORY_LOAD_ABS:
+		case	MEMORY_LOAD_ABS:
+			if(!memid)
+			{
+				mem_ptr = address;
+				for(i = 0; i < length; i++)
+				{
+					*(mem_ptr + i) = current_command[i];
+				}
+			}
+			else
+			{
+				attempts = 0; check = -1;
+					
+				while (attempts<3 && check<0){
+					check = spimem_write(address, current_command, length);
+					attempts++;
+				}
+					
+				if (check <0){
+					errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR, NULL); //didn't have enough parameters - just putting NULL for now
+					send_tc_execution_verify(0xFF, packet_id, psc);}
+			}
+			send_tc_execution_verify(1, packet_id, psc);
+		case	DUMP_REQUEST_ABS:
+			clear_current_command();		// Only clears lower data section.
+			if(length > 128)
+			{
+				num_transfers = length / 128;
+			}
+			for (j = 0; j < num_transfers; j++)
+			{
 				if(!memid)
 				{
 					mem_ptr = address;
-					for(i = 0; i < length; i++)
+					for (i = 0; i < length; i++)
 					{
-						*(mem_ptr + i) = current_command[i];
+						current_command[i] = *(mem_ptr + i);
 					}
 				}
 				else
 				{
-					attempts = 0; check = -1;
-					
+					check = -1; attempts = 0;
 					while (attempts<3 && check<0){
-						check = spimem_write(address, current_command, length);
+						check = spimem_read(address, current_command, length);
 						attempts++;
 					}
-					
-					if (check <0){
-						errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR, NULL); //didn't have enough parameters - just putting NULL for now
-						send_tc_execution_verify(0xFF, packet_id, psc);}
-				}
-				send_tc_execution_verify(1, packet_id, psc);
-			case	DUMP_REQUEST_ABS:
-				clear_current_command();		// Only clears lower data section.
-				if(length > 128)
-				{
-					num_transfers = length / 128;
-				}
-				for (j = 0; j < num_transfers; j++)
-				{
-					if(!memid)
-					{
-						mem_ptr = address;
-						for (i = 0; i < length; i++)
-						{
-							current_command[i] = *(mem_ptr + i);
-						}
-					}
-					else
-					{
-						check = -1; attempts = 0;
-						while (attempts<3 && check<0){
-							check = spimem_read(address, current_command, length);
-							attempts++;
-						}
 						
-						if (check<0){
-							errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR,NULL); //didn't have enough parameters - just putting NULL for now
-							send_tc_execution_verify(0xFF, packet_id, psc);
-						}
-						
-					}
-					current_command[146] = MEMORY_DUMP_ABS;
-					current_command[145] = num_transfers - j;
-					xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
-					taskYIELD();	// Give the packet router a chance to downlink the dump packet.				
-				}
-				send_tc_execution_verify(1, packet_id, psc);
-			case	CHECK_MEM_REQUEST:
-				if(!memid)
-				{
-					temp_address = address;
-					check = fletcher64(temp_address, length);
-					send_tc_execution_verify(1, packet_id, psc);
-				}
-				else
-				{
-					check = fletcher64_on_spimem(address, length, &status);
-					if(status > 1)
-					{
+					if (check<0){
+						errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR,NULL); //didn't have enough parameters - just putting NULL for now
 						send_tc_execution_verify(0xFF, packet_id, psc);
-						return;
 					}
-					send_tc_execution_verify(1, packet_id, psc);
+						
 				}
-				current_command[146] = MEMORY_CHECK_ABS;
-				current_command[7] = (uint8_t)((check & 0xFF00000000000000) >> 56);
-				current_command[6] = (uint8_t)((check & 0x00FF000000000000) >> 48);
-				current_command[5] = (uint8_t)((check & 0x0000FF0000000000) >> 40);
-				current_command[4] = (uint8_t)((check & 0xFF0000FF00000000) >> 32);
-				current_command[3] = (uint8_t)((check & 0xFF000000FF000000) >> 24);
-				current_command[2] = (uint8_t)((check & 0xFF00000000FF0000) >> 26);
-				current_command[1] = (uint8_t)((check & 0xFF0000000000FF00) >> 8);
-				current_command[0] = (uint8_t)(check & 0x00000000000000FF);
-				xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);
-			default:
-				return;
-		}
+				current_command[146] = MEMORY_DUMP_ABS;
+				current_command[145] = num_transfers - j;
+				xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
+				taskYIELD();	// Give the packet router a chance to downlink the dump packet.				
+			}
+			send_tc_execution_verify(1, packet_id, psc);
+		case	CHECK_MEM_REQUEST:
+			if(!memid)
+			{
+				temp_address = address;
+				check = fletcher64(temp_address, length);
+				send_tc_execution_verify(1, packet_id, psc);
+			}
+			else
+			{
+				check = fletcher64_on_spimem(address, length, &status);
+				if(status > 1)
+				{
+					send_tc_execution_verify(0xFF, packet_id, psc);
+					return;
+				}
+				send_tc_execution_verify(1, packet_id, psc);
+			}
+			current_command[146] = MEMORY_CHECK_ABS;
+			current_command[7] = (uint8_t)((check & 0xFF00000000000000) >> 56);
+			current_command[6] = (uint8_t)((check & 0x00FF000000000000) >> 48);
+			current_command[5] = (uint8_t)((check & 0x0000FF0000000000) >> 40);
+			current_command[4] = (uint8_t)((check & 0xFF0000FF00000000) >> 32);
+			current_command[3] = (uint8_t)((check & 0xFF000000FF000000) >> 24);
+			current_command[2] = (uint8_t)((check & 0xFF00000000FF0000) >> 26);
+			current_command[1] = (uint8_t)((check & 0xFF0000000000FF00) >> 8);
+			current_command[0] = (uint8_t)(check & 0x00000000000000FF);
+			xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);
+		default:
+			return;
 	}
 	return;
 }

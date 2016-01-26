@@ -121,6 +121,7 @@ static void send_hk_as_tm(void);
 static void send_param_report(void);
 static void exec_commands(void);
 static int exec_commands_H(void);
+static int exec_commands_H2(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
@@ -235,53 +236,58 @@ static void exec_commands(void){
 
 static int exec_commands_H(void)
 {
-	uint8_t i, command;
-	uint16_t packet_id, psc;
 	clear_current_command();
-	if( xQueueReceiveTask(HK_TASK_ID, 0, obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
-	{
-		packet_id = ((uint16_t)current_command[140]) << 8;
-		packet_id += (uint16_t)current_command[139];
-		psc = ((uint16_t)current_command[138]) << 8;
-		psc += (uint16_t)current_command[137];
-		command = current_command[146];
-		switch(command)
-		{
-			case	NEW_HK_DEFINITION:
-				collection_interval1 = current_command[145];
-				for(i = 0; i < DATA_LENGTH; i++)
-				{
-					hk_definition1[i] = current_command[i];
-				}
-				hk_definition1[136] = 1;		//sID = 1
-				hk_definition1[135] = collection_interval1;
-				hk_definition1[134] = current_command[146];
-				set_definition(ALTERNATE);
-				send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
-			case	CLEAR_HK_DEFINITION:
-				collection_interval1 = 30;
-				for(i = 0; i < DATA_LENGTH; i++)
-				{
-					hk_definition1[i] = 0;
-				}
-				set_definition(DEFAULT);
-				send_tc_execution_verify(1, packet_id, psc);
-			case	ENABLE_PARAM_REPORT:
-				param_report_requiredf = 1;
-				send_tc_execution_verify(1, packet_id, psc);
-			case	DISABLE_PARAM_REPORT:
-				param_report_requiredf = 0;
-				send_tc_execution_verify(1, packet_id, psc);
-			case	REPORT_HK_DEFINITIONS:
-				param_report_requiredf = 1;
-				send_tc_execution_verify(1, packet_id, psc);
-			default:
-				return -1;
-		}
-		return 1;
-	}
+	if(xQueueReceiveTask(HK_TASK_ID, 0, obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
+		return exec_commands_H2();
+	else if(xQueueReceive(sched_to_hk_fifo, current_command, (TickType_t)1))
+		return exec_commands_H2();
 	else										//Failure Recovery					
 		return 0;
+}
+
+static int exec_commands_H2(void)
+{
+	uint8_t i, command;
+	uint16_t packet_id, psc;
+	packet_id = ((uint16_t)current_command[140]) << 8;
+	packet_id += (uint16_t)current_command[139];
+	psc = ((uint16_t)current_command[138]) << 8;
+	psc += (uint16_t)current_command[137];
+	command = current_command[146];
+	switch(command)
+	{
+		case	NEW_HK_DEFINITION:
+			collection_interval1 = current_command[145];
+			for(i = 0; i < DATA_LENGTH; i++)
+			{
+				hk_definition1[i] = current_command[i];
+			}
+			hk_definition1[136] = 1;		//sID = 1
+			hk_definition1[135] = collection_interval1;
+			hk_definition1[134] = current_command[146];
+			set_definition(ALTERNATE);
+			send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
+		case	CLEAR_HK_DEFINITION:
+			collection_interval1 = 30;
+			for(i = 0; i < DATA_LENGTH; i++)
+			{
+				hk_definition1[i] = 0;
+			}
+			set_definition(DEFAULT);
+			send_tc_execution_verify(1, packet_id, psc);
+		case	ENABLE_PARAM_REPORT:
+			param_report_requiredf = 1;
+			send_tc_execution_verify(1, packet_id, psc);
+		case	DISABLE_PARAM_REPORT:
+			param_report_requiredf = 0;
+			send_tc_execution_verify(1, packet_id, psc);
+		case	REPORT_HK_DEFINITIONS:
+			param_report_requiredf = 1;
+			send_tc_execution_verify(1, packet_id, psc);
+		default:
+			return -1;
+	}
+	return 1;
 }
 
 /************************************************************************/

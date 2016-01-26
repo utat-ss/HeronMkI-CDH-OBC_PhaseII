@@ -207,6 +207,11 @@ static void exec_commands(void)
 		report_timeout = current_command[0];			
 		send_tc_execution_verify(1, packet_id, psc);
 	}
+	if(xQueueReceive(sched_to_time_fifo, current_command, (TickType_t)1))
+	{
+		report_timeout = current_command[0];
+		send_tc_execution_verify(1, 0, 0);
+	}
 	return;
 }
 

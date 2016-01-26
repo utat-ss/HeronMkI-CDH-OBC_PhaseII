@@ -856,6 +856,16 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 		xQueueSendToBack(obc_to_time_fifo, current_command, (TickType_t)1);
 		return 1;
 	}
+	if(service_type == MEMORY_SERVICE)
+	{
+		current_command[146] = service_sub_type;
+		current_command[140] = (uint8_t)(packet_id >> 8);
+		current_command[139] = (uint8_t)(packet_id & 0x00FF);
+		current_command[138] = (uint8_t)(psc >> 8);
+		current_command[137] = (uint8_t)(psc & 0x00FF);
+		xQueueSendToBack(obc_to_mem_fifo, current_command, (TickType_t)1);
+		return 1;
+	}
 	if(service_type == K_SERVICE)
 	{
 		if(service_sub_type == ADD_SCHEDULE)

@@ -166,7 +166,8 @@
 #define TC_BUFFER_FULL					0x27
 #define TM_BUFFER_FULL					0x28
 #define EPS_SENSOR_VALUE_OUT_OF_RANGE	0X29
-#define BATTERY_HEATER_STATUS			0x30
+#define BATTERY_HEATER_STATUS			0x2A
+#define COMMAND_NOT_SCHEDULABLE			0x2B
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -194,6 +195,9 @@ QueueHandle_t obc_to_time_fifo;			// obc_packet_router	-->		time_manage
 QueueHandle_t obc_to_mem_fifo;			// obc_packet_router	-->		memory
 QueueHandle_t obc_to_sched_fifo;		// obc_packet_router	-->		scheduling
 QueueHandle_t obc_to_fdir_fifo;			// ob_packet_router		-->		fdir
+QueueHandle_t sched_to_hk_fifo;			// scheduling			-->		housekeep
+QueueHandle_t sched_to_time_fifo;		// scheduling			-->		time_manage
+QueueHandle_t sched_to_memory_fifo;		// scheduling			-->		housekeep
 
 /* ERROR HANDLING FIFOs				*/
 QueueHandle_t high_sev_to_fdir_fifo;	// Any task				-->		fdir

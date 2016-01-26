@@ -110,6 +110,7 @@ static uint8_t temp_arr[256];
 static uint8_t current_command[DATA_LENGTH + 10];
 static uint8_t sched_buff0[256], sched_buff1[256];
 static int x;
+static uint8_t command_array[16];
 
 /************************************************************************/
 /* SCHEDULING (Function)												*/
@@ -436,7 +437,7 @@ static int check_schedule(void){
 	uint8_t status = 0x01;	//Right now, status doesn't change (!?)		
 							// This variable is going to contain the status returned
 	uint16_t cID, i;
-	uint8_t command_array[16];
+
 	if(!scheduling_on)
 	{
 		return -2;		// Scheduling is currently paused.
@@ -454,7 +455,7 @@ static int check_schedule(void){
 		
 		uint8_t tries = 0;
 		while (tries<2 && status == 0xFF){
-			exec_pus_commands();
+			exec_k_commands();
 			tries++;
 		}
 		if(status == 0xFF)										// The scheduled command failed.
@@ -484,6 +485,38 @@ static int check_schedule(void){
 		next_command_time = (uint32_t)temp_arr[0];
 	}
 	return 1;
+}
+
+// The new command is assumed to be located in command_arra[].
+static int exec_k_commands(void)
+{
+	uint8_t service_type = command_array[10] >> 4;
+	uint8_t service_sub_type = command_array[10] & 0x0F;
+	clear_current_command();
+	current_command[146] = service_type;
+	switch(service_type)
+	{
+		case HK_SERVICE:
+			if((service_sub_type < 3) || (service_sub_type > 9))
+			{
+				send_event_report(2, COMMAND_NOT_SCHEDULABLE, 0, command_array[10]);
+				return -1;
+			}
+			xQueueSendToBack(sched_to_hk_fifo, current_command, (TickType_t)1);
+		case MEMORY_SERVICE:
+			if(service_sub_type == 2)
+			{
+				send_event_report(2, COMMAND_NOT_SCHEDULABLE, 0, command_array[10]);
+				return -1;
+			}		
+			xQueueSendToBack(sched_to_memory_fifo, current_command, (TickType_t)1);
+		case TIME_SERVICE:
+			xQueueSendToBack(sched_to_time_fifo, current_command, (TickType_t)1);
+		case 0:
+		
+		default:
+			return -1;
+	}
 }
 
 static int generate_command_report(uint16_t cID, uint8_t status)

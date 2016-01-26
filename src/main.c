@@ -360,6 +360,10 @@ static void prvInitializeFifos(void)
 	obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
 	obc_to_sched_fifo = xQueueCreate(fifo_length, item_size);
 	obc_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+	fifo_length = 2;
+	sched_to_hk_fifo = xQueueCreate(fifo_length, item_size);
+	sched_to_memory_fifo = xQueueCreate(fifo_length, item_size);
+	sched_to_time_fifo = xQueueCreate(fifo_length, item_size);
 	fifo_length	 = 4;
 	item_size = 10;
 	obc_to_time_fifo = xQueueCreate(fifo_length, item_size);

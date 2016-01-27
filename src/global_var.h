@@ -205,10 +205,6 @@ QueueHandle_t sched_to_memory_fifo;		// scheduling			-->		housekeep
 QueueHandle_t high_sev_to_fdir_fifo;	// Any task				-->		fdir
 QueueHandle_t low_sev_to_fdir_fifo;		// Any task				-->		fdir
 
-/* BUFFERS FOR TC/TM PACKETS		*/
-QueueHandle_t tc_buffer;				// Telecommand packet buffer.
-QueueHandle_t tm_buffer;				// Telemetry packet buffer.
-
 /* MUTEX LOCKS FOR ERROR HANDLING FIFOs	*/
 SemaphoreHandle_t Highsev_Mutex;
 SemaphoreHandle_t Lowsev_Mutex;

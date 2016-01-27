@@ -478,7 +478,8 @@ static void prvInitializeGlobalVars(void)
 	EVENT_BASE		=	0x0E000;	// EVENT = 8kB: 0x0E000 - 0x0FFFF
 	SCHEDULE_BASE	=	0x10000;	// SCHEDULE = 8kB: 0x10000 - 0x11FFF
 	DIAG_BASE		=	0x12000;	// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
-	SCIENCE_BASE	=	0x16000;	// SCIENCE = 256kB: 0x16000 - 0x25FFF (memory listed is 64kB, 256kB is 0x16000 - 0x55FFF)
+	SCIENCE_BASE	=	0x16000;	// SCIENCE = 256kB: 0x16000 - 0x55FFF
+	TM_BASE			=	0x66000;	// TM = 64kB: 0x66000 - 0x75FFF
 	TIME_BASE		=	0xFFFFC;	// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 	/* Limits for task operations */
@@ -491,6 +492,15 @@ static void prvInitializeGlobalVars(void)
 	/* Variables used for starting the science experiment */
 	experiment_armed = 0;
 	experiment_started = 0;
+
+	/* Variables for keeping track of the PUS Packet Buffer */
+	NEXT_TM_PACKET = 0;
+	NEXT_TC_PACKET = 0;
+	CURRENT_TC_PACKET = 0;
+	CURRENT_TM_PACKET = 0;
+	MAX_TM_PACKETS = 862;
+	TM_PACKET_COUNT = 0;
+	TC_PACKET_COUNT = 0;
 	
 	return;
 }

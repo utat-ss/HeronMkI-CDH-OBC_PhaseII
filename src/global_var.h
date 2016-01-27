@@ -168,6 +168,8 @@
 #define EPS_SENSOR_VALUE_OUT_OF_RANGE	0X29
 #define BATTERY_HEATER_STATUS			0x2A
 #define COMMAND_NOT_SCHEDULABLE			0x2B
+#define TM_BUFFER_HALF_FULL				0x2C
+#define TC_BUFFER_HALF_FULL				0x2D
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -295,7 +297,9 @@ uint32_t	HK_BASE;			// HK = 8kB: 0x0C000 - 0x0DFFF
 uint32_t	EVENT_BASE;			// EVENT = 8kB: 0x0E000 - 0x0FFFF
 uint32_t	SCHEDULE_BASE;		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
 uint32_t	DIAG_BASE;			// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
-uint32_t	SCIENCE_BASE;		// SCIENCE = 256kB: 0x16000 - 0x25FFF (memory listed is 64kB, 256kB is 0x16000 - 0x55FFF)
+uint32_t	SCIENCE_BASE;		// SCIENCE = 256kB: 0x16000 - 0x55FFF
+uint32_t	TM_BASE;			// TM = 128kB: 0x66000 - 0x85FFF
+uint32_t	TC_BASE;			// TC = 128kB: 0x86000 - 0xA5FFF
 uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 /* Limits for task operations */
@@ -305,5 +309,14 @@ uint32_t	LENGTH_OF_HK;
 /* Global variables for experiment commencement */
 uint8_t		experiment_armed;
 uint8_t		experiment_started;
+
+/* Variables for keeping track of the PUS Packet Buffer */
+uint32_t		NEXT_TM_PACKET;
+uint32_t		CURRENT_TM_PACKET;
+uint32_t		MAX_TM_PACKETS;
+uint32_t		TM_PACKET_COUNT;
+uint32_t		TC_PACKET_COUNT;
+uint32_t		CURRENT_TC_PACKET;
+uint32_t		NEXT_TC_PACKET;
 
 #endif

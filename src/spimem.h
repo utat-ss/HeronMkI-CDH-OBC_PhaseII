@@ -72,7 +72,7 @@ void spimem_initialize(void);																	// Driver
 int task_spimem_write(uint8_t task, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 3 TICK, TRIES 3 TIMES, ERROR HANDLING INCLUDED.
 int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);								// API, BLOCKS FOR 3 TICK
 int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK
-int task_spimem_read(uint8_t task, uint32_t addr, uint8_t* read_buff, uint32_t size);							// API, BLOCKS FOR 1 TICK, TRIES 3 TIMES, ERROR HANDLING INCLUDED.
+int task_spimem_read(uint8_t task, uint32_t addr, uint8_t* read_buff, uint32_t size);			// API, BLOCKS FOR 1 TICK, TRIES 3 TIMES, ERROR HANDLING INCLUDED.
 int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size);								// API, BLOCKS FOR 1 TICK
 int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size);		// API, BLOCKS FOR 1 TICK
 uint32_t check_page(uint32_t page_num);															// Helper

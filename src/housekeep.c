@@ -52,10 +52,11 @@
 	*					The current offset of the housekeeping log needs to be stored in SPI memory just in case the main
 	*					computer gets reset (we would lose track of how much housekeeping is currently in memory)
 	*	
-	*	12/05/2015		Added error handling for exec_commands, store_housekeeping using wrapper functions
+	*	12/05/2015		A:Added error handling for exec_commands, store_housekeeping using wrapper functions
 	*
 	*	12/09/2015		Added in housekeep_suicide() so that this task can kill itself if need be (or if commanded by the fdir task).
 	*
+	*   01/15/2016      A:Added in a wrapper function for FIFO error handling in xQueueSendToBack
 	*	DESCRIPTION:
 	*	
  */
@@ -110,8 +111,8 @@ TaskHandle_t housekeep(void);
 void housekeep_kill(uint8_t killer);
 static void clear_current_hk(void);
 static int request_housekeeping_all(void);
-static void store_housekeeping(void);
-static int store_housekeeping_H(void);
+static int store_housekeeping(void);
+//static int store_housekeeping_H(void);
 static void setup_default_definition(void);
 static void set_definition(uint8_t sID);
 static void clear_alternate_hk_definition(void);
@@ -120,10 +121,13 @@ static void send_hk_as_tm(void);
 static void send_param_report(void);
 static void exec_commands(void);
 static int exec_commands_H(void);
+static int exec_commands_H2(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+
 uint8_t get_ssm_id(uint8_t sensor_name);
+
 
 /* Global Variables for Housekeeping */
 static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
@@ -140,7 +144,7 @@ static uint8_t collection_interval0, collection_interval1;		// How to wait for t
 static TickType_t xTimeToWait;				// Number entered here corresponds to the number of ticks we should wait.
 static uint8_t current_hk_mem_offset[4];
 static TickType_t	xLastWakeTime;
-uint32_t req_data_result;
+int req_data_result;
 
 /************************************************************************/
 /* HOUSEKEEPING (Function) 												*/
@@ -175,10 +179,6 @@ static void prvHouseKeepTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == HK_PARAMETER );
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
-	int x;
-	uint8_t i;
-	uint8_t command;
-	uint8_t passkey = 1234, addr = 0x80;
 	new_hk_msg_high = 0;
 	new_hk_msg_low = 0;
 	current_hk_fullf = 0;
@@ -219,68 +219,75 @@ static void prvHouseKeepTask(void *pvParameters )
 
 static void exec_commands(void){
 	int attempts = 1;
+	uint32_t exec_com_success;
 	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
-	uint16_t exec_com_success = exec_commands_H();
+	exec_com_success = (uint32_t)exec_commands_H();
 	while (attempts<3 && exec_com_success != 1){
-		exec_com_success = exec_commands_H();
+		exec_com_success = (uint32_t)exec_commands_H();
 		attempts++;
 	}
 	if (exec_com_success != 1) {
-		errorREPORT(HK_TASK_ID,HK_FIFO_RW_ERROR, exec_com_success);
+		errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR, &exec_com_success);
 	}
 	return;
 }
 
 // Will return 1 if successful, current_command if there is a FIFO error
+
 static int exec_commands_H(void)
+{
+	clear_current_command();
+	if(xQueueReceiveTask(HK_TASK_ID, 0, obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
+		return exec_commands_H2();
+	else if(xQueueReceive(sched_to_hk_fifo, current_command, (TickType_t)1))
+		return exec_commands_H2();
+	else										//Failure Recovery					
+		return 0;
+}
+
+static int exec_commands_H2(void)
 {
 	uint8_t i, command;
 	uint16_t packet_id, psc;
-	clear_current_command();
-	if( xQueueReceive(obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
+	packet_id = ((uint16_t)current_command[140]) << 8;
+	packet_id += (uint16_t)current_command[139];
+	psc = ((uint16_t)current_command[138]) << 8;
+	psc += (uint16_t)current_command[137];
+	command = current_command[146];
+	switch(command)
 	{
-		packet_id = ((uint16_t)current_command[140]) << 8;
-		packet_id += (uint16_t)current_command[139];
-		psc = ((uint16_t)current_command[138]) << 8;
-		psc += (uint16_t)current_command[137];
-		command = current_command[146];
-		switch(command)
-		{
-			case	NEW_HK_DEFINITION:
-				collection_interval1 = current_command[145];
-				for(i = 0; i < DATA_LENGTH; i++)
-				{
-					hk_definition1[i] = current_command[i];
-				}
-				hk_definition1[136] = 1;		//sID = 1
-				hk_definition1[135] = collection_interval1;
-				hk_definition1[134] = current_command[146];
-				set_definition(ALTERNATE);
-				send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
-			case	CLEAR_HK_DEFINITION:
-				collection_interval1 = 30;
-				for(i = 0; i < DATA_LENGTH; i++)
-				{
-					hk_definition1[i] = 0;
-				}
-				set_definition(DEFAULT);
-				send_tc_execution_verify(1, packet_id, psc);
-			case	ENABLE_PARAM_REPORT:
-				param_report_requiredf = 1;
-				send_tc_execution_verify(1, packet_id, psc);
-			case	DISABLE_PARAM_REPORT:
-				param_report_requiredf = 0;
-				send_tc_execution_verify(1, packet_id, psc);
-			case	REPORT_HK_DEFINITIONS:
-				param_report_requiredf = 1;
-				send_tc_execution_verify(1, packet_id, psc);
-			default:
-				break;
-		}
-		return 1;
+		case	NEW_HK_DEFINITION:
+			collection_interval1 = current_command[145];
+			for(i = 0; i < DATA_LENGTH; i++)
+			{
+				hk_definition1[i] = current_command[i];
+			}
+			hk_definition1[136] = 1;		//sID = 1
+			hk_definition1[135] = collection_interval1;
+			hk_definition1[134] = current_command[146];
+			set_definition(ALTERNATE);
+			send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
+		case	CLEAR_HK_DEFINITION:
+			collection_interval1 = 30;
+			for(i = 0; i < DATA_LENGTH; i++)
+			{
+				hk_definition1[i] = 0;
+			}
+			set_definition(DEFAULT);
+			send_tc_execution_verify(1, packet_id, psc);
+		case	ENABLE_PARAM_REPORT:
+			param_report_requiredf = 1;
+			send_tc_execution_verify(1, packet_id, psc);
+		case	DISABLE_PARAM_REPORT:
+			param_report_requiredf = 0;
+			send_tc_execution_verify(1, packet_id, psc);
+		case	REPORT_HK_DEFINITIONS:
+			param_report_requiredf = 1;
+			send_tc_execution_verify(1, packet_id, psc);
+		default:
+			return -1;
 	}
-	else										//Failure Recovery					
-		return current_command;
+	return 1;
 }
 
 /************************************************************************/
@@ -299,8 +306,8 @@ static void clear_current_hk(void)
 }
 
 /************************************************************************/
-/* CLEAR_CURRENT_COMMAND												*/
-/* @Purpose: sets the memory offset for HK's reading/writing to SPIMEM	*
+/* SET_HK_MEM_OFFSET													*/
+/* @Purpose: sets the memory offset for HK's reading/writing to SPIMEM	*/
 /************************************************************************/
 static void set_hk_mem_offset(void)
 {
@@ -373,12 +380,15 @@ static int request_housekeeping_all(void)
 /* were not updated, and subsequently sends an event report to ground	*/
 /* if one was updated as well as a message to the FDIR task.			*/
 /************************************************************************/
-static void store_housekeeping(void)
+static int store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
+	uint32_t temp;
 	uint8_t num_parameters = current_hk_definition[134];
-	int x = -1;
 	uint8_t parameter_name = 0, i;
+	int attempts = 1;
+	int* status = 0; // this might be wrong
+	req_data_result = 0;
 	if(current_hk_fullf)
 		return -1;
 	clear_current_hk();
@@ -405,18 +415,16 @@ static void store_housekeeping(void)
 		if(!hk_updated[i])
 		{//failed updates are requested 3 times. If they fail, error is reported
 			
-			int attempts = 1;
-			int* status = 0; // this might be wrong
-			req_data_result = 0;
-			req_data_result = request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
+			req_data_result = (int)request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
 			while (attempts < 3 && req_data_result == -1){
 				attempts++;
-				req_data_result = request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
+				req_data_result = (int)request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
 			}
 			
-			if (req_data_result == -1){
-				//malfunctioning sensor is sent to erorREPORT
-				errorREPORT(HK_TASK_ID,HK_COLLECT_ERROR, &current_hk_definition[i]);
+			if (req_data_result == -1)
+			{
+				temp = (uint32_t)current_hk_definition[i];
+				errorREPORT(HK_TASK_ID,0,HK_COLLECT_ERROR, &temp); 				//malfunctioning sensor is sent to erorREPORT
 			}
 			else {
 				current_hk[i] = (uint8_t)(req_data_result & 0x000000FF);
@@ -427,14 +435,15 @@ static void store_housekeeping(void)
 		}
 	}
 	/* Store the new housekeeping in SPI memory */
-	x = store_hk_in_spimem();
+	store_hk_in_spimem();
 	
 	current_hk_fullf = 1;
 	return 1;
 }
 
-//Returns the proper ssm_id for a given sensor
+//Returns the proper ssm_id for a given sensor/variable
 uint8_t get_ssm_id(uint8_t sensor_name){
+	//for sensors:
 	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
 		return EPS_ID;
 	if ((sensor_name == 0x12) || (sensor_name == 0xFD))
@@ -443,7 +452,17 @@ uint8_t get_ssm_id(uint8_t sensor_name){
 		return OBC_ID; //not sure if this is right
 	if ((sensor_name>0x13 && sensor_name <= 0x1B) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
 		return PAY_ID;
-
+	//for global variables:
+	if ((sensor_name == MPPTX) || (sensor_name == MPPTY) || (sensor_name == EPS_MODE) || (sensor_name == EPS_FDIR_SIGNAL) || (sensor_name == BALANCE_H) || (sensor_name == BALANCE_L) || (sensor_name == BATT_HEAT))
+		return EPS_ID;
+	if ((sensor_name == COMS_MODE) || (sensor_name == SSM_CTT) || (sensor_name == SSM_OGT))
+		return COMS_ID;
+	if ((sensor_name == PAY_MODE) || (sensor_name == PAY_STATE) || (sensor_name == PAY_FDIR_SIGNAL))
+		return PAY_ID;
+	if ((sensor_name == OBC_MODE) || (sensor_name == ABS_TIME_D) || (sensor_name == ABS_TIME_H) || (sensor_name == ABS_TIME_M) || (sensor_name == ABS_TIME_S) || (sensor_name == SPI_CHIP_1) || (sensor_name == SPI_CHIP_2) || (sensor_name == SPI_CHIP_3) || (sensor_name == OBC_CTT) || (sensor_name == OBC_OGT))
+		return OBC_ID;
+	//assume the worst:
+	return OBC_ID;
 	
 }
 
@@ -462,18 +481,21 @@ static int store_hk_in_spimem(void)
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
-	x = spimem_write((HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
-	x = spimem_write((HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
-	x = spimem_write((HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
+
+	task_spimem_write(HK_TASK_ID, (HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	task_spimem_write(HK_TASK_ID, (HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
+	x = task_spimem_write(HK_TASK_ID, (HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
+	if(x < 0)
+		return x;
 	offset = (offset + 137) % LENGTH_OF_HK;								// Make sure HK doesn't overflow into the next section.
+
 	if(offset == 0)
 		offset = 4;
 	current_hk_mem_offset[3] = (uint8_t)offset;
 	current_hk_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
 	current_hk_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
 	current_hk_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
-	x = spimem_write(HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
-	return;
+	return 	task_spimem_write(HK_TASK_ID, HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
 }
 
 /************************************************************************/
@@ -525,8 +547,8 @@ static void setup_default_definition(void)
 	hk_definition0[52] = OBC_V;
 	hk_definition0[51] = OBC_I;
 	hk_definition0[50] = OBC_I;
-	hk_definition0[49] = BATT_I;
-	hk_definition0[48] = BATT_I;
+	hk_definition0[49] = SHUNT_DPOT;
+	hk_definition0[48] = SHUNT_DPOT;
 	hk_definition0[47] = COMS_TEMP;	//
 	hk_definition0[46] = COMS_TEMP;
 	hk_definition0[45] = OBC_TEMP;	//
@@ -547,10 +569,10 @@ static void setup_default_definition(void)
 	hk_definition0[30] = PAY_PRESS;
 	hk_definition0[29] = PAY_ACCEL;
 	hk_definition0[28] = PAY_ACCEL;
-	hk_definition0[27] = MPPTA;
-	hk_definition0[26] = MPPTA;
-	hk_definition0[25] = MPPTB;
-	hk_definition0[24] = MPPTB;
+	hk_definition0[27] = MPPTX;
+	hk_definition0[26] = MPPTX;
+	hk_definition0[25] = MPPTY;
+	hk_definition0[24] = MPPTY;
 	hk_definition0[23] = COMS_MODE;	//
 	hk_definition0[22] = COMS_MODE;
 	hk_definition0[21] = EPS_MODE;	//
@@ -623,7 +645,10 @@ static void send_hk_as_tm(void)
 	{
 		current_command[i] = current_hk[i];
 	}
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue
+	
+	
+	
+	xQueueSendToBackTask(HK_TASK_ID, 1, hk_to_obc_fifo, current_command, (TickType_t)1);
 	return;
 }
 
@@ -642,7 +667,7 @@ static void send_param_report(void)
 	{
 		current_command[i] = current_hk_definition[i];
 	}
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackTask(HK_TASK_ID, 1, hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 
@@ -664,7 +689,7 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[139] = (uint8_t)packet_id;
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
-	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBackTask(HK_TASK_ID, 1, hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 
@@ -673,27 +698,27 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 void housekeep_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
-	vPortFree(current_hk);
-	vPortFree(current_command);
-	vPortFree(hk_definition0);
-	vPortFree(hk_definition1);
-	vPortFree(hk_updated);
-	vPortFree(current_hk_definition);
-	vPortFree(current_hk_definitionf);
-	vPortFree(current_eps_hk);
-	vPortFree(current_coms_hk);
-	vPortFree(current_pay_hk);
-	vPortFree(current_obc_hk);
-	vPortFree(new_hk_msg_high);
-	vPortFree(new_hk_msg_low);
-	vPortFree(current_hk_fullf);
-	vPortFree(param_report_requiredf);
-	vPortFree(collection_interval0);
-	vPortFree(collection_interval1);
-	vPortFree(xTimeToWait);
-	vPortFree(current_hk_mem_offset);
-	vPortFree(xLastWakeTime);
-	vPortFree(req_data_result);
+	//vPortFree(current_hk);
+	//vPortFree(current_command);
+	//vPortFree(hk_definition0);
+	//vPortFree(hk_definition1);
+	//vPortFree(hk_updated);
+	//vPortFree(current_hk_definition);
+	//vPortFree(current_hk_definitionf);
+	//vPortFree(current_eps_hk);
+	//vPortFree(current_coms_hk);
+	//vPortFree(current_pay_hk);
+	//vPortFree(current_obc_hk);
+	//vPortFree(new_hk_msg_high);
+	//vPortFree(new_hk_msg_low);
+	//vPortFree(current_hk_fullf);
+	//vPortFree(param_report_requiredf);
+	//vPortFree(collection_interval0);
+	//vPortFree(collection_interval1);
+	//vPortFree(xTimeToWait);
+	//vPortFree(current_hk_mem_offset);
+	//vPortFree(xLastWakeTime);
+	//vPortFree(req_data_result);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(housekeeping_HANDLE);

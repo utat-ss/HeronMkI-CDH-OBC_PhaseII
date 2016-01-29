@@ -245,8 +245,9 @@ int main(void)
 static void safe_mode(void)
 {
 	extern void SystemCoreClockUpdate(void);
-	uint32_t timeout = 80000000, low=0, high=0;
-	uint32_t MEM_LOCATION = 0x00080000;
+	uint32_t timeout = 80000000, low=0;
+	uint32_t* MEM_LOCATION;
+	MEM_LOCATION = 0x00080000;
 	size_t SIZE = 10;
 	/* ASF function to setup clocking. */
 	sysclk_init();
@@ -345,6 +346,8 @@ static void prvInitializeFifos(void)
 	hk_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 	mem_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 	sched_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+	fdir_to_obc_fifo = xQueueCreate(fifo_length, item_size);
+	eps_to_obc_fifo = xQueueCreate(fifo_length, item_size);
 	fdir_fifo_buffer = xQueueCreate(fifo_length, item_size);
 	fifo_length = 4;
 	item_size = 10;
@@ -357,12 +360,17 @@ static void prvInitializeFifos(void)
 	obc_to_mem_fifo = xQueueCreate(fifo_length, item_size);
 	obc_to_sched_fifo = xQueueCreate(fifo_length, item_size);
 	obc_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+	fifo_length = 2;
+	sched_to_hk_fifo = xQueueCreate(fifo_length, item_size);
+	sched_to_memory_fifo = xQueueCreate(fifo_length, item_size);
+	sched_to_time_fifo = xQueueCreate(fifo_length, item_size);
 	fifo_length	 = 4;
 	item_size = 10;
 	obc_to_time_fifo = xQueueCreate(fifo_length, item_size);
 	item_size = 152;	
 	high_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
 	low_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+	
 	return;
 }
 
@@ -434,6 +442,8 @@ static void prvInitializeGlobalVars(void)
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	current_tc_fullf = 0;
+	current_tm_fullf = 0;
+	tm_down_fullf = 0;
 	receiving_tcf = 0;
 	
 	/* FDIR signals that individuals tasks loop on */
@@ -461,7 +471,9 @@ static void prvInitializeGlobalVars(void)
 	HK_BASE			=	0x0C000;	// HK = 8kB: 0x0C000 - 0x0DFFF
 	EVENT_BASE		=	0x0E000;	// EVENT = 8kB: 0x0E000 - 0x0FFFF
 	SCHEDULE_BASE	=	0x10000;	// SCHEDULE = 8kB: 0x10000 - 0x11FFF
-	SCIENCE_BASE	=	0x12000;	// SCIENCE = 8kB: 0x12000 - 0x13FFF
+	DIAG_BASE		=	0x12000;	// DIAGNOSTICS = 16kB: 0x12000 - 0x15FFF
+	SCIENCE_BASE	=	0x16000;	// SCIENCE = 256kB: 0x16000 - 0x55FFF
+	TM_BASE			=	0x66000;	// TM = 64kB: 0x66000 - 0x75FFF
 	TIME_BASE		=	0xFFFFC;	// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 	/* Limits for task operations */
@@ -470,6 +482,19 @@ static void prvInitializeGlobalVars(void)
 		MAX_SCHED_COMMANDS = 511;
 		LENGTH_OF_HK = 8192;
 	}
+	
+	/* Variables used for starting the science experiment */
+	experiment_armed = 0;
+	experiment_started = 0;
+
+	/* Variables for keeping track of the PUS Packet Buffer */
+	NEXT_TM_PACKET = 0;
+	NEXT_TC_PACKET = 0;
+	CURRENT_TC_PACKET = 0;
+	CURRENT_TM_PACKET = 0;
+	MAX_TM_PACKETS = 862;
+	TM_PACKET_COUNT = 0;
+	TC_PACKET_COUNT = 0;
 	
 	return;
 }

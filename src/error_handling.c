@@ -46,7 +46,7 @@ Author: Keenan Burnett
 // 1 is returned if the error was corrected
 // If the task currently holds a mutex, this function will handle releasing it / reacquiring it. (-1 if it couldn't reacquire)
 // *data should point to an array holding 147 bytes.
-int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex)
+int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex)
 {
 	uint8_t i;
 	TickType_t wait_time = 5 * 60 * 1000;
@@ -61,6 +61,7 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 	high_error_array[149] = (uint8_t)((error & 0x0000FF00) > 8);
 	high_error_array[148] = (uint8_t)(error & 0x000000FF);
 	high_error_array[147] = task;
+	high_error_array[146] = code;
 
 	if (xSemaphoreTake(Highsev_Mutex, wait_time) == pdTRUE)		// Attempt to acquire Mutex, block for max 5 minutes.
 	{
@@ -143,22 +144,23 @@ int errorASSERT(uint8_t task, uint32_t error, uint8_t* data, SemaphoreHandle_t m
 // The task ID should be placed in data[147]
 // Additional error code (if applicable) should be placed in data[146]
 // Any other desired may be placed in the lower bytes (not currently implemented)
-int errorREPORT(uint8_t task, uint32_t error, uint32_t* data)
+int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data)
 {
 	uint8_t i;
 	TickType_t wait_time = 5 * 60 * 1000;
 	for(i = 0; i < 147; i++)
 	{
-		high_error_array[i] = *(data + i);	// Load the data into the high_error_array.
+		low_error_array[i] = *(data + i);	// Load the data into the high_error_array.
 	}
-	high_error_array[151] = (uint8_t)((error & 0xFF000000) >> 24);
-	high_error_array[150] = (uint8_t)((error & 0x00FF0000) >> 16);
-	high_error_array[149] = (uint8_t)((error & 0x0000FF00) > 8);
-	high_error_array[148] = (uint8_t)(error & 0x000000FF);
-	high_error_array[147] = task;
+	low_error_array[151] = (uint8_t)((error & 0xFF000000) >> 24);
+	low_error_array[150] = (uint8_t)((error & 0x00FF0000) >> 16);
+	low_error_array[149] = (uint8_t)((error & 0x0000FF00) > 8);
+	low_error_array[148] = (uint8_t)(error & 0x000000FF);
+	low_error_array[147] = task;
+	low_error_array[146] = code;
 	if (xSemaphoreTake(Lowsev_Mutex, wait_time) == pdTRUE)		// Attempt to acquire Mutex, block for max 5 minutes.
 	{
-		if( xQueueSendToBack(low_sev_to_fdir_fifo, high_error_array, wait_time) != pdTRUE)
+		if( xQueueSendToBack(low_sev_to_fdir_fifo, low_error_array, wait_time) != pdTRUE)
 		{
 			xSemaphoreGive(Lowsev_Mutex);
 			return -1;
@@ -168,4 +170,69 @@ int errorREPORT(uint8_t task, uint32_t error, uint32_t* data)
 	}
 	else
 		return -1;
+}
+
+/************************************************************************/
+/* xQueueSendToBackTask                                                 */
+/* wrapper function for xQueueSendToBack for the purpose of catching    */
+/* any FIFO errors                                                      */
+/* @Note: For use with FIFO to/from OPR									*/
+/************************************************************************/
+// direction: 1 = TO OPR, 0 = FROM OPR
+BaseType_t xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks)
+{
+	uint8_t attempts = 0, error = 0;
+	switch(task)
+	{
+		case HK_TASK_ID:
+			error = HK_FIFO_RW_ERROR;
+		case SCHEDULING_TASK_ID:
+			error = SCHED_FIFO_RW_ERROR;
+		case TIME_TASK_ID:
+			error = TM_FIFO_RW_ERROR;
+		case MEMORY_TASK_ID:
+			error = MEM_FIFO_RW_ERROR;
+		case EPS_TASK_ID:
+			error = EPS_FIFO_W_ERROR;
+		default:
+			return pdFAIL;
+	}
+	while (attempts < 3 && xQueueSendToBack(fifo, itemToQueue, ticks) != pdTRUE )
+	{
+		attempts++;
+	}
+	if (attempts == 3)
+		errorREPORT(task, direction, error, itemToQueue);
+	return pdPASS;
+}
+
+/************************************************************************/
+// direction: 1 = TO OPR, 0 = FROM OPR
+BaseType_t xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo, uint8_t *itemToQueue, TickType_t ticks)
+{
+	
+	uint8_t attempts = 0, error = 0;
+	switch(task)
+	{
+		case HK_TASK_ID:
+			error = HK_FIFO_RW_ERROR;
+		case SCHEDULING_TASK_ID:
+			error = SCHED_FIFO_RW_ERROR;
+		case TIME_TASK_ID:
+			error = TM_FIFO_RW_ERROR;
+		case MEMORY_TASK_ID:
+			error = MEM_FIFO_RW_ERROR;
+		default:
+			return pdFALSE;
+	}
+	while (attempts < 3 && xQueueReceive(fifo, itemToQueue, ticks) != pdPASS )
+	{
+		attempts++;
+	}
+	if (attempts == 3)
+	{
+		errorREPORT(task, direction, error, itemToQueue);
+		return pdFALSE;
+	}
+	return pdTRUE;
 }

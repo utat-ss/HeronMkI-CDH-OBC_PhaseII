@@ -113,19 +113,22 @@ static void send_tc_transaction_response(uint8_t code);
 static void clear_current_tc(void);
 static void clear_current_data(void);
 static void clear_current_command(void);
-static void store_current_tc(void);
+static int store_current_tc(void);
 static int decode_telecommand(void);
 static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type);
 static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, uint8_t status, uint8_t code, uint32_t parameter, uint8_t tc_type);
 static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type, uint8_t version, uint8_t ccsds_flag, uint8_t packet_version);
 static void exec_commands(void);
-static void send_event_packet(uint32_t high, uint32_t low);
+static void send_event_packet(uint8_t sender, uint8_t severity);
+static int store_current_tm(void);
+static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 
 /* Global variables											 */
 static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
+static uint8_t diag_telem_count, diag_def_report_count;
 static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count, sched_command_count;
@@ -133,7 +136,7 @@ static uint8_t current_data[DATA_LENGTH];
 static uint8_t current_command[DATA_LENGTH + 10];
 /* Latest TC packet received, next TM packet to send	*/
 static uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];	// Arrays are 144B for ease of implementation.
-static uint8_t tc_to_decode[PACKET_LENGTH];
+static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH];
 static TickType_t xTimeToWait;
 
 /************************************************************************/
@@ -180,6 +183,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	tc_verify_success_count = 0;
 	hk_telem_count = 0;
 	hk_def_report_count = 0;
+	diag_telem_count = 0;
+	diag_def_report_count = 0;
 	tc_verify_fail_count = 0;
 	tc_exec_success_count = 0;
 	tc_exec_fail_count = 0;
@@ -191,6 +196,32 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	mem_check_count = 0;
 	clear_current_data();
 	clear_current_command();
+	task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);	// FAILURE_HANDLING
+	task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);
+	task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE + 8, &CURRENT_TM_PACKET, 4);
+	task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE, &TC_PACKET_COUNT, 4);	// FAILURE_HANDLING
+	task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
+	task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 8, &CURRENT_TC_PACKET, 4);
+	if(NEXT_TM_PACKET == 0)
+	{
+		NEXT_TM_PACKET = TM_BASE + 12;
+		task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);
+	}
+	if(CURRENT_TM_PACKET == 0)
+	{
+		CURRENT_TM_PACKET = TM_BASE + 12;
+		task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 8, CURRENT_TM_PACKET, 4);
+	}
+	if(NEXT_TC_PACKET == 0)
+	{
+		NEXT_TC_PACKET = TC_BASE + 12;
+		task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
+	}
+	if(CURRENT_TM_PACKET == 0)
+	{
+		CURRENT_TC_PACKET = TC_BASE + 12;
+		task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 8, CURRENT_TC_PACKET, 4);
+	}
 
 	/* Initialize variable used in PUS Packets */
 	version = 0;		// First 3 bits of the packet ID. (0 is default)
@@ -204,11 +235,32 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			xQueueReceive(tc_msg_fifo, &new_tc_msg_high, xTimeToWait);
 			status = receive_tc_msg();					// FAILURE_RECOVERY if status == -1.
 		}
-		if(current_tc_fullf)
+		if(TC_PACKET_COUNT && task_spimem_read(OBC_PACKET_ROUTER_ID, NEXT_TC_PACKET, tc_to_decode, 152) > 0)
+		{
+			TC_PACKET_COUNT--;
+			task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE, &TC_PACKET_COUNT, 4);		// FAILURE_RECOVERY
+			NEXT_TC_PACKET += 152;
+			if (NEXT_TC_PACKET > (TC_BASE + 0x20000))
+			NEXT_TC_PACKET = TC_BASE + 12;
+			task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);	// Update the position of the next packet		
 			decode_telecommand();
-
+		}
+		if (tm_down_fullf)
+		{
+			send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
+		}
+		else if(TM_PACKET_COUNT && (task_spimem_read(OBC_PACKET_ROUTER_ID, NEXT_TM_PACKET, tm_to_downlink, 152) > 0))
+		{
+			TM_PACKET_COUNT--;	// Update packet count.
+			task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
+			NEXT_TM_PACKET += 152;
+			if (NEXT_TM_PACKET > (TM_BASE + 0x20000))
+				NEXT_TM_PACKET = TM_BASE + 12;
+			task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);	// Update the position of the next packet 
+			tm_down_fullf = 1;
+			send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
+		}	
 		exec_commands();
-			
 	}
 }
 /*-----------------------------------------------------------*/
@@ -224,7 +276,6 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 static void exec_commands(void)
 {
 	uint32_t high = 0, low = 0;
-	int x;
 	clear_current_command();
 	if(xQueueReceive(hk_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)	// Check to see if there is a command from HK and execute it.
 	{
@@ -242,7 +293,7 @@ static void exec_commands(void)
 			hk_def_report_count++;
 			packetize_send_telemetry(HK_TASK_ID, HK_GROUND_ID, HK_SERVICE, HK_DEFINITON_REPORT, hk_def_report_count, 1, current_command);
 		}
-		if(current_command[146] = TASK_TO_OPR_TCV)
+		if(current_command[146] == TASK_TO_OPR_TCV)
 		{
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);		// Verify execution completion.
 		}
@@ -281,12 +332,7 @@ static void exec_commands(void)
 		}
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			high = (MEMORY_TASK_ID) << 28;
-			low = ((uint8_t)current_command[3]) << 24;
-			low = ((uint8_t)current_command[2]) << 16;
-			low = ((uint8_t)current_command[1]) << 8;
-			low = (uint8_t)current_command[0];
-			send_event_packet(high, low);
+			send_event_packet(MEMORY_TASK_ID, current_command[145]);
 		}
 	}
 	if(xQueueReceive(sched_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
@@ -298,23 +344,18 @@ static void exec_commands(void)
 		if(current_command[146] == SCHED_REPORT)
 		{
 			sched_report_count++;
-			x = packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, SCHED_REPORT, sched_report_count, current_command[145], current_command);
+			packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, SCHED_REPORT, sched_report_count, current_command[145], current_command);
 		}
 		if(current_command[146] == TASK_TO_OPR_TCV)
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			high = (SCHEDULING_TASK_ID) << 28;
-			low = ((uint8_t)current_command[3]) << 24;
-			low = ((uint8_t)current_command[2]) << 16;
-			low = ((uint8_t)current_command[1]) << 8;
-			low = (uint8_t)current_command[0];
-			send_event_packet(high, low);
+			send_event_packet(SCHEDULING_TASK_ID, current_command[145]);
 		}
 		if(current_command[146] == COMPLETED_SCHED_COM_REPORT)
 		{
 			sched_command_count++;
-			x = packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, COMPLETED_SCHED_COM_REPORT, sched_command_count, current_command[145], current_command);
+			packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, COMPLETED_SCHED_COM_REPORT, sched_command_count, current_command[145], current_command);
 		}
 	}
 	if(xQueueReceive(event_msg_fifo, &low, (TickType_t)1) == pdTRUE)
@@ -333,12 +374,26 @@ static void exec_commands(void)
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
 		if(current_command[146] == TASK_TO_OPR_EVENT)
 		{
-			high = (FDIR_TASK_ID) << 28;
-			low = ((uint8_t)current_command[3]) << 24;
-			low = ((uint8_t)current_command[2]) << 16;
-			low = ((uint8_t)current_command[1]) << 8;
-			low = (uint8_t)current_command[0];
-			send_event_packet(high, low);
+			send_event_packet(FDIR_TASK_ID, current_command[145]);
+		}
+		//diagnostics reports
+		//send diagnostics reports to the housekeeping ground service
+		if (current_command[146] == DIAG_REPORT)
+		{
+			diag_telem_count++;
+			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_REPORT, diag_telem_count, 1, current_command);
+		}
+		if (current_command[146] == DIAG_DEFINITION_REPORT)
+		{
+			diag_def_report_count++;
+			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
+		}
+	}
+	if(xQueueReceive(eps_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	{
+		if(current_command[146] == TASK_TO_OPR_EVENT)
+		{
+			send_event_packet(EPS_TASK_ID, current_command[145]);
 		}
 	}
 	return;
@@ -376,6 +431,9 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	abs_time = ((uint16_t)absolute_time_arr[2]) << 4;	// MINUTE
 	abs_time = (uint16_t)absolute_time_arr[3];			// SECOND
 	
+	if(current_tm_fullf)		// Current_tm should not normally be full.
+		return -1;
+	
 	if(num_packets > 1)
 		sequence_flags = 0x1;	// Indicates that this is the first packet in a series of packets.
 	else
@@ -412,8 +470,9 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		packet_error_control = fletcher16(current_tm + 2, 150);
 		current_tm[1] = (uint8_t)(packet_error_control >> 8);
 		current_tm[0] = (uint8_t)(packet_error_control & 0x00FF);
+		current_tm_fullf = 1;
 		
-		if( send_pus_packet_tm(sender) < 0)
+		if(store_current_tm() < 0)
 			return -1;
 		
 		return 1;
@@ -439,8 +498,8 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 		packet_error_control = fletcher16(current_tm + 2, 150);
 		current_tm[1] = (uint8_t)(packet_error_control >> 8);
 		current_tm[0] = (uint8_t)(packet_error_control & 0x00FF);
-		
-		if(send_pus_packet_tm(sender) < 0)
+		current_tm_fullf = 1;
+		if(store_current_tm() < 0)
 			return i;
 	}
 	
@@ -509,7 +568,7 @@ static int receive_tc_msg(void)
 /* messages that are sent in turn and then placed into a telemetry		*/
 /* buffer on the side of the SSM.										*/
 /* @Note: It is assumed that the PUS packet shall be located in			*/
-/* current_tm[] which is defined in glob_var.h							*/
+/* tm_to_downlink[] which is defined in this file						*/
 /* @Note: Instead on putting time in Byte 4, I'm going to use it for	*/
 /* sequence control so that the SSM can check to make sure that no		*/
 /* chunks of the packet were lost.										*/
@@ -543,10 +602,10 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	{
 		if(tm_transfer_completef == 0xFF)			// The transaction has failed.
 			return -1;
-		low =	(uint32_t)current_tm[(i * 4)];			// Place the data into the lower 4 bytes of the CAN message.
-		low += (uint32_t)(current_tm[(i * 4) + 1] << 8);
-		low += (uint32_t)(current_tm[(i * 4) + 2] << 16);
-		low += (uint32_t)(current_tm[(i * 4) + 3] << 24);
+		low =	(uint32_t)tm_to_downlink[(i * 4)];			// Place the data into the lower 4 bytes of the CAN message.
+		low += (uint32_t)(tm_to_downlink[(i * 4) + 1] << 8);
+		low += (uint32_t)(tm_to_downlink[(i * 4) + 2] << 16);
+		low += (uint32_t)(tm_to_downlink[(i * 4) + 3] << 24);
 		send_can_command(low, i, sender_id, COMS_ID, SEND_TM, COMMAND_PRIO);
 		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 10ms (10 * 1ms)
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
@@ -569,6 +628,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	else
 	{
 		tm_transfer_completef = 0;
+		tm_down_fullf = 0;
 		return tm_transfer_completef;
 	}
 }
@@ -632,16 +692,55 @@ static void clear_current_command(void)
 
 /************************************************************************/
 /* STORE_CURRENT_TC			                                            */
-/* @Purpose: copies the contents of current_tc[] into tc_to_decode[]	*/
+/* @Purpose: copies the contents of current_tc[] into the tc_buffer		*/
 /************************************************************************/
-static void store_current_tc(void)
+static int store_current_tc(void)
 {
-	uint8_t i;
-	for(i = 0; i < PACKET_LENGTH; i++)
-	{
-		tc_to_decode[i] = current_tc[i];
-	}
+	if(TC_PACKET_COUNT == MAX_TM_PACKETS)
+		return -1;
+	if(TC_PACKET_COUNT == MAX_TM_PACKETS / 2)
+		send_event_report(1, TC_BUFFER_HALF_FULL, 0, 0);
+		
+	TC_PACKET_COUNT++;
+	task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE, &TC_PACKET_COUNT, 4);
+	
+	CURRENT_TC_PACKET += 152;
+	if(CURRENT_TC_PACKET > (TC_BASE + 0x20000))
+		CURRENT_TC_PACKET = TC_BASE + 12;
+	task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 8, &CURRENT_TC_PACKET, 4);
+	
+	if(task_spimem_write(OBC_PACKET_ROUTER_ID, CURRENT_TC_PACKET, current_tc, 152) < 0)
+		return -1;
+	current_tc_fullf = 0;
+	return;
 }
+
+/************************************************************************/
+/* STORE_CURRENT_TM			                                            */
+/* @Purpose: copies the contents of current_tc[] into the tc_buffer		*/
+/************************************************************************/
+static int store_current_tm(void)
+{
+	if(TM_PACKET_COUNT == MAX_TM_PACKETS)
+		return -1;
+	if(TM_PACKET_COUNT == MAX_TM_PACKETS / 2)
+		send_event_report(1, TM_BUFFER_HALF_FULL, 0, 0);
+		
+	TM_PACKET_COUNT++;
+	task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
+	
+	CURRENT_TM_PACKET += 152;
+	if(CURRENT_TM_PACKET > (TM_BASE + 0x20000))
+		CURRENT_TM_PACKET = TM_BASE + 12;
+	task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 8, &CURRENT_TM_PACKET, 4);		// FAILURE_RECOVERY
+
+	if(task_spimem_write(OBC_PACKET_ROUTER_ID, CURRENT_TM_PACKET, current_tm, 152) < 0)					// FAILURE_RECOVERY
+		return -1;
+	current_tm_fullf = 0;
+	return 1;
+}
+
+
 
 /************************************************************************/
 /* DECODE_TELECOMMAND		                                            */
@@ -650,20 +749,16 @@ static void store_current_tc(void)
 /* route a message to a task or send a CAN message to an SSM			*/
 /* @Note: This function assumes that the telecommand to decode is		*/
 /* contained in tc_to_decode[]											*/
-/* current_tc_fullf should also be 1 before executing this function		*/
 /************************************************************************/
 static int decode_telecommand(void)
 {
 	uint8_t data_field_headerf, apid;
-	int x;
+	int x, attempts;
 	uint8_t packet_length;
 	uint16_t pec1, pec0;
 	uint8_t ack, service_type, service_sub_type, source_id;
 	uint8_t version1, type1, sequence_flags1, sequence_count1;
 	uint8_t ccsds_flag, packet_version;
-	
-	if(!current_tc_fullf)
-		return -1;
 	
 	packet_id = (uint16_t)(tc_to_decode[151]);
 	packet_id = packet_id << 8;
@@ -695,13 +790,19 @@ static int decode_telecommand(void)
 	/* Check that the packet error control is correct		*/
 	pec0 = fletcher16(tc_to_decode + 2, 150);
 	/* Verify that the telecommand is ready to be decoded.	*/
-	x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
-	if(x < 0)
-		return -1;
 	
+	attempts = 0; x = 0;
+	while (attempts<3 && x<0){
+		x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
+		attempts++;
+	}
+	if(x < 0)
+	{	
+		errorREPORT(OBC_ID, service_type, OBC_TC_PACKET_ERROR, 0);
+		return -1;
+	}
 	/* Decode the telecommand packet						*/		// To be updated on a rolling basis
-	decode_telecommand_h(service_type, service_sub_type);
-	return;
+	return decode_telecommand_h(service_type, service_sub_type);
 }
 
 /************************************************************************/
@@ -718,15 +819,13 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 	uint8_t sID = 0xFF;
 	uint8_t collection_interval = 0;
 	uint8_t npar1 = 0;
-	uint8_t i, severity=0;
+	uint8_t i; //severity=0;
 	uint32_t time = 0;
-	int x;
 	clear_current_command();
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_command[i] = tc_to_decode[i + 2];
 	}
-	current_tc_fullf = 0;
 	
 	current_command[140] = ((uint8_t)packet_id) >> 8;	// Place packet_id and psc inside command in case a TC verification is needed.
 	current_command[139] = (uint8_t)packet_id;
@@ -741,14 +840,14 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				sID = current_command[136];			// Structure ID for this definition.
 				if(sID != 1)
 				{
-					x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Only sID of 1 is allowed.
+					send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Only sID of 1 is allowed.
 					return -1;
 				}
 				collection_interval = (uint32_t)current_command[135];	
 				npar1 = current_command[134];
 				if(npar1 > 64)
 				{
-					x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Npar1 must be <= 64
+					send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Npar1 must be <= 64
 					return -1;
 				}
 				current_command[146] = NEW_HK_DEFINITION;
@@ -759,7 +858,7 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				sID = current_command[136];
 				if(sID != 1)
 				{
-					x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Usage error.
+					send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);				// Usage error.
 					return -1;
 				}
 				current_command[146] = CLEAR_HK_DEFINITION;
@@ -776,11 +875,34 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				
 			// William: Put more diagnostics stuff here. This time I want the service_type in current_command[146] and
 			// The service_sub_type placed in current_command[145]
-				
+			case	NEW_DIAG_DEFINITION:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = NEW_DIAG_DEFINITION;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	CLEAR_DIAG_DEFINITION:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = CLEAR_DIAG_DEFINITION;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	ENABLE_D_PARAM_REPORT:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = ENABLE_D_PARAM_REPORT;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	DISABLE_D_PARAM_REPORT:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = DISABLE_D_PARAM_REPORT;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+			
+			case	REPORT_DIAG_DEFINITIONS:
+				current_command[146] = HK_SERVICE;
+				current_command[145] = REPORT_DIAG_DEFINITIONS;
+				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
 			default:
-				break;
+				return -1;
 		}
-		return;
+		return 1;
 	}
 	if(service_type == TIME_SERVICE)
 	{
@@ -791,30 +913,51 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 		current_command[5] = (uint8_t)psc;
 		current_command[0] = current_command[0];			// Report Freq.
 		xQueueSendToBack(obc_to_time_fifo, current_command, (TickType_t)1);
-		return;
+		return 1;
+	}
+	if(service_type == MEMORY_SERVICE)
+	{
+		current_command[146] = service_sub_type;
+		current_command[140] = (uint8_t)(packet_id >> 8);
+		current_command[139] = (uint8_t)(packet_id & 0x00FF);
+		current_command[138] = (uint8_t)(psc >> 8);
+		current_command[137] = (uint8_t)(psc & 0x00FF);
+		if(!SAFE_MODE)
+			xQueueSendToBack(obc_to_mem_fifo, current_command, (TickType_t)1);
+		if(SAFE_MODE)
+			xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+		return 1;
 	}
 	if(service_type == K_SERVICE)
 	{
 		if(service_sub_type == ADD_SCHEDULE)
 		{
-			severity = current_command[129];
+			//severity = current_command[129];
 			time = ((uint32_t)current_command[135]) << 24;
 			time += ((uint32_t)current_command[134]) << 16;
 			time += ((uint32_t)current_command[133]) << 8;
 			time += (uint32_t)current_command[132];
 			current_command[146] = service_sub_type;
-			if(time || (service_sub_type == CLEAR_SCHEDULE) || (service_sub_type == SCHED_REPORT_REQUEST))
-				xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);
-			//if(severity == 1)
-			//	xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
-			if(severity == 2)
+			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);	// All scheduled commands should be sent to scheduling.		
+		}
+		if(service_sub_type == START_EXPERIMENT_ARM)
+		{
+			experiment_armed = 1;
+			send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);	// Successful command execution report.
+		}
+		if(service_sub_type == START_EXPERIMENT_FIRE)
+		{
+			if(experiment_armed)
 			{
-				// Deal with command here.
-			}			
+				experiment_started = 1;
+				send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);	// Successful command execution report.
+			}
+			else
+				send_tc_verification(packet_id, psc, 0xFF, 5, 0, 1);				// Failed telecommand acceptance report (usage error due to experiment_armed = 0)
 		}
 		else
 		{
-			// Everything else should be sent to the scheduling task.
+			/* Everything else should be sent to the scheduling task. */
 			current_command[146] = service_sub_type;
 			xQueueSendToBack(obc_to_sched_fifo, current_command, (TickType_t)1);			
 		}
@@ -829,7 +972,7 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 		xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
 	}
 	
-	return;
+	return 1;
 }
 
 /************************************************************************/
@@ -849,25 +992,24 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 /************************************************************************/
 static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type, uint8_t version, uint8_t ccsds_flag, uint8_t packet_version)
 {
-	int x;
 	uint32_t address = 0, length = 0;
 	uint8_t i;
 	uint32_t new_time = 0, last_time = 0;
 	if(packet_length != PACKET_LENGTH)
 	{
-		x = send_tc_verification(packet_id, psc, 0xFF, 1, (uint32_t)packet_length, 1);		// TC verify acceptance report, failure, 1 == invalid packet length
+		send_tc_verification(packet_id, psc, 0xFF, 1, (uint32_t)packet_length, 1);		// TC verify acceptance report, failure, 1 == invalid packet length
 		return -1;
 	}
 	
 	if(pec0 != pec1)
 	{
-		x = send_tc_verification(packet_id, psc, 0xFF, 2, (uint32_t)pec1, 1);				// TC verify acceptance report, failure, 2 == invalid PEC (checksum)
+		send_tc_verification(packet_id, psc, 0xFF, 2, (uint32_t)pec1, 1);				// TC verify acceptance report, failure, 2 == invalid PEC (checksum)
 		return -1;
 	}
 	
 	if((service_type != 3) && (service_type != 6) && (service_type != 9) && (service_type != 69))
 	{
-		x = send_tc_verification(packet_id, psc, 0xFF, 3, (uint32_t)service_type, 1);		// TC verify acceptance report, failure, 3 == invalid service type
+		send_tc_verification(packet_id, psc, 0xFF, 3, (uint32_t)service_type, 1);		// TC verify acceptance report, failure, 3 == invalid service type
 		return -1;
 	}
 	
@@ -876,13 +1018,13 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		if((service_sub_type != 1) && (service_sub_type != 2) && (service_sub_type != 3) && (service_sub_type != 4) && (service_sub_type != 5) && (service_sub_type != 6)
 		&& (service_sub_type != 7) && (service_sub_type != 8) && (service_sub_type != 9) && (service_sub_type != 11) && (service_sub_type != 17) && (service_sub_type != 18))
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);	// TC verify acceptance report, failure, 4 == invalid service subtype.
+			send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);	// TC verify acceptance report, failure, 4 == invalid service subtype.
 			return -1;
 		}
 		
 		if((apid != HK_TASK_ID) && (apid != FDIR_TASK_ID))
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
+			send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
 			return -1;
 		}
 	}
@@ -891,12 +1033,12 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	{
 		if((service_sub_type != 2) && (service_sub_type != 5) && (service_sub_type != 9))
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);	// TC verify acceptance report, failure, 4 == invalid service subtype
+			send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);	// TC verify acceptance report, failure, 4 == invalid service subtype
 			return -1;
 		}
 		if(apid != MEMORY_TASK_ID)
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
+			send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
 			return -1;
 		}
 		address =  ((uint32_t)tc_to_decode[137]) << 24;
@@ -905,23 +1047,23 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		address += (uint32_t)tc_to_decode[134];
 		
 		if(tc_to_decode[138] > 1)											// Invalid memory ID.
-			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
+			send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
 		if((tc_to_decode[138] == 1) && (address > 0xFFFFF))				// Invalid memory address (too high)
-			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
+			send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);
 		if((tc_to_decode[138] == 1) && INTERNAL_MEMORY_FALLBACK_MODE && (address > 0x0FFF))		// Invalid memory address (too high for INT MEM FALLBACK MODE)
-			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);			
+			send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);			
 	}
 	
 	if(service_type == TIME_SERVICE)
 	{
 		if(service_sub_type != UPDATE_REPORT_FREQ)
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);		// TC verify acceptance report, failure, 4 == invalid service subtype
+			send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);		// TC verify acceptance report, failure, 4 == invalid service subtype
 			return -1;			
 		}
 		if(apid != TIME_TASK_ID)
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
+			send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
 			return -1;
 		}
 	}
@@ -930,14 +1072,14 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	{
 		length = tc_to_decode[136];
 		
-		if((service_sub_type > 7) || !service_sub_type)
+		if((service_sub_type > 11) || !service_sub_type)
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
+			send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
 			return -1;
 		}
 		if((tc_to_decode[135] || tc_to_decode[134] || tc_to_decode[133] || tc_to_decode[132]) && (service_sub_type != 1))	// Time should be zero for immediate commands
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);					// Usage error.
+			send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);					// Usage error.
 			return -1;
 		}
 		if(tc_to_decode[135] || tc_to_decode[134] || tc_to_decode[133] || tc_to_decode[132])
@@ -950,7 +1092,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 				new_time += (uint32_t)tc_to_decode[132 - (i * 8)];
 				if(new_time < last_time)												// Scheduled commands should be in chronological order
 				{
-					x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);			// Usage error.
+					send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);			// Usage error.
 					return -1;
 				}
 				last_time = new_time;
@@ -961,31 +1103,31 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	{
 		if((service_sub_type > 12) || !service_sub_type)
 		{
-			x = send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
+			send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
 			return -1;
 		}
 	}
 	
 	if(version != 1)
 	{
-		x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);							// TC verify acceptance repoort, failure, 5 == usage error
+		send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);							// TC verify acceptance repoort, failure, 5 == usage error
 		return -1;
 	}
 	
 	if(ccsds_flag != 1)
 	{
-		x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);							// TC verify acceptance report, failure, 5 == usage error
+		send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);							// TC verify acceptance report, failure, 5 == usage error
 		return -1;
 	}
 	
 	if(packet_version != 1)
 	{
-		x = send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);							// TC verify acceptance report, failure, 5 == usage error
+		send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);							// TC verify acceptance report, failure, 5 == usage error
 		return -1;
 	}
 	
 	/* The telecommand packet is good to be decoded further!		*/
-	x = send_tc_verification(packet_id, psc, 0, 0, 0, 1);										// TC verify acceptance report, success.
+	send_tc_verification(packet_id, psc, 0, 0, 0, 1);										// TC verify acceptance report, success.
 	return 1;
 }
 
@@ -1032,7 +1174,6 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 			current_data[7] = (uint8_t)(packet_id & 0x00FF);
 			current_data[8] = (uint8_t)((packet_id & 0xFF00) >> 8);
 			resp = packetize_send_telemetry(OBC_PACKET_ROUTER_ID, GROUND_PACKET_ROUTER_ID, 1, 2, tc_verify_success_count, 1, current_data);
-			current_tc_fullf = 0;
 		}		
 	}
 	if(tc_type == 2)
@@ -1062,21 +1203,44 @@ static int send_tc_verification(uint16_t packet_id, uint16_t sequence_control, u
 /* SEND_EVENT_PACKET		                                            */
 /* @Purpose: Takes information in high & low and turns them into an		*/
 /* event report which is then downlinked to the ground station.			*/
-/* @param: high: (high & 0xF0000000) is the sender ID.					*/
-/* @param: low: B3 = severity, B2 = reportID, B1,0 = parameters			*/
+/* @param: sender: The ID of the task / SSM which is transmitting this	*/
+/* event report.														*/
+/* @param: severity: (1|2|3|4), where 1 = NORMAL, 1,2,3 = increasing	*/
+/* severity of error.													*/
+/* @Note: The task event report function is now responsible for setting */
+/* up the data portion of the packet, and hence this function assumes	*/
+/* that the array current_data[] has the data necessary for this report	*/
 /************************************************************************/
-static void send_event_packet(uint32_t high, uint32_t low)
+static void send_event_packet(uint8_t sender, uint8_t severity)
 {
-	uint8_t sender, severity;
-	int resp;
-	clear_current_data();
 	event_report_count++;
-	sender = (uint8_t)((high & 0xF0000000) >> 28);
-	severity = (uint8_t)((low & 0xFF000000) >> 24);
-	current_data[2] = (uint8_t)((low & 0x00FF0000) >> 16);
-	current_data[1] = (uint8_t)((low & 0x0000FF00) >> 8);
-	current_data[0] = (uint8_t)(low & 0x000000FF);
-	resp = packetize_send_telemetry(sender, GROUND_PACKET_ROUTER_ID, 5, severity, event_report_count, 1, current_data);	// FAILURE_RECOVERY
+	packetize_send_telemetry(sender, GROUND_PACKET_ROUTER_ID, 5, severity, event_report_count, 1, current_data);	// FAILURE_RECOVERY
+	return;
+}
+
+/************************************************************************/
+/* SEND_EVENT_REPORT		                                            */
+/* @Purpose: sends a message to the OBC_PACKET_ROUTER using				*/
+/* sched_to_obc_fifo. The intent is to an event report downlinked to	*/
+/* the ground station.													*/
+/* @param: severity: 1 = Normal.										*/
+/* @param: report_id: Unique to the event report, ex: BIT_FLIP_DETECTED */
+/* @param: param1,0 extra information that can be sent to ground.		*/
+/************************************************************************/
+static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0)
+{
+	clear_current_command();
+	current_command[136] = report_id;
+	current_command[135] = 2;
+	current_command[134] = 0x00;
+	current_command[133] = 0x00;
+	current_command[132] = 0x00;
+	current_command[131] = param0;
+	current_command[130] = 0x00;
+	current_command[129] = 0x00;
+	current_command[128] = 0x00;
+	current_command[127] = param1;
+	send_event_packet(OBC_PACKET_ROUTER_ID, severity);
 	return;
 }
 
@@ -1085,36 +1249,38 @@ static void send_event_packet(uint32_t high, uint32_t low)
 void opr_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
-	vPortFree(current_command);
-	vPortFree(version);
-	vPortFree(type);
-	vPortFree(data_header);
-	vPortFree(flag);
-	vPortFree(sequence_flags);
-	vPortFree(sequence_count);
-	vPortFree(packet_id);
-	vPortFree(psc);
-	vPortFree(tc_sequence_count);
-	vPortFree(hk_telem_count);
-	vPortFree(hk_def_report_count);
-	vPortFree(time_report_count);
-	vPortFree(mem_dump_count);
-	vPortFree(packet_id);
-	vPortFree(tc_exec_success_count);
-	vPortFree(tc_exec_fail_count);
-	vPortFree(mem_check_count);
-	vPortFree(new_tc_msg_high);
-	vPortFree(new_tc_msg_low);
-	vPortFree(tc_verify_success_count);
-	vPortFree(tc_verify_fail_count);
-	vPortFree(event_report_count);
-	vPortFree(sched_report_count);
-	vPortFree(sched_command_count);
-	vPortFree(current_data);
-	vPortFree(current_tc);
-	vPortFree(current_tm);
-	vPortFree(tc_to_decode);
-	vPortFree(xTimeToWait);
+	//vPortFree(current_command);
+	//vPortFree(version);
+	//vPortFree(type);
+	//vPortFree(data_header);
+	//vPortFree(flag);
+	//vPortFree(sequence_flags);
+	//vPortFree(sequence_count);
+	//vPortFree(packet_id);
+	//vPortFree(psc);
+	//vPortFree(tc_sequence_count);
+	//vPortFree(hk_telem_count);
+	//vPortFree(hk_def_report_count);
+	//vPortFree(diag_telem_count);
+	//vPortFree(diag_def_report_count);
+	//vPortFree(time_report_count);
+	//vPortFree(mem_dump_count);
+	//vPortFree(packet_id);
+	//vPortFree(tc_exec_success_count);
+	//vPortFree(tc_exec_fail_count);
+	//vPortFree(mem_check_count);
+	//vPortFree(new_tc_msg_high);
+	//vPortFree(new_tc_msg_low);
+	//vPortFree(tc_verify_success_count);
+	//vPortFree(tc_verify_fail_count);
+	//vPortFree(event_report_count);
+	//vPortFree(sched_report_count);
+	//vPortFree(sched_command_count);
+	//vPortFree(current_data);
+	//vPortFree(current_tc);
+	//vPortFree(current_tm);
+	//vPortFree(tc_to_decode);
+	//vPortFree(xTimeToWait);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(opr_HANDLE);

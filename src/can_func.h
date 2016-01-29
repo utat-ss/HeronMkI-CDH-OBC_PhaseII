@@ -196,6 +196,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define GROUND_PACKET_ROUTER_ID 0x13
 #define FDIR_GROUND_ID			0x14
 #define SCHED_GROUND_ID			0x15
+#define SPIMEM_SENDER_ID		0x16 //Added 01/16/16 for errorREPORT()
+
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01
@@ -269,7 +271,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define PAY_I					0x0E
 #define OBC_V					0x0F
 #define OBC_I					0x10
-#define BATT_I					0x11
+#define SHUNT_DPOT				0x11
 #define COMS_TEMP				0x12
 #define OBC_TEMP				0x13
 #define PAY_TEMP0				0x14
@@ -280,10 +282,83 @@ SemaphoreHandle_t	Can0_Mutex;
 #define PAY_HUM					0x19
 #define PAY_PRESS				0x1A
 #define PAY_ACCEL				0x1B
+#define PAY_FL_PD0				0x1C
+#define PAY_FL_PD1				0x1D
+#define PAY_FL_PD2				0x1E
+#define PAY_FL_PD3				0x1F
+#define PAY_FL_PD4				0x20
+#define PAY_FL_PD5				0x21
+#define PAY_FL_PD6				0x22
+#define PAY_FL_PD7				0x23
+#define PAY_FL_PD8				0x24
+#define PAY_FL_PD9				0x25
+#define PAY_FL_PD10				0x26
+#define PAY_FL_PD11				0x27
+#define PAY_FL_OD_PD0			0x28
+#define PAY_FL_OD_PD1			0x29
+#define PAY_FL_OD_PD2			0x2A
+#define PAY_FL_OD_PD3			0x2B
+#define PAY_FL_OD_PD4			0x2C
+#define PAY_FL_OD_PD5			0x2D
+#define PAY_FL_OD_PD6			0x2E
+#define PAY_FL_OD_PD7			0x2F
+#define PAY_FL_OD_PD8			0x30
+#define PAY_FL_OD_PD9			0x31
+#define PAY_FL_OD_PD10			0x32
+#define PAY_FL_OD_PD11			0x33
+#define PAY_MIC_OD_PD0			0x34
+#define PAY_MIC_OD_PD1			0x35
+#define PAY_MIC_OD_PD2			0x36
+#define PAY_MIC_OD_PD3			0x37
+#define PAY_MIC_OD_PD4			0x38
+#define PAY_MIC_OD_PD5			0x39
+#define PAY_MIC_OD_PD6			0x3A
+#define PAY_MIC_OD_PD7			0x3B
+#define PAY_MIC_OD_PD8			0x3C
+#define PAY_MIC_OD_PD9			0x3D
+#define PAY_MIC_OD_PD10			0x3E
+#define PAY_MIC_OD_PD11			0x3F
+#define PAY_MIC_OD_PD12			0x40
+#define PAY_MIC_OD_PD13			0x41
+#define PAY_MIC_OD_PD14			0x42
+#define PAY_MIC_OD_PD15			0x43
+#define PAY_MIC_OD_PD16			0x44
+#define PAY_MIC_OD_PD17			0x45
+#define PAY_MIC_OD_PD18			0x46
+#define PAY_MIC_OD_PD19			0x47
+#define PAY_MIC_OD_PD20			0x48
+#define PAY_MIC_OD_PD21			0x49
+#define PAY_MIC_OD_PD22			0x4A
+#define PAY_MIC_OD_PD23			0x4B
+#define PAY_MIC_OD_PD24			0x4C
+#define PAY_MIC_OD_PD25			0x4D
+#define PAY_MIC_OD_PD26			0x4E
+#define PAY_MIC_OD_PD27			0x4F
+#define PAY_MIC_OD_PD28			0x50
+#define PAY_MIC_OD_PD29			0x51
+#define PAY_MIC_OD_PD30			0x52
+#define PAY_MIC_OD_PD31			0x53
+#define PAY_MIC_OD_PD32			0x54
+#define PAY_MIC_OD_PD33			0x55
+#define PAY_MIC_OD_PD34			0x56
+#define PAY_MIC_OD_PD35			0x57
+#define PAY_MIC_OD_PD36			0x58
+#define PAY_MIC_OD_PD37			0x59
+#define PAY_MIC_OD_PD38			0x5A
+#define PAY_MIC_OD_PD39			0x5B
+#define PAY_MIC_OD_PD40			0x5C
+#define PAY_MIC_OD_PD41			0x5D
+#define PAY_MIC_OD_PD42			0x5E
+#define PAY_MIC_OD_PD43			0x5F
+#define PAY_MIC_OD_PD44			0x60
+#define PAY_MIC_OD_PD45			0x61
+#define PAY_MIC_OD_PD46			0x62
+#define PAY_MIC_OD_PD47			0x63
+
 
 /* VARIABLE NAMES		*/
-#define MPPTA					0xFF
-#define MPPTB					0xFE
+#define MPPTX					0xFF
+#define MPPTY					0xFE
 #define COMS_MODE				0xFD
 #define EPS_MODE				0xFC
 #define PAY_MODE				0xFB
@@ -305,6 +380,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define COMS_FDIR_SIGNAL		0xEB
 #define EPS_FDIR_SIGNAL			0xEA
 #define PAY_FDIR_SIGNAL			0xE9
+#define BATT_HEAT				0xE8
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

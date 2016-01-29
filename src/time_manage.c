@@ -7,7 +7,7 @@ Author: Keenan Burnett, Omar Abdeldayem
 * This file is to be used to house the time-management task (which shall manage
 * all time-related activities.
 *
-* FILE REFERENCES: stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h
+* FILE REFERENCES: stdio.h, FreeRTOS.h, task.h, partest.h, asf.h, can_func.h, error_handling.h
 *
 * EXTERNAL VARIABLES:
 *
@@ -35,6 +35,7 @@ Author: Keenan Burnett, Omar Abdeldayem
 * 11/07/2015	I changed the name of this file from time_manage.c to time_manage.c to better indicate
 *				what this file is meant for.
 *
+* 01/15/2015    A: Added wrapper function to handle FIFO errors.
 * DESCRIPTION:
 */
 
@@ -51,6 +52,9 @@ Author: Keenan Burnett, Omar Abdeldayem
 
 /* Common demo includes. */
 #include "partest.h"
+
+/*    Error handling includes   */
+#include "error_handling.h"
 
 /*		RTC includes.	*/
 #include "rtc.h"
@@ -77,7 +81,7 @@ TaskHandle_t time_manage(void);
 void time_manage_kill(uint8_t killer);
 void broadcast_minute(void);
 void update_absolute_time(void);
-static void report_time(void);
+void report_time(void);
 static void exec_commands(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 
@@ -176,7 +180,7 @@ void update_absolute_time(void)
 	return;
 }
 
-static void report_time(void)
+void report_time(void)
 {
 	clear_current_command();
 	current_command[9] = TIME_REPORT;
@@ -185,8 +189,7 @@ static void report_time(void)
 	current_command[1] = absolute_time_arr[1];
 	current_command[0] = absolute_time_arr[0];
 	
-	if(xQueueSendToBack(time_to_obc_fifo, current_command, (TickType_t)1) != pdPASS) 			// FAILURE_RECOVERY if this doesn't return pdPASS
-		return;
+	xQueueSendToBackTask(TIME_TASK_ID, 1, time_to_obc_fifo, current_command, (TickType_t)1);
 	minute_count = 0;
 	return;
 }
@@ -195,7 +198,7 @@ static void report_time(void)
 static void exec_commands(void)
 {
 	uint16_t packet_id, psc;
-	if(xQueueReceive(obc_to_time_fifo, current_command, (TickType_t)10) == pdTRUE)
+	if(xQueueReceiveTask(TIME_TASK_ID, 0, obc_to_time_fifo, current_command, (TickType_t)10) == pdTRUE)
 	{
 		packet_id = ((uint16_t)current_command[8]) << 8;
 		packet_id += (uint16_t)current_command[7];
@@ -203,6 +206,11 @@ static void exec_commands(void)
 		psc += (uint16_t)current_command[5];
 		report_timeout = current_command[0];			
 		send_tc_execution_verify(1, packet_id, psc);
+	}
+	if(xQueueReceive(sched_to_time_fifo, current_command, (TickType_t)1))
+	{
+		report_timeout = current_command[0];
+		send_tc_execution_verify(1, 0, 0);
 	}
 	return;
 }
@@ -226,9 +234,9 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 void time_manage_kill(uint8_t killer)
 {
 	// Free the memory that this task allocated.
-	vPortFree(current_command);
-	vPortFree(minute_count);
-	vPortFree(report_timeout);
+	//vPortFree(current_command);
+	//vPortFree(minute_count);
+	//vPortFree(report_timeout);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(time_manage_HANDLE);

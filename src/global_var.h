@@ -277,6 +277,7 @@ uint32_t	HK_BASE;			// HK = 8kB: 0x0C000 - 0x0DFFF
 uint32_t	EVENT_BASE;			// EVENT = 8kB: 0x0E000 - 0x0FFFF
 uint32_t	SCHEDULE_BASE;		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
 uint32_t	SCIENCE_BASE;		// SCIENCE = 8kB: 0x12000 - 0x13FFF
+uint32_t	CAMERA_BASE;		// CAMERA = 64kb: 0x14000 - 0x23A00
 uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 /* Limits for task operations */

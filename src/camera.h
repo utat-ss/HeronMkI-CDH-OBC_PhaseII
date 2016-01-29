@@ -8,6 +8,9 @@ please support Adafruit and open-source hardware by purchasing
 products from Adafruit!
 Written by Limor Fried/Ladyada for Adafruit Industries.
 BSD license, all text above must be included in any redistribution
+
+Modified by Brendan Graham
+
 ****************************************************/
 
 
@@ -48,12 +51,8 @@ BSD license, all text above must be included in any redistribution
 #define CAMERABUFFSIZ 100
 #define CAMERADELAY 10
 
-
-uint8_t;
-int begin(uint16_t baud = 38400);
+int cam_begin(uint16_t baud);
 int reset(void);
-int TVon(void);
-int TVoff(void);
 int takePicture(void);
 uint8_t *readPicture(uint8_t n);
 int resumeVideo(void);
@@ -72,9 +71,7 @@ int setMotionStatus(uint8_t x, uint8_t d1, uint8_t d2);
 int cameraFrameBuffCtrl(uint8_t command);
 uint8_t getCompression();
 int setCompression(uint8_t c);
-
-int getPTZ(uint16_t &w, uint16_t &h, uint16_t &wz, uint16_t &hz, uint16_t &pan, uint16_t &tilt);
-int setPTZ(uint16_t wz, uint16_t hz, uint16_t pan, uint16_t tilt);
+int cam_init();
 
 void OSD(uint8_t x, uint8_t y, char *s); // isnt supported by the chip :(
 
@@ -84,14 +81,16 @@ char* setBaud38400();
 char* setBaud57600();
 char* setBaud115200();
 
-uint8_t  serialNum;
-uint8_t  camerabuff[CAMERABUFFSIZ + 1];
+uint32_t  serialNum;
+uint8_t  camerabuff[64000];
 uint8_t  bufferLen;
 uint16_t frameptr;
 
 void common_init(void);
-int runCommand(uint8_t cmd, uint8_t args[], uint8_t argn, uint8_t resp, int flushflag = true);
-void sendCommand(uint8_t cmd, uint8_t args[], uint8_t argn);
+//int runCommand(uint8_t cmd, uint8_t args[], uint8_t argn, uint8_t resp, int flushflag = true);
+
+int runCommand(uint8_t cmd, uint8_t *args, uint8_t argn, uint8_t resplen, int flushflag);
+void sendCommand(uint32_t cmd, uint8_t args[], uint8_t argn);
 uint8_t readResponse(uint8_t numbytes, uint8_t timeout);
 int verifyResponse(uint8_t command);
-void printBuff(void);
+void storePicinSPIMem(int numWrites);

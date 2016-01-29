@@ -95,6 +95,7 @@ void menory_manage(void);
 void memory_manage_kill(uint8_t killer);
 static void memory_wash(void);
 static void exec_commands(void);
+static void exec_commands_H(void);
 static void clear_current_command(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
@@ -294,7 +295,7 @@ static void exec_commands(void)
 	return;
 }
 
-static void exec_commands(void)
+static void exec_commands_H(void)
 {
 	uint8_t command, memid, status;
 	uint16_t i, j;
@@ -302,7 +303,8 @@ static void exec_commands(void)
 	uint8_t* mem_ptr = 0;
 	uint32_t address, length, num_transfers = 0;
 	uint32_t* temp_address = 0;
-	int check = 0; int attempts = 0;
+	uint64_t check = 0; 
+	int attempts = 0;
 	command = current_command[146];
 	packet_id = ((uint16_t)current_command[140]) << 8;
 	packet_id += (uint16_t)current_command[139];

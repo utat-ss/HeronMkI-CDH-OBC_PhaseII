@@ -51,7 +51,8 @@ Modified by Brendan Graham
 #define CAMERABUFFSIZ 100
 #define CAMERADELAY 10
 
-int cam_begin(uint16_t baud);
+void cam_initialize();
+int cam_begin();
 int reset(void);
 int takePicture(void);
 uint8_t *readPicture(uint8_t n);
@@ -71,14 +72,10 @@ int setMotionStatus(uint8_t x, uint8_t d1, uint8_t d2);
 int cameraFrameBuffCtrl(uint8_t command);
 uint8_t getCompression();
 int setCompression(uint8_t c);
-int cam_init();
 
 void OSD(uint8_t x, uint8_t y, char *s); // isnt supported by the chip :(
 
-char* setBaud9600();
-char* setBaud19200();
 char* setBaud38400();
-char* setBaud57600();
 char* setBaud115200();
 
 uint32_t  serialNum;

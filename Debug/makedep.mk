@@ -10,6 +10,8 @@ src\asf\sam\drivers\uart\uart.c
 
 src\atomic.c
 
+src\camera.c
+
 src\eps.c
 
 src\memory_manage.c

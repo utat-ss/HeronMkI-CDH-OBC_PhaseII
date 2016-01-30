@@ -300,6 +300,7 @@ static void prvSetupHardware(void)
 	/* Initialize the SPI memory chips	*/
 	//spimem_initialize();
 	
+	cam_initialize();
 }
 /*-----------------------------------------------------------*/
 

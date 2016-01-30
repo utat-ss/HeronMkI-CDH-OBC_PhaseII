@@ -2,7 +2,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <PropertyGroup>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectVersion>6.2</ProjectVersion>
+    <ProjectVersion>7.0</ProjectVersion>
     <ProjectGuid>{1a1a7c6e-bd59-4e82-8371-7f51ae9a4bd9}</ProjectGuid>
     <Name>Main_Program</Name>
     <AssemblyName>$(MSBuildProjectName)</AssemblyName>
@@ -163,7 +163,7 @@
         <documentation help="" />
         <offline-documentation help="" />
         <dependencies>
-          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.10.1" />
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.18.1" />
         </dependencies>
       </framework-data>
     </AsfFrameworkConfig>
@@ -428,6 +428,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\atomic.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\camera.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\camera.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\checksum.h">

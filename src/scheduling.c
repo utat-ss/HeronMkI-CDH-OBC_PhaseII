@@ -103,6 +103,7 @@ static int report_schedule(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 static int generate_command_report(uint16_t cID, uint8_t status);
+static int exec_k_commands(void);
 
 /* Local variables for scheduling */
 static uint32_t num_commands, next_command_time, furthest_command_time;

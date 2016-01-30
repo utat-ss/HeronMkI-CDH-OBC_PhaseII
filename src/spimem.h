@@ -63,7 +63,7 @@ SemaphoreHandle_t	Spi0_Mutex;
 
 /*		Global Variable Definitions		*/
 uint32_t spi_bit_map[128];		// Bit-Map to pages (256B) within SPI Memory.
-uint8_t	spi_mem_buff[8192] = {0};		// Buffer required when erasing a sector // Shall also be used as our fallback memory.
+uint8_t	spi_mem_buff[8192];		// Buffer required when erasing a sector // Shall also be used as our fallback memory.
 uint32_t spi_mem_buff_sect_num;	// Current sector number of what is loaded into the SPI Memory Buffer.
 uint16_t msg_buff[260];			// Temporary buffer used by the read and write tasks to store data.
 

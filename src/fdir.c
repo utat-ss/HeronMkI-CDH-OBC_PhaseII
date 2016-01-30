@@ -1076,7 +1076,7 @@ static uint8_t get_fdir_signal(uint8_t task)
 // exec_commands for FDIR is special in that commands are coming from two different service types (Housekeeping and FDIR).
 static void exec_commands(void)
 {
-	uint8_t i, command, service_type, memid;
+	uint8_t i, command, service_type, memid, status, j;
 	uint16_t packet_id, psc;
 	uint32_t address, length, num_transfers = 0;
 	uint8_t* mem_ptr = 0;

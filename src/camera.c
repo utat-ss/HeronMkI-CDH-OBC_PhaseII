@@ -26,7 +26,7 @@ Modified by Brendan Graham
 // Initialization code used by all constructor types
 int cam_init(){
 	common_init();
-	cam_begin(baud_rate);
+	//cam_begin(baud_rate);
 	
 }
 

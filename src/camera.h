@@ -82,7 +82,7 @@ char* setBaud57600();
 char* setBaud115200();
 
 uint32_t  serialNum;
-uint8_t  camerabuff[64000];
+uint8_t  camerabuff[32000];
 uint8_t  bufferLen;
 uint16_t frameptr;
 

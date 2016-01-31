@@ -74,6 +74,7 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value);
 static void setUpMPPT(void);
 static void battery_balance(void);
 static void battery_heater(void);
+static uint32_t battery_SOC(void);
 static void verify_eps_sensor_value(uint8_t sensor_id);
 static void init_eps_sensor_bounds(void);
 static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_params, uint32_t* data);
@@ -93,6 +94,9 @@ static uint8_t last_balance_minute = 0;
 // For Battery Heater
 static uint8_t last_heater_control_minute = 0;
 static uint32_t eps_target_temp, eps_temp_interval;
+
+// For Battery SOC
+static uint32_t battery_capacity, current_SOC, voltage_SOC, last_SOC_second;
 
 // Sensor values
 static uint32_t battmv, battv, battin, battout;
@@ -151,6 +155,7 @@ static void prvEpsTask(void *pvParameters )
 	/* Declare Variables Here */
 
 	setUpMPPT();
+	init_eps_sensor_bounds();
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -440,6 +445,7 @@ static void battery_heater(void){
 	
 	//Declare variables
 	uint32_t batt_heater_control;
+	uint32_t* val;
 
 	// Timestamp the occurrence of this function
 	last_heater_control_minute = CURRENT_MINUTE;
@@ -453,7 +459,8 @@ static void battery_heater(void){
 	{
 		set_variable_value(BATT_HEAT, 0);
 		//Report that we turned the heater off 
-		send_event_report(1, BATTERY_HEATER_STATUS, 0, 0);
+		*val = 0;
+		send_event_report(1, BATTERY_HEATER_STATUS, 1, val);
 	}
 		
 	//Check if we should turn on the heater if it is currently off
@@ -461,8 +468,74 @@ static void battery_heater(void){
 	{
 		set_variable_value(BATT_HEAT, 1);
 		//Report that we turned the heater on
-		send_event_report(1, BATTERY_HEATER_STATUS, 0, 1);
+		*val = 1;
+		send_event_report(1, BATTERY_HEATER_STATUS, 1, val);
 	}
+}
+
+/************************************************************************/
+/* BATTERY_SOC															*/
+/*																		*/
+/* @Purpose: This function determines the battery SOC and returns it. 	*/
+/*				It does not take care of any averaging to get rid of 	*/
+/*				sensor noise.											*/
+/*																		*/
+/* @param: uint32_t battery_SOC is returned. Will be a value between 0	*/
+/*			and 100 that is an estimation of the current battery charge.*/
+/************************************************************************/
+static uint32_t battery_SOC(void){
+	
+	//Declare variables
+	uint32_t batt_SOC, voltage_offset;
+	uint32_t base_voltage_offset, battery_slope, temp_multiplier, current_multiplier, SOCv_multiplier, SOCc_multiplier;
+	
+	//Need to experimentally determine these
+	base_voltage_offset = 0x55;
+	battery_slope = 0x01;
+	temp_multiplier = 0x06;
+	current_multiplier = 0x03;
+	//These two need to add up to 100
+	SOCv_multiplier = 45;
+	SOCc_multiplier = 55;
+	
+	//Get all the needed sensor info
+	//Update all the values we need to make decisions for battery heater
+	epstemp = get_sensor_data(EPS_TEMP);
+	battin = get_sensor_data(BATTIN_I);
+	battout = get_sensor_data(BATTOUT_I);
+	battv = get_sensor_data(BATT_V);
+	
+	// Check if we are charging or discharging 
+	//We are charging the battery 
+	if (battin >= battout){
+		// Update the current SOC with coulomb counting
+		// the 4 is because a 1 on battin =  4mA
+		current_SOC = current_SOC + (battin * 4 * (CURRENT_SECOND - last_SOC_second));
+		
+		//Calculate the voltage offset. Only add the current offset if we are discharging the battery
+		voltage_offset = base_voltage_offset + temp_multiplier*(epstemp - 25);
+	}
+	//We are discharging the battery 
+	else{
+		// Update the current SOC with coulomb counting
+		//We are discharging the battery
+		// the 4 is because a 1 on battout =  4mA
+		current_SOC = current_SOC - (battout * 4 * (CURRENT_SECOND - last_SOC_second));
+		
+		// epstemp is numerically accurate
+		// battin is 1 = 4mA
+		//Calculate the voltage offset. Only add the current offset if we are discharging the battery
+		voltage_offset = base_voltage_offset + temp_multiplier*(epstemp - 25) - current_multiplier*(battin - 125);
+	}
+
+	// Compute the voltage_SOC
+	//This needs a lot of help from experimental values 
+	voltage_SOC = (battv - voltage_offset)/battery_slope;
+	
+	//Calculate the final SOC
+	batt_SOC = ((SOCv_multiplier * voltage_SOC) + (SOCc_multiplier * current_SOC)) / battery_capacity;
+	
+	return batt_SOC;
 }
 
 /************************************************************************/

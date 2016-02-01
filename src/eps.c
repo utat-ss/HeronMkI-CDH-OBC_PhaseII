@@ -57,8 +57,13 @@ functionality. */
 /* Relevant Boundaries for power system		*/
 #define MAX_NUM_TRIES			0xA
 #define DUTY_INCREMENT			0x6
-#define EPS_BALANCE_INTERVAL	0x2
-#define EPS_HEATER_INTERVAL		0x5
+
+/* EPS POWER MODES		*/
+#define NOMINAL					0x0
+#define LOW_POWER						0x1
+#define PAYLOAD_LOSS			0x2
+#define CRITICAL				0x3
+
 /*-----------------------------------------------------------*/
 
 /* Function Prototypes										 */
@@ -75,6 +80,7 @@ static void setUpMPPT(void);
 static void battery_balance(void);
 static void battery_heater(void);
 static uint32_t battery_SOC(void);
+static void update_battery_capacity(void);
 static void verify_eps_sensor_value(uint8_t sensor_id);
 static void init_eps_sensor_bounds(void);
 static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_params, uint32_t* data);
@@ -83,20 +89,27 @@ static void clear_current_command(void);
 
 
 /* Global Variables Prototypes								*/
+// For EPS Modes
+static uint32_t filtered_battery_SOC, active_eps_mode, last_mode_second;
+static uint32_t eps_balance_interval, eps_heater_interval;
 
 // For MPPT
 static uint8_t xDirection, yDirection, xDuty, yDuty;
 static uint32_t pxp_last, pyp_last;
 
 // For Battery Balancing
-static uint8_t last_balance_minute = 0;
+static uint32_t last_balance_minute = 0;
 
 // For Battery Heater
-static uint8_t last_heater_control_minute = 0;
+static uint32_t last_heater_control_minute = 0;
 static uint32_t eps_target_temp, eps_temp_interval;
 
 // For Battery SOC
 static uint32_t battery_capacity, current_SOC, voltage_SOC, last_SOC_second;
+
+// For Update Battery Capacity
+static uint32_t current_in, current_out;
+static uint32_t previous_current_state = 0;
 
 // Sensor values
 static uint32_t battmv, battv, battin, battout;
@@ -156,6 +169,8 @@ static void prvEpsTask(void *pvParameters )
 
 	setUpMPPT();
 	init_eps_sensor_bounds();
+	eps_balance_interval = 2;
+	eps_heater_interval = 2;
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -168,11 +183,11 @@ static void prvEpsTask(void *pvParameters )
 		setxDuty();
 		setyDuty();	
 		
-		if ((CURRENT_MINUTE - last_balance_minute) > EPS_BALANCE_INTERVAL)
+		if ((abs(CURRENT_MINUTE) - last_balance_minute) > eps_balance_interval)
 		{
 			battery_balance();
 		}
-		if ((CURRENT_MINUTE - last_heater_control_minute) > EPS_HEATER_INTERVAL)
+		if ((abs(CURRENT_MINUTE) - last_heater_control_minute) > eps_heater_interval)
 		{
 			battery_heater();
 		}
@@ -181,6 +196,76 @@ static void prvEpsTask(void *pvParameters )
 }
 
 // Static Helper Functions may be defined below.
+
+/************************************************************************/
+/* EPS_MODE																*/
+/*																		*/
+/* @Purpose: This function checks the battery SOC and filters it for	*/
+/*				noise (as the SOC function does not do this by itself).	*/
+/*				It will then update the EPS MODE to one of the 4 power	*/ 
+/*				states: NOMINAL, LOW, PAYLOAD_LOSS, CRITICAL			*/
+/*																		*/
+/************************************************************************/
+static void eps_mode(void){
+	// Declare variables
+	uint32_t current_battery_SOC;
+	
+	current_battery_SOC = battery_SOC();
+	
+	// Implement the filter on battery SOC. The shift right by 4 is a division by 16 to create a low pass filter
+	filtered_battery_SOC = filtered_battery_SOC + ((current_battery_SOC - filtered_battery_SOC) >> 4);
+	
+	switch(active_eps_mode){
+		case NOMINAL :
+			if (filtered_battery_SOC < 60){
+				//Switch to the LOW mode
+				active_eps_mode = LOW_POWER;
+				eps_balance_interval = 5;
+				eps_heater_interval = 2;
+			}
+		break;
+		case LOW_POWER :
+			if (filtered_battery_SOC > 65){
+				//Switch to the NOMINAL mode
+				active_eps_mode = NOMINAL;
+				eps_balance_interval = 2;
+				eps_heater_interval = 2;
+			}
+			if (filtered_battery_SOC < 30){
+				//Switch to the PAYLOAD_LOSS mode
+				active_eps_mode = PAYLOAD_LOSS;
+				eps_balance_interval = 10;
+				eps_heater_interval = 10;
+			}
+		break;
+		case PAYLOAD_LOSS :
+			if (filtered_battery_SOC > 35){
+				//Switch to the LOW mode
+				active_eps_mode = LOW_POWER;
+				eps_balance_interval = 5;
+				eps_heater_interval = 2;
+			}
+			if (filtered_battery_SOC < 15){
+				//Switch to the CRITICAL mode
+				active_eps_mode = CRITICAL;
+				eps_balance_interval = 59;
+				eps_heater_interval = 10;
+			}
+		break;
+		case CRITICAL :
+			if (filtered_battery_SOC > 20){
+				//Switch to the PAYLOAD_LOSS mode
+				active_eps_mode = PAYLOAD_LOSS;
+				eps_balance_interval = 10;
+				eps_heater_interval = 10;
+			}
+		break;
+		default :
+		break;
+	}
+	
+	last_mode_second = CURRENT_SECOND;
+}
 
 /************************************************************************/
 /* GET X DIRECTION														*/									
@@ -383,9 +468,6 @@ static void battery_balance(void){
 	//Declare variables
 	uint32_t balance_l, balance_h, top_battery, bottom_battery;		//These are 8 bit values, but they are 32 here b/c that is what the set_sensor_data function returns
 
-	// Timestamp the occurrence of this function
-	last_balance_minute = CURRENT_MINUTE;
-
 	//Update all the values we need to make decisions for battery balancing 
 	balance_h = get_sensor_data(BALANCE_H);
 	balance_l = get_sensor_data(BALANCE_L);
@@ -430,6 +512,8 @@ static void battery_balance(void){
 			set_variable_value(BALANCE_L, 0); // Turn off balancing if the difference in cells is now small
 		}
 	}
+	// Timestamp the occurrence of this function
+	last_balance_minute = CURRENT_MINUTE;
 }
 
 /************************************************************************/
@@ -446,9 +530,6 @@ static void battery_heater(void){
 	//Declare variables
 	uint32_t batt_heater_control;
 	uint32_t* val;
-
-	// Timestamp the occurrence of this function
-	last_heater_control_minute = CURRENT_MINUTE;
 
 	//Update all the values we need to make decisions for battery heater
 	epstemp = get_sensor_data(EPS_TEMP);
@@ -471,6 +552,9 @@ static void battery_heater(void){
 		*val = 1;
 		send_event_report(1, BATTERY_HEATER_STATUS, 1, val);
 	}
+	
+	// Timestamp the occurrence of this function
+	last_heater_control_minute = CURRENT_MINUTE;
 }
 
 /************************************************************************/
@@ -535,7 +619,38 @@ static uint32_t battery_SOC(void){
 	//Calculate the final SOC
 	batt_SOC = ((SOCv_multiplier * voltage_SOC) + (SOCc_multiplier * current_SOC)) / battery_capacity;
 	
+	last_SOC_second = CURRENT_SECOND;
 	return batt_SOC;
+}
+
+/************************************************************************/
+/* UPDATE_BATTERY_CAPACITY												*/
+/*																		*/
+/* @Purpose: This function updates the capacity of the battery based on */
+/*				the total number of cycles the battery has competed.	*/
+/*				sensor noise.											*/
+/*																		*/
+/************************************************************************/
+static void update_battery_capacity(void){
+	
+	battin = get_sensor_data(BATTIN_I);
+	battout = get_sensor_data(BATTOUT_I);
+	
+	// The shift right by 4 is a division by 16 to create a low pass filter 
+	current_in = current_in + ((battin - current_in) >> 4);
+	current_out = current_out + ((battin - current_out) >> 4);
+	
+	if ((previous_current_state == 1) && (current_out >= current_in)){
+		//We were charging the battery and are now discharging it so we need to change the state and decrease the capacity
+		previous_current_state = 0;
+		battery_capacity = battery_capacity - 3000; //battery capacity is in mC and we lose 6C every cycle, or 3C every half cycle
+	}
+	if ((previous_current_state == 0) && (current_in > current_out)){
+		//We were discharging the battery and are now charging it so we need to change the state and decrease the capacity
+		previous_current_state = 1;
+		battery_capacity = battery_capacity - 3000; //battery capacity is in mC and we lose 6C every cycle, or 3C every half cycle
+	}
+
 }
 
 /************************************************************************/

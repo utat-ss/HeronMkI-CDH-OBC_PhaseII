@@ -82,7 +82,7 @@
 /* Diagnostics							*/
 #define NEW_DIAG_DEFINITION				2
 #define CLEAR_DIAG_DEFINITION			4
-#define ENABLE_D_PARAM_REPORT			6
+#define ENABLE_D_PARAM_REPORT			7
 #define DISABLE_D_PARAM_REPORT			8
 #define REPORT_DIAG_DEFINITIONS			11
 #define DIAG_DEFINITION_REPORT			12
@@ -104,6 +104,8 @@
 #define PAUSE_SCHEDULE					5
 #define RESUME_SCHEDULE					6
 #define COMPLETED_SCHED_COM_REPORT		7
+#define START_EXPERIMENT_ARM			8
+#define START_EXPERIMENT_FIRE			9
 /* FDIR Service							*/
 #define ENTER_LOW_POWER_MODE			1
 #define EXIT_LOW_POWER_MODE				2
@@ -158,6 +160,16 @@
 #define CAN_ERROR_WITHIN_FDIR			0x21
 #define ERROR_IN_DELETE_TASK			0x22
 #define INTERNAL_MEMORY_FALLBACK_EXITED 0x23
+#define DIAG_ERROR_IN_FDIR				0x24
+#define DIAG_SPIMEM_ERROR_IN_FDIR		0x25
+#define DIAG_SENSOR_ERROR_IN_FDIR		0x26
+#define TC_BUFFER_FULL					0x27
+#define TM_BUFFER_FULL					0x28
+#define EPS_SENSOR_VALUE_OUT_OF_RANGE	0X29
+#define BATTERY_HEATER_STATUS			0x2A
+#define COMMAND_NOT_SCHEDULABLE			0x2B
+#define TM_BUFFER_HALF_FULL				0x2C
+#define TC_BUFFER_HALF_FULL				0x2D
 
 /*  CAN GLOBAL FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -176,6 +188,7 @@ QueueHandle_t time_to_obc_fifo;			// time_manage	-->		obc_packet_router
 QueueHandle_t mem_to_obc_fifo;			// memory		-->		obc_packet_router
 QueueHandle_t sched_to_obc_fifo;		// scheduling	-->		obc_packet_router
 QueueHandle_t fdir_to_obc_fifo;			// fdir			-->		obc_packet_router
+QueueHandle_t eps_to_obc_fifo;			// eps			-->		obc_packet_router
 
 /* GLOBAL COMMAND FIFOS				*/
 /* Initialized in prvInitializeFifos() in main.c	*/
@@ -184,6 +197,9 @@ QueueHandle_t obc_to_time_fifo;			// obc_packet_router	-->		time_manage
 QueueHandle_t obc_to_mem_fifo;			// obc_packet_router	-->		memory
 QueueHandle_t obc_to_sched_fifo;		// obc_packet_router	-->		scheduling
 QueueHandle_t obc_to_fdir_fifo;			// ob_packet_router		-->		fdir
+QueueHandle_t sched_to_hk_fifo;			// scheduling			-->		housekeep
+QueueHandle_t sched_to_time_fifo;		// scheduling			-->		time_manage
+QueueHandle_t sched_to_memory_fifo;		// scheduling			-->		housekeep
 
 /* ERROR HANDLING FIFOs				*/
 QueueHandle_t high_sev_to_fdir_fifo;	// Any task				-->		fdir
@@ -234,7 +250,7 @@ uint32_t	INTERNAL_MEMORY_FALLBACK_MODE;
 /* TC/TM Packet flags									*/
 uint8_t tm_transfer_completef;
 uint8_t start_tm_transferf;
-uint8_t current_tc_fullf, receiving_tcf;
+uint8_t current_tc_fullf, receiving_tcf, current_tm_fullf, tm_down_fullf;
 
 /* Global variables for time management	*/
 uint8_t ABSOLUTE_DAY;
@@ -276,13 +292,31 @@ uint32_t	PAY_BASE;			// PAY = 16kB: 0x08000 - 0x0BFFF
 uint32_t	HK_BASE;			// HK = 8kB: 0x0C000 - 0x0DFFF
 uint32_t	EVENT_BASE;			// EVENT = 8kB: 0x0E000 - 0x0FFFF
 uint32_t	SCHEDULE_BASE;		// SCHEDULE = 8kB: 0x10000 - 0x11FFF
-uint32_t	SCIENCE_BASE;		// SCIENCE = 8kB: 0x12000 - 0x13FFF
+uint32_t	CAMERA_BASE;		// CAMERA = 64kB: 0x14000 - 0x23FFF
+uint32_t	SCIENCE_BASE;		// SCIENCE = 256kB: 0x24000 - 0x63FFF
+uint32_t	TM_BASE;			// TM = 128kB: 0x64000 - 0x83FFF
+uint32_t	TC_BASE;			// TC = 128kB: 0x84000 - 0xA3FFF
+uint32_t	DIAG_BASE;			// DIAGNOSTICS = 8kB: 0xA4000 - 0xA5FFF
 uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
 
 /* Limits for task operations */
 uint32_t	MAX_SCHED_COMMANDS;
 uint32_t	LENGTH_OF_HK;
 
+/* Payload Global Variables */
 uint8_t		pd_collectedf;
+
+/* Global variables for experiment commencement */
+uint8_t		experiment_armed;
+uint8_t		experiment_started;
+
+/* Variables for keeping track of the PUS Packet Buffer */
+uint32_t		NEXT_TM_PACKET;
+uint32_t		CURRENT_TM_PACKET;
+uint32_t		MAX_TM_PACKETS;
+uint32_t		TM_PACKET_COUNT;
+uint32_t		TC_PACKET_COUNT;
+uint32_t		CURRENT_TC_PACKET;
+uint32_t		NEXT_TC_PACKET;
 
 #endif

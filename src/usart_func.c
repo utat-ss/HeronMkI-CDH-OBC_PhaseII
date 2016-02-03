@@ -432,40 +432,7 @@ uint8_t convert_to_bcd(uint8_t temp)
 }
 
 
-/**
- * \brief Configure USART in normal (serial rs232) mode, asynchronous,
- * 8 bits, 1 stop bit, no parity, 115200 bauds and enable its transmitter
- * and receiver.
- */
-void configure_usart(void)
-{
-	const sam_usart_opt_t usart_console_settings = {
-		BOARD_USART_BAUDRATE,
-		US_MR_CHRL_8_BIT,
-		US_MR_PAR_NO,
-		US_MR_NBSTOP_1_BIT,
-		US_MR_CHMODE_NORMAL,
-		/* This field is only used in IrDA mode. */
-		0
-	};
 
-	/* Enable the peripheral clock in the PMC. */
-	sysclk_enable_peripheral_clock(BOARD_ID_USART);
-
-	/* Configure USART in serial mode. */
-	usart_init_rs232(BOARD_USART, &usart_console_settings,
-			sysclk_get_cpu_hz());
-
-	/* Disable all the interrupts. */
-	usart_disable_interrupt(BOARD_USART, ALL_INTERRUPT_MASK);
-
-	/* Enable the receiver and transmitter. */
-	usart_enable_tx(BOARD_USART);
-	usart_enable_rx(BOARD_USART);
-
-	/* Configure and enable interrupt of USART. */
-	NVIC_EnableIRQ(USART_IRQn);
-}
 
 /**
  * \brief Reset the TX & RX, and clear the PDC counter.
@@ -486,37 +453,41 @@ void usart_clear(void)
  *
  * \return Unused (ANSI-C compatibility).
  */
+
+/**
+ * \brief Configure USART in normal (serial rs232) mode, asynchronous,
+ * 8 bits, 1 stop bit, no parity, 115200 bauds and enable its transmitter
+ * and receiver.
+ */
 void usart_initialize(void)
 {
-	uint8_t uc_char;
-	uint8_t uc_flag;
-	uint8_t i = 0;
-	char* message_array;
-	uint32_t character = 0;
+	const sam_usart_opt_t usart_console_settings = {
+		// check data sheet for relevant values
+		BOARD_USART_BAUDRATE,
+		US_MR_CHRL_8_BIT,
+		US_MR_PAR_NO,
+		US_MR_NBSTOP_1_BIT,
+		US_MR_CHMODE_NORMAL,
+		/* This field is only used in IrDA mode. */
+		0
+	};
 
-	/* Configure USART. */
-	configure_usart();
+	/* Enable the peripheral clock in the PMC. */
+	sysclk_enable_peripheral_clock(BOARD_ID_USART);
 
-	gs_uc_trans_mode = BYTE_TRANSFER;
-	
-	for (i = 0; i < 10; i++)
-	{
-		command_array[i] = 0;
-	}
+	/* Configure USART in serial mode. */
+	usart_init_rs232(BOARD_USART, &usart_console_settings,
+	sysclk_get_cpu_hz());
 
-	usart_enable_interrupt(BOARD_USART, US_IDR_RXRDY);
-	usart_disable_interrupt(BOARD_USART, US_IER_RXBUFF);
+	/* Disable all the interrupts. */
+	usart_disable_interrupt(BOARD_USART, ALL_INTERRUPT_MASK);
+
+	/* Enable the receiver and transmitter. */
+	usart_enable_tx(BOARD_USART);
+	usart_enable_rx(BOARD_USART);
+
+	/* Configure and enable interrupt of USART. */
+	// NVIC_EnableIRQ(USART_IRQn);
 	
-	message_array = "WHAT CAN I DO FOR YOU, SIR?\n\r";
-		
-	while(*message_array)
-	{
-		character = *message_array;
-		while(usart_write(BOARD_USART, character));	// Send the character.
-			
-		message_array++;
-	}
-	
-	return;
 }
 

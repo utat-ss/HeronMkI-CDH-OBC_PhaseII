@@ -57,7 +57,6 @@
  */
 void USART_Handler(void);
 void TC0_Handler(void);
-void configure_usart(void);
 void configure_tc(void);
 void usart_clear(void);
 void usart_initialize(void);

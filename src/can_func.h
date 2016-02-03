@@ -196,6 +196,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define GROUND_PACKET_ROUTER_ID 0x13
 #define FDIR_GROUND_ID			0x14
 #define SCHED_GROUND_ID			0x15
+#define SPIMEM_SENDER_ID		0x16 //Added 01/16/16 for errorREPORT()
+
 
 /* COMMAND SMALL-TYPE: */
 #define REQ_RESPONSE			0x01
@@ -272,7 +274,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define PAY_I					0x0E
 #define OBC_V					0x0F
 #define OBC_I					0x10
-#define BATT_I					0x11
+#define SHUNT_DPOT				0x11
 #define COMS_TEMP				0x12
 #define OBC_TEMP				0x13
 #define PAY_TEMP0				0x14
@@ -358,8 +360,8 @@ SemaphoreHandle_t	Can0_Mutex;
 
 
 /* VARIABLE NAMES		*/
-#define MPPTA					0xFF
-#define MPPTB					0xFE
+#define MPPTX					0xFF
+#define MPPTY					0xFE
 #define COMS_MODE				0xFD
 #define EPS_MODE				0xFC
 #define PAY_MODE				0xFB
@@ -381,6 +383,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define COMS_FDIR_SIGNAL		0xEB
 #define EPS_FDIR_SIGNAL			0xEA
 #define PAY_FDIR_SIGNAL			0xE9
+#define BATT_HEAT				0xE8
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

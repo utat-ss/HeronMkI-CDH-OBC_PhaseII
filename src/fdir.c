@@ -1,5 +1,5 @@
 /*
-Author: Keenan Burnett
+Author: Keenan Burnett, Bill Bateman
 ***********************************************************************
 * FILE NAME: fdir.c
 *
@@ -54,7 +54,13 @@ Author: Keenan Burnett
 *					of FDIR commands to SSMs on the SSM side of things. I also need a confirmation for entering low power mode or
 *					coms takeover mode.
 *
-* 01/05/2016		I am adding in some code for the INTERNAL_MEMORY_FALLBACK mode which is used when all 3 SPI memory chips appear to be dead.			
+* 01/05/2016		I am adding in some code for the INTERNAL_MEMORY_FALLBACK mode which is used when all 3 SPI memory chips appear to be dead.		
+*	
+* 1/15/2016			Bill: Added in diagnostics functions and variables (similar to housekeeping). Put diagnostics code in
+*					exec_commands() and enter_SAFE_MODE(). I tried to label all places an error could occur with FAILURE_RECOVERY.
+*
+* 1/20/2016			Bill: When errors occur in diagnostics, now calls send_event_report(). Defined some errors in global_var.h.
+					Also fixed some wrong variables (still had hk names). 
 *
 * DESCRIPTION:
 *
@@ -97,6 +103,10 @@ Author: Keenan Burnett
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
 #define FDIR_PARAMETER			( 0xABCD )
+
+/* DIAGNOSTICS DEFINITION DEFINES */
+#define DEFAULT				0
+#define ALTERNATE			1
 
 /* Functions Prototypes. */
 static void prvFDIRTask( void *pvParameters );
@@ -145,6 +155,18 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter);
 static void resolution_sequence29(uint8_t ssmID);
 static void resolution_sequence31(void);
 
+/* Prototypes for diagnostics functions */
+static void clear_current_diag(void);
+static int request_diagnostics_all(void);
+static int store_diagnostics(void);
+static void setup_default_definition(void);
+static void set_definition(uint8_t sID);
+static void clear_alternate_diag_definition(void);
+static void send_diag_as_tm(void);
+static void send_diag_param_report(void);
+static int store_diag_in_spimem(void);
+static void set_diag_mem_offset(void);
+
 /* External functions used to create and encapsulate different tasks*/
 extern TaskHandle_t housekeep(void);
 extern TaskHandle_t time_manage(void);
@@ -170,6 +192,7 @@ extern void opr_kill(uint8_t killer);
 /* External functions used for time management	*/
 extern void broadcast_minute(void);
 extern void update_absolute_time(void);
+extern void report_time(void);
 
 /* External functions used for diagnostics */
 extern uint8_t get_ssm_id(uint8_t sensor_name);
@@ -178,6 +201,25 @@ extern uint8_t get_ssm_id(uint8_t sensor_name);
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
 static uint8_t test_array1[256], test_array2[256];
 static uint32_t minute_count;
+
+
+/* Local Variables for Diagnostics */
+static uint8_t current_diag[DATA_LENGTH];			 //stores the next diagnostics packet to downlink
+static uint8_t diag_definition0[DATA_LENGTH];		 //stores default diagnostic definition
+static uint8_t diag_definition1[DATA_LENGTH];		 //stores alternate diagnostic definition
+static uint8_t diag_updated[DATA_LENGTH];
+static uint8_t current_diag_definition[DATA_LENGTH]; //stores current diagnostic definition
+static uint8_t current_diag_definitionf;
+static uint8_t current_eps_diag[DATA_LENGTH / 4], current_coms_diag[DATA_LENGTH / 4], current_pay_diag[DATA_LENGTH / 4];
+static uint32_t new_diag_msg_high, new_diag_msg_low;
+static uint8_t current_diag_fullf, diag_param_report_requiredf;
+static uint8_t collection_interval0, collection_interval1;
+static uint8_t current_diag_mem_offset[4];
+
+static uint32_t diag_time_to_wait;
+static uint32_t diag_last_report_minutes;
+static uint32_t diag_num_hours;
+static uint32_t diag_old_minute;
 
 /* Fumble Counts */
 static uint8_t housekeep_fumble_count;
@@ -246,9 +288,6 @@ TaskHandle_t fdir( void )
 static void prvFDIRTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == FDIR_PARAMETER );
-	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
-
 	// Initialize all variables which are local to FDIR
 	init_vars();
 
@@ -300,15 +339,13 @@ static void check_error(void)
 	return;
 }
 
+// Both high and low severity errors can be sent to decode_error().
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code)
 {
 	// This is where the resolution sequences are going to go.
-	TaskHandle_t temp_task = 0;
-	eTaskState task_state = 0;
-	uint8_t i, chip, status, ssmID;
-	int x;
+	uint8_t chip, ssmID;
 	uint32_t sect_num = 0xFFFFFFFF;
-	if(severity == 1)
+	if(severity)
 	{
 		switch(error)
 		{
@@ -415,6 +452,14 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				if(task != OBC_PACKET_ROUTER_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence31();
+			case 32:
+				if(task != PAY_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence1(code, task);
+			case 33:
+				if(task != EPS_TASK_ID)
+					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
+				resolution_sequence5(task, code);
 			default:
 				enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);			
 		}
@@ -495,8 +540,7 @@ static void resolution_sequence1_3(uint8_t task)
 
 static void resolution_sequence1_4(uint8_t task)
 {					
-	uint8_t i;
-	int x;
+	uint16_t i;
 	if(SPI_HEALTH1)
 	{
 		SPI_CHIP_1_fumble_count++;
@@ -522,7 +566,7 @@ static void resolution_sequence1_4(uint8_t task)
 	clear_test_arrays();
 	for(i = 0; i < 256; i++)
 	{
-		test_array1[i] = i;
+		test_array1[(uint8_t)i] = (uint8_t)i;
 	}
 	
 	// Check to see if reading/writing is possible from the chip which malfunctioned.
@@ -533,14 +577,14 @@ static void resolution_sequence1_4(uint8_t task)
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
-		x = spimem_read(0x00, test_array2, 256);
+		if( spimem_read(0x00, test_array2, 256) < 0)
 		{
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
 		{
-			if(test_array2[i] != test_array1[i])
+			if(test_array2[(uint8_t)i] != test_array1[(uint8_t)i])
 			SPI_HEALTH1 = 0;
 		}
 		if(SPI_HEALTH1)
@@ -556,14 +600,14 @@ static void resolution_sequence1_4(uint8_t task)
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
-		x = spimem_read(0x00, test_array2, 256);
+		spimem_read(0x00, test_array2, 256);
 		{
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
 		{
-			if(test_array2[i] != test_array1[i])
+			if(test_array2[(uint8_t)i] != test_array1[(uint8_t)i])
 			SPI_HEALTH2 = 0;	// Try with a different chip.
 		}
 		if(SPI_HEALTH2)
@@ -579,14 +623,14 @@ static void resolution_sequence1_4(uint8_t task)
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
-		x = spimem_read(0x00, test_array2, 256);
+		spimem_read(0x00, test_array2, 256);
 		{
 			enter_INTERNAL_MEMORY_FALLBACK();
 			enter_SAFE_MODE(SPI_FAILED_IN_FDIR);
 		}
 		for(i = 0; i < 256; i++)
 		{
-			if(test_array2[i] != test_array1[i])
+			if(test_array2[(uint8_t)i] != test_array1[(uint8_t)i])
 			SPI_HEALTH3 = 0;	// Try with a different chip.
 		}
 		if(SPI_HEALTH3)
@@ -796,9 +840,7 @@ static void resolution_sequence5(uint8_t task, uint8_t code)
 static void resolution_sequence7(uint8_t task, uint8_t parameter)
 {
 	uint8_t ssmID = 0xFF;
-	uint32_t data = 0;
-	int *status;
-	*status = 0;
+	int *status = 0;
 	ssmID = get_ssm_id(parameter);
 	// If the parameter is internal to the OBC, enter SAFE_MODE.
 	if(ssmID == OBC_ID)
@@ -810,7 +852,7 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
 	if(req_data_timeout > 10000000)
 		enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -818,7 +860,7 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 	}
 	// Try resetting the SSM which has the malfunctioning variable and attempt to acquire the parameter again.
 	reset_SSM(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -826,7 +868,7 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 	}
 	// Try reprogramming the SSM and attempt to acquire the parameter again.
 	reprogram_ssm(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -903,15 +945,15 @@ static void resolution_sequence20(uint8_t task)
 
 static void resolution_sequence25(uint8_t task, uint8_t parameter)
 {
-	uint8_t ssmID = 0xFF;
-	uint32_t data = 0;
+	uint8_t ssmID = COMS_ID;
 	int* status = 0;
 	
+	//ssmID = get_ssm_id(parameter);
 	// Otherwise, increase the timeout and try again.
 	req_data_timeout += 2000000;		// Add 25 ms to the REQ_DATA timeout. (See can_func.c >> request_sensor_data_h() )
 	if(req_data_timeout > 10000000)
 		enter_SAFE_MODE(REQ_DATA_TIMEOUT_TOO_LONG);		// If the timeout gets too long, we enter into SAFE_MODE.
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -919,7 +961,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 	}
 	// Try resetting the SSM which has the malfunctioning variable and attempt to acquire the parameter again.
 	reset_SSM(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -927,7 +969,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 	}
 	// Try reprogramming the SSM and attempt to acquire the parameter again.
 	reprogram_ssm(ssmID);
-	data = request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
+	request_sensor_data(FDIR_TASK_ID, ssmID, parameter, status);
 	if(*status > 0)
 	{
 		clear_fdir_signal(task);	// The issue was resolved.
@@ -941,25 +983,26 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 static void resolution_sequence29(uint8_t ssmID)
 {
 	uint8_t ssm_consec_trans_timeout = 0;
-	ssm_consec_trans_timeout = get_sensor_data(SSM_CTT);
+	int status = 0;
+	ssm_consec_trans_timeout = request_sensor_data(FDIR_TASK_ID, COMS_ID, SSM_CTT, &status);
 	ssm_consec_trans_timeout += 10;		// Increase the timeout by 1ms.
 
 	if(ssm_consec_trans_timeout < 250)
-		set_variable_value(SSM_CTT, ssm_consec_trans_timeout);
+		set_variable(FDIR_TASK_ID, COMS_ID, SSM_CTT, ssm_consec_trans_timeout);
 	
 	if(ssm_consec_trans_timeout == 230)			// Try resetting the SSM and hope that this resolves the issue.
 		reset_SSM(ssmID);
 	if(ssm_consec_trans_timeout == 240)			// Try reprogramming the SSm and hope that this resolves the issue.
-		reprogram_SSM(ssmID);
+		reprogram_ssm(ssmID);
 	if (ssm_consec_trans_timeout > 240)			// If the timeout gets too long, we enter into SAFE_MODE.
 		enter_SAFE_MODE(SSM_CTT_TOO_LONG);
 
 	if(!ssmID)
-		set_variable_value(COMS_FDIR_SIGNAL, 0);
+		set_variable(FDIR_TASK_ID, COMS_ID, COMS_FDIR_SIGNAL, 0);
 	if(ssmID == 1)
-		set_variable_value(EPS_FDIR_SIGNAL, 0);
+		set_variable(FDIR_TASK_ID, EPS_ID, EPS_FDIR_SIGNAL, 0);
 	if(ssmID == 2)
-		set_variable_value(PAY_FDIR_SIGNAL, 0);
+		set_variable(FDIR_TASK_ID, PAY_ID, PAY_FDIR_SIGNAL, 0);
 	return;
 }
 
@@ -1033,8 +1076,10 @@ static uint8_t get_fdir_signal(uint8_t task)
 // exec_commands for FDIR is special in that commands are coming from two different service types (Housekeeping and FDIR).
 static void exec_commands(void)
 {
-	uint8_t i, command, service_type;
+	uint8_t i, command, service_type, memid, status, j;
 	uint16_t packet_id, psc;
+	uint32_t address, length, num_transfers = 0;
+	uint8_t* mem_ptr = 0;
 	clear_current_command();
 	if( xQueueReceive(obc_to_fdir_fifo, current_command, (TickType_t)100) == pdTRUE)
 	{
@@ -1044,19 +1089,58 @@ static void exec_commands(void)
 		psc += (uint16_t)current_command[137];
 		service_type = current_command[146];
 		command = current_command[145];
+		memid = current_command[136];
+		uint32_t temp_address;
+		int check = 0; int attempts = 0;
+		address =  ((uint32_t)current_command[135]) << 24;
+		address += ((uint32_t)current_command[134]) << 16;
+		address += ((uint32_t)current_command[133]) << 8;
+		address += (uint32_t)current_command[132];
+		length =  ((uint32_t)current_command[131]) << 24;
+		length += ((uint32_t)current_command[130]) << 16;
+		length += ((uint32_t)current_command[129]) << 8;
+		length += (uint32_t)current_command[128];
 		if(service_type == HK_SERVICE)
-		{
+		{ // Diagnostics commands
 			switch(command)
 			{
 				case	NEW_DIAG_DEFINITION:
-					break;	// Fill in the blanks.
+					//create a new diagnostics definition and switch to the new definition
+					collection_interval1 = current_command[145];
+					for(i = 0; i < DATA_LENGTH; i++)
+					{
+						diag_definition1[i] = current_command[i];
+					}
+					diag_definition1[136] = 1;		//sID = 1
+					diag_definition1[135] = collection_interval1;
+					diag_definition1[134] = current_command[146];
+					set_definition(ALTERNATE);
+					send_tc_execution_verify(1, packet_id, psc);		// Send TC Execution Verification (Success)
+					break;
 				case	CLEAR_DIAG_DEFINITION:
+					//clear the alternate definition and return to using the default definition
+					collection_interval1 = 30; //default interval
+					for(i = 0; i < DATA_LENGTH; i++)
+					{
+						diag_definition1[i] = 0;
+					}
+					set_definition(DEFAULT);
+					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	ENABLE_D_PARAM_REPORT:
+					//when reporting diagnostics data, also report the current definition
+					diag_param_report_requiredf = 1;
+					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	DISABLE_D_PARAM_REPORT:
+					//stop reporting the current definition
+					diag_param_report_requiredf = 0;
+					send_tc_execution_verify(1, packet_id, psc);
 					break;
 				case	REPORT_DIAG_DEFINITIONS:
+					//same as enabled param report
+					diag_param_report_requiredf = 1;
+					send_tc_execution_verify(1, packet_id, psc);				
 					break;
 				default:
 					break;
@@ -1115,9 +1199,94 @@ static void exec_commands(void)
 					break;
 			}
 		}
+		if(service_type == MEMORY_SERVICE)
+		{
+			switch(command)
+			{
+				case	MEMORY_LOAD_ABS:
+					if(!memid)
+					{
+						mem_ptr = address;
+						for(i = 0; i < length; i++)
+						{
+							*(mem_ptr + i) = current_command[i];
+						}
+					}
+					else
+					{
+						check = spimem_write(address, current_command, length);
+						if (check <0)
+						{
+							send_tc_execution_verify(0xFF, packet_id, psc);
+							return;
+						}
+					}
+					send_tc_execution_verify(1, packet_id, psc);
+				case	DUMP_REQUEST_ABS:
+					clear_current_command();		// Only clears lower data section.
+					if(length > 128)
+					{
+						num_transfers = length / 128;
+					}
+					for (j = 0; j < num_transfers; j++)
+					{
+						if(!memid)
+						{
+							mem_ptr = address;
+							for (i = 0; i < length; i++)
+							{
+								current_command[i] = *(mem_ptr + i);
+							}
+						}
+						else
+						{
+							check = spimem_read(address, current_command, length);
+							if (check<0)
+							{
+								send_tc_execution_verify(0xFF, packet_id, psc);
+								return;
+							}
+						}
+						current_command[146] = MEMORY_DUMP_ABS;
+						current_command[145] = num_transfers - j;
+						xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
+						taskYIELD();	// Give the packet router a chance to downlink the dump packet.
+					}
+					send_tc_execution_verify(1, packet_id, psc);
+				case	CHECK_MEM_REQUEST:
+					if(!memid)
+					{
+						temp_address = address;
+						check = fletcher64(temp_address, length);
+						send_tc_execution_verify(1, packet_id, psc);
+					}
+					else
+					{
+						check = fletcher64_on_spimem(address, length, &status);
+						if(status > 1)
+						{
+							send_tc_execution_verify(0xFF, packet_id, psc);
+							return;
+						}
+						send_tc_execution_verify(1, packet_id, psc);
+					}
+					current_command[146] = MEMORY_CHECK_ABS;
+					current_command[7] = (uint8_t)((check & 0xFF00000000000000) >> 56);
+					current_command[6] = (uint8_t)((check & 0x00FF000000000000) >> 48);
+					current_command[5] = (uint8_t)((check & 0x0000FF0000000000) >> 40);
+					current_command[4] = (uint8_t)((check & 0xFF0000FF00000000) >> 32);
+					current_command[3] = (uint8_t)((check & 0xFF000000FF000000) >> 24);
+					current_command[2] = (uint8_t)((check & 0xFF00000000FF0000) >> 26);
+					current_command[1] = (uint8_t)((check & 0xFF0000000000FF00) >> 8);
+					current_command[0] = (uint8_t)(check & 0x00000000000000FF);
+					xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);
+				default:
+					return;
+			}
+		}
 		return;
 	}
-	else										//Failure Recovery
+	else										//FAILURE_RECOVERY
 		return;
 }
 
@@ -1464,10 +1633,17 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 {
 	clear_current_command();
 	current_command[146] = TASK_TO_OPR_EVENT;
-	current_command[3] = severity;
-	current_command[2] = report_id;
-	current_command[1] = param1;
-	current_command[0] = param0;
+	current_command[145] = severity;
+	current_command[136] = report_id;
+	current_command[135] = 2;
+	current_command[134] = 0x00;
+	current_command[133] = 0x00;
+	current_command[132] = 0x00;
+	current_command[131] = param0;
+	current_command[130] = 0x00;
+	current_command[129] = 0x00;
+	current_command[128] = 0x00;
+	current_command[127] = param1;
 	xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }
@@ -1475,6 +1651,9 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 static void enter_SAFE_MODE(uint8_t reason)
 {
 	minute_count = 0;
+	diag_last_report_minutes = CURRENT_MINUTE; //will send the first diagnostics report in (collectioninterval) minutes
+	diag_old_minute = CURRENT_MINUTE;
+	diag_num_hours = 0;
 	SAFE_MODE = 1;
 	SMERROR = reason;
 	// Let the ground the error that occurred, and that we're entering into SAFE_MODE.
@@ -1499,7 +1678,34 @@ static void enter_SAFE_MODE(uint8_t reason)
 	{
 		// Reset the watchdog timer.
 		wdt_restart(WDT);
-		// Collect diagnostics (William: request_diagnostics(), store_diagnostics() can go here)
+		
+		if ((CURRENT_MINUTE + 60*diag_num_hours) - diag_last_report_minutes > diag_time_to_wait) { // Collect diagnostics (William: request_diagnostics(), store_diagnostics() can go here)
+			//report diagnostics every (collectioninterval) mins
+			
+			int x;
+			x = request_diagnostics_all();	 /* gets data from subsystems	       */
+			if (x < 0)
+				send_event_report(3, DIAG_ERROR_IN_FDIR, 0, 0); //log an error
+			
+			x = store_diagnostics();		 /*	-stores in SPI memory		       */
+			if (x < 0)
+				send_event_report(2, DIAG_ERROR_IN_FDIR, 0, current_diag_fullf); //log an error
+			
+			send_diag_as_tm();				 /*  -sends data as telemetry	       */
+			if(diag_param_report_requiredf)
+				send_diag_param_report();	 /* sends parameter report if required */
+				
+				
+			//update the time of last diagnostics report
+			diag_last_report_minutes = CURRENT_MINUTE;
+			diag_num_hours = 0;
+		}
+		else if (diag_old_minute > CURRENT_MINUTE) {
+			//count how many hours have gone by (i.e. when CURRENT_MINUTE goes from 59 to 0)
+			diag_num_hours++;
+		}
+		diag_old_minute = CURRENT_MINUTE;
+		
 		
 		// Update the absolute time on the satellite
 		time_update();
@@ -1540,11 +1746,11 @@ static void time_update(void)
 
 static void clear_test_arrays(void)
 {
-	uint8_t i;
+	uint16_t i;
 	for (i = 0; i < 256; i++)
 	{
-		test_array1[i] = 0;
-		test_array2[i] = 0;
+		test_array1[(uint8_t)i] = 0;
+		test_array2[(uint8_t)i] = 0;
 	}
 	return;
 }
@@ -1555,9 +1761,11 @@ void enter_INTERNAL_MEMORY_FALLBACK(void)
 	HK_BASE			=	0x0000;		// HK = 512B: 0x0000 - 0x01FF
 	EVENT_BASE		=	0x0200;		// EVENT = 512B: 0x0200 - 0x03FF
 	SCHEDULE_BASE	=	0x0400;		// SCHEDULE = 1kB: 0x0400 - 0x07FF
-	SCIENCE_BASE	=	0x0800;		// SCIENCE = 2kB: 0x0800 - 0x0FFB
-	TIME_BASE		=	0x0FFC;		// TIME = 4B: 0x0FFC - 0x0FFF
-	MAX_SCHED_COMMANDS = 31;
+	TM_BASE			=	0x0800;		// TM BUFFER = 1kB: 0x0800 - 0x0BFF
+	TC_BASE			=	0x0C00;		// TC BUFFER = 1kB: 
+	SCIENCE_BASE	=	0x1000;		// SCIENCE = 4kB: 0x1000 - 0x1FFB
+	TIME_BASE		=	0x0FFC;		// TIME = 4B: 0x1FFC - 0x1FFF
+	MAX_SCHED_COMMANDS = 63;
 	LENGTH_OF_HK	= 512;
 	send_event_report(2, INTERNAL_MEMORY_FALLBACK, 0, 0);
 	return;
@@ -1613,6 +1821,24 @@ static void init_vars(void)
 	pay_fifo_from_OPR_fumble_count = 0;
 	SMERROR = 0;
 	clear_test_arrays();
+	
+	// initialize diagnostics variables
+	new_diag_msg_low = 0;
+	new_diag_msg_high = 0;
+	current_diag_fullf = 0;
+	current_diag_definitionf = 0; //start with default definition
+	diag_param_report_requiredf = 0;
+	collection_interval0 = 30;
+	collection_interval1 = 30;
+	
+	//clear diagnostics values and set up the default definition
+	clear_current_diag();
+	clear_current_command();
+	setup_default_definition();
+	set_definition(DEFAULT);
+	clear_alternate_diag_definition();
+	set_diag_mem_offset();
+	
 	return;
 }
 
@@ -1639,3 +1865,371 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	return;
 }
 
+
+
+/* --- Diagnostics functions --- */
+
+/************************************************************************/
+/* CLEAR_CURRENT_DIAG													*/
+/* @Purpose: clears the arrays current_diag[] and diag_updated[]		*/
+/* @Note: Modified version of clear_current_hk() from housekeep.c		*/
+/************************************************************************/
+static void clear_current_diag(void)
+{
+	uint8_t i;
+	for (i=0; i < DATA_LENGTH; i++)
+	{
+		current_diag[i] = 0;
+		diag_updated[i] = 0;
+	}
+	return;
+}
+
+/************************************************************************/
+/* CLEAR_ALTERNATE_HK_DEFINITION										*/
+/* @Purpose: clears the array current_hk_definition						*/
+/* @Note: Modified from housekeep.c										*/
+/************************************************************************/
+static void clear_alternate_diag_definition(void)
+{
+	uint8_t i;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		diag_definition1[i] = 0;
+	}
+	return;
+}
+
+/************************************************************************/
+/* REQUEST_DIAGNOSTICS_ALL												*/
+/* @Purpose: requests data from the subsystems							*/
+/* @Note: Straight copied from housekeep.c								*/
+/************************************************************************/
+static int request_diagnostics_all(void)
+{
+	if(request_housekeeping(EPS_ID) > 1)	// Request housekeeping from COMS.
+		return -1;
+	if(request_housekeeping(COMS_ID) > 1)	// Request housekeeping from EPS.
+		return -1;
+	if(request_housekeeping(PAY_ID) > 1)	// Request housekeeping from PAY.
+		return -1;
+	
+	// Give the SSMs >100ms to transmit their housekeeping
+	delay_ms(100);
+	return 1;
+}
+
+/************************************************************************/
+/* STORE_DIAGNOSTICS													*/
+/* @Purpose: verifies diagnostics, then calls store_diag_in_spimem()	*/
+/* @Note: Copied and edited from housekeep.c							*/
+/************************************************************************/
+static int store_diagnostics(void)
+{
+	uint8_t num_parameters = current_diag_definition[134];
+	int x = -1;
+	uint8_t parameter_name = 0;
+	uint8_t i;
+	int attempts = 1;
+	int* status = 0; // this might be wrong
+	int req_data_result = 0;
+	
+	if (current_diag_fullf)
+	{
+		return -1;
+	}
+	clear_current_diag();
+	
+	while(read_can_hk(&new_diag_msg_high, &new_diag_msg_low, 1234) == 1)
+	{
+		parameter_name = (new_diag_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for diagnostics (either sensor or variable).
+		
+		for(i = 0; i < num_parameters; i+=2)
+		{
+			if (current_diag_definition[i] == parameter_name)
+			{
+				current_diag[i] = (uint8_t)(new_diag_msg_low & 0x000000FF);
+				current_diag[i] = (uint8_t)((new_diag_msg_low & 0x0000FF00) >> 8);
+				
+				diag_updated[i] = 1;
+				diag_updated[i + 1] = 1;
+			}
+		}
+		delay_ms(1); // Allows for more messages to come in. 
+	} 
+	
+	for(i = 0; i < num_parameters; i+=2)
+	{
+		if(!diag_updated[i])
+		{//failed updates are requested 3 times. If they fail, error is reported
+			req_data_result = request_sensor_data(FDIR_TASK_ID,get_ssm_id(current_diag_definition[i]),current_diag_definition[i],status);
+			while (attempts < 3 && req_data_result == -1){
+				attempts++;
+				req_data_result = request_sensor_data(FDIR_TASK_ID,get_ssm_id(current_diag_definition[i]),current_diag_definition[i],status);
+			}
+			
+			if (req_data_result == -1){
+				//log malfunctioning sensor
+				send_event_report(2, DIAG_SENSOR_ERROR_IN_FDIR, get_ssm_id(current_diag_definition[i]), current_diag_definition[i]); //put ssm id and sensor id as data in log
+			}
+			else {
+				current_diag[i] = (uint8_t)(req_data_result & 0x000000FF);
+				current_diag[i + 1] = (uint8_t)((req_data_result & 0x0000FF00) >> 8);
+				
+				diag_updated[i] = 1;
+				diag_updated[i + 1] = 1;
+			}
+		}
+	}
+	
+	/* actually store in SPI memory */
+	x = store_diag_in_spimem();  // event report if x < 0, current full =0
+	if (x < 0) 
+	{
+		send_event_report(2, DIAG_SPIMEM_ERROR_IN_FDIR, 0, 0);
+		current_diag_fullf = 0;
+	}
+	
+	return 1;
+}
+
+/************************************************************************/
+/* SET_DIAG_MEM_OFFSET													*/
+/* @Purpose: sets the memory offset for diagnostics's					*/
+/*	reading/writing to SPIMEM											*/
+/************************************************************************/
+static void set_diag_mem_offset(void)
+{
+	uint32_t offset;
+	spimem_read(DIAG_BASE, current_diag_mem_offset, 4);	// Get the current diagnostics memory offset.
+	offset = (uint32_t)(current_diag_mem_offset[0] << 24);
+	offset += (uint32_t)(current_diag_mem_offset[1] << 16);
+	offset += (uint32_t)(current_diag_mem_offset[2] << 8);
+	offset += (uint32_t)current_diag_mem_offset[3];
+	
+	if(offset == 0) {
+		current_diag_mem_offset[3] = 4;
+		spimem_write(DIAG_BASE + 3, current_diag_mem_offset + 3, 1);
+	}
+	return;
+}
+
+/************************************************************************/
+/* STORE_DIAG_IN_SPIMEM													*/
+/* @Purpose: stores the diagnostics which was just collected in spimem	*/
+/* along with a timestamp.												*/
+/* @Note: When diag memory fills up, this function simply wraps back	*/
+/* around to the beginning of diagnostics in memory.					*/
+/************************************************************************/
+static int store_diag_in_spimem(void)
+{
+	uint32_t offset;
+	int x;
+	offset = (uint32_t)(current_diag_mem_offset[0] << 24);
+	offset += (uint32_t)(current_diag_mem_offset[1] << 16);
+	offset += (uint32_t)(current_diag_mem_offset[2] << 8);
+	offset += (uint32_t)current_diag_mem_offset[3];
+	current_diag_fullf = 0;
+	
+	x = spimem_write((DIAG_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	if (x < 0) return -1; 
+	
+	x = spimem_write((DIAG_BASE + offset + 4), &current_diag_definitionf, 1);	// Writes the sID to memory.
+	if (x < 0) return -1; 
+	
+	x = spimem_write((DIAG_BASE + offset + 5), current_diag, 128);
+	if (x < 0) return -1; 
+	
+	offset = (offset + 137) % 16384;								// Make sure diagnostics doesn't overflow into the next section (we gave 16kB to diagnostics = 16384 bits)
+	if(offset < 4) offset = 4;
+	
+	current_diag_mem_offset[3] = (uint8_t)offset;
+	current_diag_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
+	current_diag_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
+	current_diag_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
+	x = spimem_write(DIAG_BASE, current_diag_mem_offset, 4);			
+	return x;
+}
+
+/************************************************************************/
+/* SETUP_DEFAULT_DEFINITION												*/
+/* @Purpose: This function will set the values stored in the default	*/
+/* diagnostics definition and will also set it as the current definition*/
+/************************************************************************/
+static void setup_default_definition(void)
+{
+	uint8_t i;
+	
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		diag_definition0[i]=0;
+	}
+	
+	//just copied from housekeep.c
+	//might want to change it later
+	diag_definition0[136] = 0;							// sID = 0
+	diag_definition0[135] = collection_interval0;			// Collection interval = 30 min
+	diag_definition0[134] = 36;							// Number of parameters (2B each)
+	diag_definition0[81] = PANELX_V;
+	diag_definition0[80] = PANELX_V;
+	diag_definition0[79] = PANELX_I;
+	diag_definition0[78] = PANELX_I;
+	diag_definition0[77] = PANELY_V;
+	diag_definition0[76] = PANELY_V;
+	diag_definition0[75] = PANELY_I;
+	diag_definition0[74] = PANELY_I;
+	diag_definition0[73] = BATTM_V;
+	diag_definition0[72] = BATTM_V;
+	diag_definition0[71] = BATT_V;
+	diag_definition0[70] = BATT_V;
+	diag_definition0[69] = BATTIN_I;
+	diag_definition0[68] = BATTIN_I;
+	diag_definition0[67] = BATTOUT_I;
+	diag_definition0[66] = BATTOUT_I;
+	diag_definition0[65] = BATT_TEMP;
+	diag_definition0[64] = BATT_TEMP;	//
+	diag_definition0[63] = EPS_TEMP;
+	diag_definition0[62] = EPS_TEMP;	//
+	diag_definition0[61] = COMS_V;
+	diag_definition0[60] = COMS_V;
+	diag_definition0[59] = COMS_I;
+	diag_definition0[58] = COMS_I;
+	diag_definition0[57] = PAY_V;
+	diag_definition0[56] = PAY_V;
+	diag_definition0[55] = PAY_I;
+	diag_definition0[54] = PAY_I;
+	diag_definition0[53] = OBC_V;
+	diag_definition0[52] = OBC_V;
+	diag_definition0[51] = OBC_I;
+	diag_definition0[50] = OBC_I;
+	diag_definition0[49] = SHUNT_DPOT;
+	diag_definition0[48] = SHUNT_DPOT;
+	diag_definition0[47] = COMS_TEMP;	//
+	diag_definition0[46] = COMS_TEMP;
+	diag_definition0[45] = OBC_TEMP;	//
+	diag_definition0[44] = OBC_TEMP;
+	diag_definition0[43] = PAY_TEMP0;
+	diag_definition0[42] = PAY_TEMP0;
+	diag_definition0[41] = PAY_TEMP1;
+	diag_definition0[40] = PAY_TEMP1;
+	diag_definition0[39] = PAY_TEMP2;
+	diag_definition0[38] = PAY_TEMP2;
+	diag_definition0[37] = PAY_TEMP3;
+	diag_definition0[36] = PAY_TEMP3;
+	diag_definition0[35] = PAY_TEMP4;
+	diag_definition0[34] = PAY_TEMP4;
+	diag_definition0[33] = PAY_HUM;
+	diag_definition0[32] = PAY_HUM;
+	diag_definition0[31] = PAY_PRESS;
+	diag_definition0[30] = PAY_PRESS;
+	diag_definition0[29] = PAY_ACCEL;
+	diag_definition0[28] = PAY_ACCEL;
+	diag_definition0[27] = MPPTX;
+	diag_definition0[26] = MPPTX;
+	diag_definition0[25] = MPPTY;
+	diag_definition0[24] = MPPTY;
+	diag_definition0[23] = COMS_MODE;	//
+	diag_definition0[22] = COMS_MODE;
+	diag_definition0[21] = EPS_MODE;	//
+	diag_definition0[20] = EPS_MODE;
+	diag_definition0[19] = PAY_MODE;
+	diag_definition0[18] = PAY_MODE;
+	diag_definition0[17] = OBC_MODE;
+	diag_definition0[16] = OBC_MODE;
+	diag_definition0[15] = PAY_STATE;
+	diag_definition0[14] = PAY_STATE;
+	diag_definition0[13] = ABS_TIME_D;
+	diag_definition0[12] = ABS_TIME_D;
+	diag_definition0[11] = ABS_TIME_H;
+	diag_definition0[10] = ABS_TIME_H;
+	diag_definition0[9] = ABS_TIME_M;
+	diag_definition0[8] = ABS_TIME_M;
+	diag_definition0[7] = ABS_TIME_S;
+	diag_definition0[6] = ABS_TIME_S;
+	diag_definition0[5] = SPI_CHIP_1;
+	diag_definition0[4] = SPI_CHIP_1;
+	diag_definition0[3] = SPI_CHIP_2;
+	diag_definition0[2] = SPI_CHIP_2;
+	diag_definition0[1] = SPI_CHIP_3;
+	diag_definition0[0] = SPI_CHIP_3;
+	return;
+}
+
+/************************************************************************/
+/* SENT_DEFINITION														*/
+/* @Purpose: This function will change which definition is being used	*/
+/* for creating diagnostics reports.									*/
+/* @param: sID: 0 == default, 1 = alternate.							*/
+/************************************************************************/
+static void set_definition(uint8_t sID)
+{
+	uint8_t i;
+	if(!sID)	// DEFAULT (use diag_definition0)
+	{
+		for(i = 0; i < DATA_LENGTH; i++)
+		{
+			current_diag_definition[i] = diag_definition0[i];
+		}
+		current_diag_definitionf = 0;
+		diag_time_to_wait = collection_interval0 * 1000 * 60;
+	}
+	if(sID == 1) // ALERNATE (use diag_definition1)
+	{
+		for(i = 0; i < DATA_LENGTH; i++)
+		{
+			current_diag_definition[i] = diag_definition1[i];
+		}
+		current_diag_definitionf = 1;
+		diag_time_to_wait = collection_interval1 * 1000 * 60;
+	}
+	return;
+}
+
+/************************************************************************/
+/* SEND_DIAG_AS_TM														*/
+/* @Purpose: This function will downlink all diagnostics to ground		*/
+/* by sending 128B chunks to the OBC_PACKET_ROUTER, which in turn will	*/
+/* attempt to downlink the telemetry to ground.							*/
+/************************************************************************/
+static void send_diag_as_tm(void)
+{
+	uint8_t i;
+	clear_current_command();
+	//clear previous data
+	
+	current_command[146] = DIAG_REPORT;
+	
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_command[i] = current_diag[i];
+	}
+	
+	if (xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE) {
+		send_event_report(3, DIAG_ERROR_IN_FDIR, 0, current_command[146]); //log an error
+	}
+	
+	return;
+}
+
+
+/************************************************************************/
+/* SEND_DIAG_PARAM_REPORT												*/
+/* @Purpose: This function will downlink the current diagnostics		*/
+/* definition being used to produce diagnostics reports.				*/
+/* Does this by sending current_diag_definition[] to OBC_PACKET_ROUTER.	*/
+/************************************************************************/
+static void send_diag_param_report(void)
+{
+	uint8_t i;
+	clear_current_command();
+	
+	current_command[146] = DIAG_DEFINITION_REPORT;
+	for(i = 0; i < DATA_LENGTH; i++)
+	{
+		current_command[i] = current_diag_definition[i];
+	}
+	
+	if (xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1) != pdTRUE) {
+		send_event_report(3, DIAG_ERROR_IN_FDIR, 0, current_command[146]); //log an error
+	}
+}

@@ -62,24 +62,24 @@ static void prvPayloadTask( void *pvParameters );
 TaskHandle_t payload(void);
 void payload_kill(uint8_t killer);
 
-static void readTemp(void);
+static uint8_t readTemp(int);
 static void readEnv(void);
-static void readHum(void);
-static void readPres(void);
-static void readAccel(void);
-static void readFL(void);
-static void readMIC(void);
+static uint8_t readHum(void);
+static uint8_t readPres(void);
+static uint8_t readAccel(void);
+static void readOpts(void);
 static void activate_heater(uint32_t tempval, int sensor_index);
 static void setUpSens(void);
+static void store_science(uint8_t type, uint32_t time, uint8_t *data );
 
 /*-----------------------------------------------------------*/
 
 /* Global Variables Prototypes								*/
-static uint8_t temp_timebetween, hum_timebetween, pres_timebetween, accel_timebetween, MIC_timebetween, FL_timebetween;
-static uint8_t last_temp_time, last_hum_time, last_pres_time, last_accel_time, last_MIC_time, last_FL_time;
+static uint8_t opts_timebetween;
+static uint8_t last_Optstime;
 static uint8_t count;
-static uint32_t epstemp, comsv, comsi;
-static uint32_t payv, payi, obcv, obci;
+static uint8_t valvesclosed;
+static uint8_t start_Experiment; // Dummy variable for now
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -131,31 +131,33 @@ static void prvPayloadTask(void *pvParameters )
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.
 		
-		readTemp(); // read temperature sensors, decide what to do to heaters
-		
-		if(count <= 0){//once per minute, read env sensors, save data
-			readEnv();
-			count = 2;
+		for(int i = 0; i < 5; i++){
+			readTemp(i); // read temperature sensors, decide what to do to heaters
 		}
 		
 		
-		//need a way to decide when we're starting
-		// if(timetostart){
-		//	if(valvesclosed){
-		//		activate_valves(); //start fluid mixing
-		//	}
+		if(count <= 0){//once per minute, read env sensors, save data (count every 500 ms)
+			readEnv();
+			count = 60;
+		}
 		
-				if(CURRENT_MINUTE - last_FL_time >= FL_timebetween){
-					readFL();
-					last_FL_time = CURRENT_MINUTE;
-				}
-				
-				if(CURRENT_MINUTE - last_MIC_time > MIC_timebetween){
-					readMIC();
-					last_MIC_time = CURRENT_MINUTE;
-				}
 		
-		// }
+		if(start_Experiment){
+			if(valvesclosed){
+				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, OPEN_VALVES, DEF_PRIO) ;//(see data_collect.c)
+				valvesclosed = 0;
+			}
+		
+			if(CURRENT_MINUTE - last_Optstime >= opts_timebetween){
+				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, COLLECT_PD, DEF_PRIO) ;
+				last_Optstime = CURRENT_MINUTE;
+			}
+
+			if(pd_collectedf){
+				readOpts();
+			}	
+		
+		}
 		
 		
 		vTaskDelayUntil(&xLastWakeTime, 50); //wait 50 ticks = 500 ms
@@ -175,33 +177,22 @@ static void prvPayloadTask(void *pvParameters )
 static void setUpSens(void)
 {
 	//time between in ms in hexadecimal
-	temp_timebetween = 0x1F4; //0.5 min
-	hum_timebetween = 0x3E8; //1 min
-	pres_timebetween = 0x3E8; 
-	accel_timebetween = 0x3E8;
-	MIC_timebetween = 0x1E; //30 min
-	FL_timebetween = 0x1E; 
-	last_temp_time = 0x0;
-	last_hum_time = 0x0;
-	last_pres_time = 0x0;
-	last_accel_time = 0x0;
-	last_MIC_time = 0x0;
-	last_FL_time = 0x0;
+	opts_timebetween = 0x1E; 
+	last_Optstime = 0x0;
 	count = 0;
+	valvesclosed = 1;
 }
 
 
-static void readTemp(){
-	uint32_t tempval = 0;
-	uint8_t temp_sensor = PAY_TEMP0;
+static uint8_t readTemp(int sensorNumber){
+	uint8_t tempval;
+	uint8_t temp_sensor;
 	
-	for(int i = 0; i < 5; i++){
-		temp_sensor += i;
-		tempval = request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, 0);
-		//save somehow
-		activate_heater(tempval, i);
-	}
-	
+	temp_sensor = PAY_TEMP0 + sensorNumber ;
+	tempval= request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, 0);
+	activate_heater(tempval, sensorNumber);
+
+	return tempval;
 }
 
 static void activate_heater(uint32_t tempval, int sensor_index){
@@ -220,58 +211,63 @@ static void activate_heater(uint32_t tempval, int sensor_index){
 }
 
 static void readEnv(){
-	readHum();
-	readPres();
-	readAccel();
+	uint8_t env[8];
+	uint8_t tempval[5];
+
+	env[0] = readHum();
+	env[1] = readPres();
+	env[2] = readAccel();
+	for(int i = 0; i < 5; i++){
+		env[i+3] = readTemp(i);
+	}
+
+	store_science(0, CURRENT_SECOND, env);
 }
 
-static void readHum(void){
-	uint32_t humval = 0;
+static uint8_t readHum(void){
+	uint8_t humval = 0;
 	humval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, 0); //status???
-	//spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
-	//spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size) //super confused how to use these
+	return humval;
 }
 
 
-static void readPres(void){
-	uint32_t presval = 0;
-	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, 0); //status???
-	//spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
-	//spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size) //super confused how to use these
+static uint8_t readPres(void){
+	uint8_t presval = 0;
+	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, 0); 
+	return presval;
 }
 
-static void readAccel(void){
-	uint32_t accelval = 0;
-	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, 0); //status???
-	//spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
-	//spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size) //super confused how to use these
+static uint8_t readAccel(void){
+	uint8_t accelval = 0;
+	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, 0); 
+	return accelval;
 }
 
-static void readFL(void){
-	uint32_t FLval = 0;
-	uint32_t ODval = 0;
+static void readOpts(void){
+	uint8_t optval[72];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
 	uint8_t OD_PD = PAY_FL_OD_PD0;
 	uint8_t FL_PD = PAY_FL_PD0;
-	
 	
 	for(int i = 0; i < 12; i++){
 		FL_PD += i;
 		OD_PD += i;
-		FLval = request_sensor_data(PAY_TASK_ID, PAY_ID, FL_PD, 0);
-		ODval = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
-		//figure out how to save
+		optval[2*i] = request_sensor_data(PAY_TASK_ID, PAY_ID, FL_PD, 0);
+		optval[2*i+1] = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
 	}
-}
 
-static void readMIC(void){
-	uint32_t ODval = 0;
-	uint8_t OD_PD = PAY_MIC_OD_PD0;	
+	OD_PD = PAY_MIC_OD_PD0;	
 	
 	for(int i = 0; i < 48; i++){
 		OD_PD += i;
-		ODval = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
+		optval[i+24] = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
 		//figure out how to save
 	}
+	
+	store_science(1, CURRENT_SECOND, optval);//what should I be sending for time
+}
+
+static void store_science(uint8_t type, uint32_t time, uint8_t *data ){// type = all temp data, all other env data, or all photodiodes) data in an array (uint8_t temperature[10] for example)
+
 }
 
 // This function will kill this task.

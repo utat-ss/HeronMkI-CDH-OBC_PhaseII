@@ -283,4 +283,6 @@ uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
 uint32_t	MAX_SCHED_COMMANDS;
 uint32_t	LENGTH_OF_HK;
 
+uint8_t		pd_collectedf;
+
 #endif

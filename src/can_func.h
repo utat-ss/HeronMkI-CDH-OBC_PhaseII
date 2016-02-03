@@ -235,7 +235,10 @@ SemaphoreHandle_t	Can0_Mutex;
 #define COMS_TAKEOVER_ENTERED	0x23
 #define COMS_TAKEOVER_EXITED	0x24
 #define OPERATIONS_PAUSED		0x25
-#define OPERATIONS_RESUMED		0x26		
+#define OPERATIONS_RESUMED		0x26	
+#define OPEN_VALVES				0x27	
+#define COLLECT_PD				0x28
+#define PD_COLLECTED			0x29
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

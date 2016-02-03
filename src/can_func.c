@@ -1252,7 +1252,7 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 /* REQUEST SENSOR DATA                                                  */
 /*																		*/
 /* @param: sender_id:	FROM-WHO, ex: EPS_TASK_ID						*/
-/* @param: ssm_id:	Which SSM you are communicating with. ex: SUB1_ID0	*/
+/* @param: ssm_id:	Which SSM you are communicating with.				*/
 /* @Purpose: This function can be used to retrieve sensor data from an 	*/
 /* SSM. 																*/
 /* @return: < 0 == Failure, otherwise returns sensor value requested	*/

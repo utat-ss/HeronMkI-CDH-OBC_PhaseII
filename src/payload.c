@@ -73,7 +73,6 @@ static void readOpts(void);
 static void activate_heater(uint32_t tempval, int sensor_index);
 static void setUpSens(void);
 static int store_science(uint8_t type, uint8_t* data);
-static int pay_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size);
 
 /*-----------------------------------------------------------*/
 
@@ -82,7 +81,6 @@ static uint8_t opts_timebetween;
 static uint8_t last_Optstime;
 static uint8_t count;
 static uint8_t valvesclosed;
-static uint8_t start_Experiment; // Dummy variable for now
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -100,13 +98,8 @@ TaskHandle_t payload( void )
 		configMINIMAL_STACK_SIZE, /* The size of the stack to allocate to the task. */
 		( void * ) PAYLOAD_PARAMETER, /* The parameter passed to the task - just to check the functionality. */
 		Payload_PRIORITY, /* The priority assigned to the task. */
-		&temp_HANDLE ); /* The task handle is not required, so NULL is passed. */
+		&temp_HANDLE );
 
-	/* If all is well, the scheduler will now be running, and the following
-	line will never be reached. If the following line does execute, then
-	there was insufficient FreeRTOS heap memory available for the idle and/or
-	timer tasks to be created. See the memory management section on the
-	FreeRTOS web site for more details. */
 	return temp_HANDLE;
 }
 
@@ -126,43 +119,39 @@ static void prvPayloadTask(void *pvParameters )
 	/* Declare Variables Here */
 	
 	setUpSens();
-
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		// Write your application here.
-		xLastWakeTime = xTaskGetTickCount();
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.
-		
-		for(int i = 0; i < 5; i++){
+		for(int i = 0; i < 5; i++)
+		{
 			readTemp(i); // read temperature sensors, decide what to do to heaters
 		}
 		
-		
-		if(count <= 0){//once per minute, read env sensors, save data (count every 500 ms)
+		if(count <= 0)	//once per minute, read env sensors, save data (count every 500 ms)
+		{
 			readEnv();
 			count = 60;
 		}
 		
-		
-		if(start_Experiment){
-			if(valvesclosed){
-				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, OPEN_VALVES, DEF_PRIO) ;//(see data_collect.c)
+		if(experiment_started)
+		{
+			if(valvesclosed)
+			{
+				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, OPEN_VALVES, DEF_PRIO);//(see data_collect.c)
 				valvesclosed = 0;
 			}
-		
-			if(CURRENT_MINUTE - last_Optstime >= opts_timebetween){
-				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, COLLECT_PD, DEF_PRIO) ;
+			if(CURRENT_MINUTE - last_Optstime >= opts_timebetween)
+			{
+				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, COLLECT_PD, DEF_PRIO);
 				last_Optstime = CURRENT_MINUTE;
 			}
-
-			if(pd_collectedf){
+			if(pd_collectedf)
+			{
 				readOpts();
 			}	
-		
 		}
 		
-		
+		xLastWakeTime = xTaskGetTickCount();		
 		vTaskDelayUntil(&xLastWakeTime, 50); //wait 50 ticks = 500 ms
 		count -= 1;
 	}
@@ -187,7 +176,8 @@ static void setUpSens(void)
 }
 
 
-static uint8_t readTemp(int sensorNumber){
+static uint8_t readTemp(int sensorNumber)
+{
 	uint8_t tempval;
 	uint8_t temp_sensor;
 	
@@ -198,7 +188,8 @@ static uint8_t readTemp(int sensorNumber){
 	return tempval;
 }
 
-static void activate_heater(uint32_t tempval, int sensor_index){
+static void activate_heater(uint32_t tempval, int sensor_index)
+{
 	if(tempval > TARGET_TEMP){
 		//heater off (acc. sensor_index)
 		if(tempval > TARGET_TEMP + TEMP_RANGE){
@@ -213,60 +204,74 @@ static void activate_heater(uint32_t tempval, int sensor_index){
 	}
 }
 
-static void readEnv(){
+static void readEnv()
+{
 	uint8_t env[8];
 	uint8_t tempval[5];
 
 	env[0] = readHum();
 	env[1] = readPres();
 	env[2] = readAccel();
-	for(int i = 0; i < 5; i++){
+	for(int i = 0; i < 5; i++)
+	{
 		env[i+3] = readTemp(i);
 	}
 
 	store_science(0, env);
 }
 
-static uint8_t readHum(void){
+static uint8_t readHum(void)
+{
 	uint8_t humval = 0;
 	humval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, 0); //status???
 	return humval;
 }
 
 
-static uint8_t readPres(void){
+static uint8_t readPres(void)
+{
 	uint8_t presval = 0;
 	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, 0); 
 	return presval;
 }
 
-static uint8_t readAccel(void){
+static uint8_t readAccel(void)
+{
 	uint8_t accelval = 0;
 	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, 0); 
 	return accelval;
 }
 
-static void readOpts(void){
-	uint8_t optval[72];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
+static void readOpts(void)
+{
+	uint8_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
+	uint32_t temp;
 	uint8_t OD_PD = PAY_FL_OD_PD0;
 	uint8_t FL_PD = PAY_FL_PD0;
 	
-	for(int i = 0; i < 12; i++){
+	for(int i = 0; i < 12; i++)
+	{
 		FL_PD += i;
 		OD_PD += i;
-		optval[2*i] = request_sensor_data(PAY_TASK_ID, PAY_ID, FL_PD, 0);
-		optval[2*i+1] = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
+		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, FL_PD, 0);
+		optval[4 * i]		= (uint8_t)temp;
+		optval[4 * i + 1]	= (uint8_t)(temp >> 8);
+		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
+		optval[4 * i + 2]	= (uint8_t)temp;
+		optval[4 * i + 3]	= (uint8_t)(temp >> 8);
 	}
 
 	OD_PD = PAY_MIC_OD_PD0;	
 	
-	for(int i = 0; i < 48; i++){
+	for(int i = 0; i < 48; i++)
+	{
 		OD_PD += i;
-		optval[i+24] = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
-		//figure out how to save
+		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
+		optval[i * 2 + 48]		= (uint8_t)temp; 
+		optval[i * 2 + 48 + 1]	=  (uint8_t)(temp >> 8);
 	}
 	
-	store_science(1, optval);//what should I be sending for time
+	store_science(1, optval);
 }
 
 // This function will kill this task.
@@ -288,37 +293,19 @@ int store_science(uint8_t type, uint8_t* data)
 	uint8_t size;
 	uint8_t* temp_ptr;
 	*temp_ptr = type;
-	if (spimem_read(SCIENCE_BASE, &offset, 4) < 0)								// FAILURE_RECOVERY needed for each SPI operation.
+	if (task_spimem_read(PAY_TASK_ID, SCIENCE_BASE, &offset, 4) < 0)
 		return -1;
-	spimem_write(SCIENCE_BASE + offset, &temp_ptr, 1);					// Data Type
-	spimem_write(SCIENCE_BASE + offset + 1, absolute_time_arr, 4);		// Time Stamp
+	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE + offset, &temp_ptr, 1);					// Data Type
+	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE + offset + 1, absolute_time_arr, 4);		// Time Stamp
 	if(!type)			// Temperature collection
 		size = 10;
 	if(type == 1)		// Environmental Sensor Collection
 		size = 12;
 	if(type == 2)		// Photosensor collection
 		size = 144;
-	spimem_write(SCIENCE_BASE + offset + 5, data, size);
+	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE + offset + 5, data, size);
 	offset += (5 + size);
-	spimem_write(SCIENCE_BASE, offset, 4);
+	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE, offset, 4);
 	return size;
 }
 
-//Wrapper function for spimem_write within this file.
-//If the function fails after 3 attempts, sends data_buff to error_report
-int pay_spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
-{
-	int attempts = 1;
-	//spimem_success is >0 if successful
-	uint8_t spimem_success = spimem_write(addr, data_buff, size);
-	while (attempts<3 && spimem_success<0){
-		spimem_success = spimem_write(addr, data_buff, size);
-		attempts++;
-	}
-	if (spimem_success<0) {
-		errorASSERT(PAY_TASK_ID,spimem_success,PAY_SPIMEM_RW_ERROR, data_buff, 0);
-		return -1;
-		//spimem_write can return -1,-2,-3,-4 in case of an error - does FDIR treat all cases the same?
-	}
-	else {return 0;}
-}

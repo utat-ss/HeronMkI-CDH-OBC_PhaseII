@@ -513,7 +513,21 @@ static int exec_k_commands(void)
 		case TIME_SERVICE:
 			xQueueSendToBack(sched_to_time_fifo, current_command, (TickType_t)1);
 		case 0:
-			// Exec K command.
+			if(service_sub_type == START_EXPERIMENT_ARM)
+			{
+				experiment_armed = 1;
+				send_tc_verification(packet_id, psc, 0, SCHEDULING_TASK_ID, 0, 2);	// Successful command execution report.
+			}
+			if(service_sub_type == START_EXPERIMENT_FIRE)
+			{
+				if(experiment_armed)
+				{
+					experiment_started = 1;
+					send_tc_verification(packet_id, psc, 0, SCHEDULING_TASK_ID, 0, 2);	// Successful command execution report.
+				}
+				else
+					send_tc_verification(packet_id, psc, 0xFF, 5, 0, 2);				// Failed telecommand execution report (usage error due to experiment_armed = 0)
+			}
 		default:
 			return -1;
 	}

@@ -55,12 +55,12 @@ functionality. */
 #define EPS_PARAMETER	( 0xABCD )
 
 /* Relevant Boundaries for power system		*/
-#define MAX_NUM_TRIES			0xA
+#define MAX_NUM_TRIES			0x3
 #define DUTY_INCREMENT			0x6
 
 /* EPS POWER MODES		*/
 #define NOMINAL					0x0
-#define LOW_POWER						0x1
+#define LOW_POWER				0x1
 #define PAYLOAD_LOSS			0x2
 #define CRITICAL				0x3
 
@@ -90,8 +90,7 @@ static void clear_current_command(void);
 
 /* Global Variables Prototypes								*/
 // For EPS Modes
-static uint32_t filtered_battery_SOC, active_eps_mode, last_mode_second;
-static uint32_t eps_balance_interval, eps_heater_interval;
+static uint32_t filtered_battery_SOC, last_mode_second;
 
 // For MPPT
 static uint8_t xDirection, yDirection, xDuty, yDuty;
@@ -102,7 +101,6 @@ static uint32_t last_balance_minute = 0;
 
 // For Battery Heater
 static uint32_t last_heater_control_minute = 0;
-static uint32_t eps_target_temp, eps_temp_interval;
 
 // For Battery SOC
 static uint32_t battery_capacity, current_SOC, voltage_SOC, last_SOC_second;
@@ -145,11 +143,6 @@ TaskHandle_t eps( void )
 		Eps_PRIORITY, /* The priority assigned to the task. */
 		&temp_HANDLE ); /* The task handle is not required, so NULL is passed. */
 
-	/* If all is well, the scheduler will now be running, and the following
-	line will never be reached. If the following line does execute, then
-	there was insufficient FreeRTOS heap memory available for the idle and/or
-	timer tasks to be created. See the memory management section on the
-	FreeRTOS web site for more details. */
 	return temp_HANDLE;
 }
 
@@ -176,7 +169,7 @@ static void prvEpsTask(void *pvParameters )
 	{
 		// Write your application here.
 		xLastWakeTime = xTaskGetTickCount();
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.	
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// CDH: Systick = 1kHz, delays for >= 15 ms. If that's not okay, let us know.	
 		
 		getxDirection();
 		getyDirection();
@@ -474,7 +467,7 @@ static void battery_balance(void){
 	battin = get_sensor_data(BATTIN_I);
 
 	//Check if we should turn on battery balancing if it is currently off. 
-	if ((balance_l = 0) && (balance_h = 0) && (battin > 2)) //battin > 2 corresponds to current into the battery if >8mA
+	if ((balance_l == 0) && (balance_h == 0) && (battin > 2)) //battin > 2 corresponds to current into the battery if >8mA
 	{
 		//At this point, the conditions for battery balancing have been met so we want to check if we need to balance
 		battv = get_sensor_data(BATT_V);	//min step size 0.0082V
@@ -494,7 +487,7 @@ static void battery_balance(void){
 	}
 	
 	//If balancing is currently on, check to see if we should turn it off
-	if ((balance_l = 1) || (balance_h = 1)) //battin > 2 corresponds to current into the battery if >8mA
+	if ((balance_l == 1) || (balance_h == 1)) //battin > 2 corresponds to current into the battery if >8mA
 	{
 		//At this point, the conditions for battery balancing have been met so we want to check if we need to balance
 		battv = get_sensor_data(BATT_V);	//min step size 0.0082V
@@ -591,7 +584,8 @@ static uint32_t battery_SOC(void){
 	
 	// Check if we are charging or discharging 
 	//We are charging the battery 
-	if (battin >= battout){
+	if (battin >= battout)
+	{
 		// Update the current SOC with coulomb counting
 		// the 4 is because a 1 on battin =  4mA
 		current_SOC = current_SOC + (battin * 4 * (CURRENT_SECOND - last_SOC_second));
@@ -600,7 +594,8 @@ static uint32_t battery_SOC(void){
 		voltage_offset = base_voltage_offset + temp_multiplier*(epstemp - 25);
 	}
 	//We are discharging the battery 
-	else{
+	else
+	{
 		// Update the current SOC with coulomb counting
 		//We are discharging the battery
 		// the 4 is because a 1 on battout =  4mA

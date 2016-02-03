@@ -151,6 +151,8 @@ uint32_t data_reg[2];
 
 #include "error_handling.h"
 
+#include "camera.h"
+
 /* Set up the hardware ready to run the program. */
 static void prvSetupHardware(void);
 /*	Initialize mutexes and semaphores to be used by the programs  */
@@ -299,6 +301,9 @@ static void prvSetupHardware(void)
 	
 	/* Initialize the SPI memory chips	*/
 	//spimem_initialize();
+	
+	/* Initialize the Camera */
+	//camera_initialize();
 	
 	can_initialize();
 }

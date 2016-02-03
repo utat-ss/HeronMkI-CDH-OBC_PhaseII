@@ -55,7 +55,7 @@ uint8_t low_error_array[152];
 
 #define SCHED_SPIMEM_R_ERROR			0x01
 #define SCHED_SPIMEM_W_ERROR			0x02
-#define SCHED_SPIMEM_CHIP_ERROR			0x03 //Does 0x01 and 0x02 cover this case?
+#define SCHED_SPIMEM_CHIP_ERROR			0x03 
 #define SCHED_COMMAND_EXEC_ERROR		0x04
 #define SCHED_FIFO_RW_ERROR		        0x05
 #define HK_FIFO_RW_ERROR				0x06
@@ -78,7 +78,7 @@ uint8_t low_error_array[152];
 #define MEM_FIFO_RW_ERROR				0x16
 #define EPS_SSM_GET_SENSOR_DATA_ERROR	0x17
 #define EPS_SET_VARIABLE_ERROR			0x18
-#define OBC_COMS_TC_TM_ERROR			0x19 //ignored this thru 0x1F
+#define OBC_COMS_TC_TM_ERROR			0x19
 #define OBC_TC_PACKET_ERROR				0x1A
 #define OBC_FIFO_RW_ERROR				0x1B
 #define TC_OK_GO_TIMED_OUT				0x1C

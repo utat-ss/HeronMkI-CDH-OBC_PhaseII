@@ -353,6 +353,8 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				EPS_PAUSED = 0;
 			if(sender == PAY_ID)
 				PAY_PAUSED = 0;
+		case PD_COLLECTED:
+			pd_collectedf = 1;
 		default :
 			return;
 	}

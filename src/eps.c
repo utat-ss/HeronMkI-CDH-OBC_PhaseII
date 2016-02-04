@@ -60,7 +60,7 @@ functionality. */
 
 /* EPS POWER MODES		*/
 #define NOMINAL					0x0
-#define LOW_POWER						0x1
+#define LOW_POWER				0x1
 #define PAYLOAD_LOSS			0x2
 #define CRITICAL				0x3
 
@@ -69,13 +69,11 @@ functionality. */
 /* Function Prototypes										 */
 static void prvEpsTask( void *pvParameters );
 TaskHandle_t eps(void);
+static void eps_mode(void);
 void eps_kill(uint8_t killer);
-static void getxDirection(void);
-static void getyDirection(void);
-static void setxDuty(void);
-static void setyDuty(void);
 static uint32_t get_sensor_data(uint8_t sensor_id);
 static void set_variable_value(uint8_t variable_name, uint8_t new_var_value);
+static void mppt(void);
 static void setUpMPPT(void);
 static void battery_balance(void);
 static void battery_heater(void);
@@ -89,23 +87,30 @@ static void clear_current_command(void);
 
 
 /* Global Variables Prototypes								*/
+// For Scheduling
+static uint32_t eps_balance_interval, eps_heater_control_interval, eps_mppt_interval;
+static uint32_t eps_battery_capacity_interval, eps_modes_interval, eps_verify_sensor_interval;
+
+static uint32_t last_balance_minute = 0;
+static uint32_t last_heater_control_minute = 0;
+static uint32_t last_mppt_second = 0;
+static uint32_t last_battery_capacity_minute = 0;
+static uint32_t last_mode_second = 0;
+static uint32_t last_verify_sensor_minute = 0;
+
 // For EPS Modes
-static uint32_t filtered_battery_SOC, active_eps_mode, last_mode_second;
-static uint32_t eps_balance_interval, eps_heater_interval;
+static uint32_t filtered_battery_SOC, active_eps_mode;
 
 // For MPPT
 static uint8_t xDirection, yDirection, xDuty, yDuty;
 static uint32_t pxp_last, pyp_last;
 
-// For Battery Balancing
-static uint32_t last_balance_minute = 0;
-
 // For Battery Heater
-static uint32_t last_heater_control_minute = 0;
 static uint32_t eps_target_temp, eps_temp_interval;
 
 // For Battery SOC
-static uint32_t battery_capacity, current_SOC, voltage_SOC, last_SOC_second;
+static uint32_t battery_capacity, current_SOC, voltage_SOC;
+static uint32_t last_SOC_second = 0;
 
 // For Update Battery Capacity
 static uint32_t current_in, current_out;
@@ -169,8 +174,14 @@ static void prvEpsTask(void *pvParameters )
 
 	setUpMPPT();
 	init_eps_sensor_bounds();
-	eps_balance_interval = 2;
-	eps_heater_interval = 2;
+	
+	eps_balance_interval = 2; // Minutes
+	eps_heater_control_interval = 2; // Minutes
+	eps_mppt_interval = 30; // Seconds
+	eps_battery_capacity_interval = 3; // Minutes
+	eps_modes_interval = 2; // Seconds
+	eps_verify_sensor_interval = 30; // Minutes
+	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -178,18 +189,24 @@ static void prvEpsTask(void *pvParameters )
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.	
 		
-		getxDirection();
-		getyDirection();
-		setxDuty();
-		setyDuty();	
-		
-		if ((abs(CURRENT_MINUTE) - last_balance_minute) > eps_balance_interval)
-		{
+		if ((abs(CURRENT_MINUTE) - last_balance_minute) > eps_balance_interval){
 			battery_balance();
 		}
-		if ((abs(CURRENT_MINUTE) - last_heater_control_minute) > eps_heater_interval)
-		{
+		if ((abs(CURRENT_MINUTE) - last_heater_control_minute) > eps_heater_control_interval){
 			battery_heater();
+		}
+		if ((abs(CURRENT_SECOND) - last_mppt_second) > eps_mppt_interval){
+			mppt();
+		}
+		if ((abs(CURRENT_MINUTE) - last_battery_capacity_minute) > eps_battery_capacity_interval){
+			update_battery_capacity();
+		}
+		if ((abs(CURRENT_SECOND) - last_mode_second) > eps_modes_interval){
+			eps_mode();
+		}
+		if ((abs(CURRENT_MINUTE) - last_verify_sensor_minute) > eps_verify_sensor_interval){
+			// Decide what I want to do about this in terms of reading all the sensors or not
+			verify_eps_sensor_value(PANELX_V);
 		}
 	}
 
@@ -221,7 +238,7 @@ static void eps_mode(void){
 				//Switch to the LOW mode
 				active_eps_mode = LOW_POWER;
 				eps_balance_interval = 5;
-				eps_heater_interval = 2;
+				eps_heater_control_interval = 2;
 			}
 		break;
 		case LOW_POWER :
@@ -229,13 +246,13 @@ static void eps_mode(void){
 				//Switch to the NOMINAL mode
 				active_eps_mode = NOMINAL;
 				eps_balance_interval = 2;
-				eps_heater_interval = 2;
+				eps_heater_control_interval = 2;
 			}
 			if (filtered_battery_SOC < 30){
 				//Switch to the PAYLOAD_LOSS mode
 				active_eps_mode = PAYLOAD_LOSS;
 				eps_balance_interval = 10;
-				eps_heater_interval = 10;
+				eps_heater_control_interval = 10;
 			}
 		break;
 		case PAYLOAD_LOSS :
@@ -243,13 +260,13 @@ static void eps_mode(void){
 				//Switch to the LOW mode
 				active_eps_mode = LOW_POWER;
 				eps_balance_interval = 5;
-				eps_heater_interval = 2;
+				eps_heater_control_interval = 2;
 			}
 			if (filtered_battery_SOC < 15){
 				//Switch to the CRITICAL mode
 				active_eps_mode = CRITICAL;
 				eps_balance_interval = 59;
-				eps_heater_interval = 10;
+				eps_heater_control_interval = 10;
 			}
 		break;
 		case CRITICAL :
@@ -257,7 +274,7 @@ static void eps_mode(void){
 				//Switch to the PAYLOAD_LOSS mode
 				active_eps_mode = PAYLOAD_LOSS;
 				eps_balance_interval = 10;
-				eps_heater_interval = 10;
+				eps_heater_control_interval = 10;
 			}
 		break;
 		default :
@@ -268,107 +285,69 @@ static void eps_mode(void){
 }
 
 /************************************************************************/
-/* GET X DIRECTION														*/									
-/* @Purpose: This function queries the X-axis current and voltage		*/
-/*				sensors on the solar cells to get their most updated	*/
-/*				values. It then computes the new power by multiplying	*/
-/*				the values.												*/
-/*				The new power is compared to the last power measurement */ 
-/*				to determine if the MPPT duty cycle should be adjusted  */
-/*				in the same direction or if it should switch directions	*/
+/* MPPT																	*/
+/* @Purpose: This runs all MPPT stuff including determining the current	*/ 
+/*				direction of movement for the X and Y panels as well as	*/ 
+/*				setting the duty cycle according to this				*/
+/*																		*/
 /************************************************************************/
-static void getxDirection(void)
+
+static void mppt(void)
 {
 	uint32_t pxv, pxi, pxp_new;
+	uint32_t pyv, pyi, pyp_new;
 
+	// Get X Direction
 	pxv = get_sensor_data(PANELX_V);
 	pxi = get_sensor_data(PANELX_I);
 	pxp_new = pxi * pxv;
 
-	if ((pxp_new < pxp_last) & (xDirection == 1))
-	{
+	if ((pxp_new < pxp_last) & (xDirection == 1)){
 		xDirection = 0;
 	}
-	else if ((pxp_new < pxp_last) & (xDirection == 0))
-	{
+	else if ((pxp_new < pxp_last) & (xDirection == 0)){
 		xDirection = 1;
 	}
 	
 	pxp_last = pxp_new;
-}
-
-/************************************************************************/
-/* GET Y DIRECTION														*/
-/* @Purpose: This function queries the Y-axis current and voltage		*/
-/*				sensors on the solar cells to get their most updated	*/
-/*				values. It then computes the new power by multiplying	*/
-/*				the values.												*/
-/*				The new power is compared to the last power measurement */
-/*				to determine if the MPPT duty cycle should be adjusted  */
-/*				in the same direction or if it should switch directions	*/
-/************************************************************************/
-static void getyDirection(void)
-{
-	uint32_t pyv, pyi, pyp_new;
+	
+	// Get Y Direction
 	pyv = get_sensor_data(PANELY_V);
 	pyi = get_sensor_data(PANELY_I);
 	pyp_new = pyi * pyv;
 
-	if ((pyp_new < pyp_last) & (yDirection == 1))
-	{
+	if ((pyp_new < pyp_last) & (yDirection == 1)){
 		yDirection = 0;
 	}
 	
-	else if ((pyp_new < pyp_last) & (yDirection == 0))
-	{
+	else if ((pyp_new < pyp_last) & (yDirection == 0)){
 		yDirection = 1;
 	}
 	
 	pyp_last = pyp_new;
-}
-
-/************************************************************************/
-/* SET X DUTY															*/
-/* @Purpose: This function updates and sets the duty cycle that the		*/
-/*				MPPT is being run atThis particular function sets for   */
-/*				the X-axis MPPT and sends a CAN message with the		*/
-/*				update to the EPS SSM									*/
-/************************************************************************/
-static void setxDuty(void)
-{
-	if (xDirection == 1)
-	{
+	
+	// Set X Duty
+	if (xDirection == 1){
 		xDuty = xDuty + DUTY_INCREMENT;
 	}
 	
-	else if (xDirection == 0)
-	{
+	else if (xDirection == 0){
 		xDuty = xDuty - DUTY_INCREMENT;
 	}
-	set_variable_value(MPPTX, xDuty);	
-}
-
-/************************************************************************/
-/* SET Y DUTY															*/
-/* @Purpose: This function updates and sets the duty cycle that the		*/
-/*				MPPT is being run atThis particular function sets for   */
-/*				the X-axis MPPT and sends a CAN message with the		*/
-/*				update to the EPS SSM									*/
-/************************************************************************/
-static void setyDuty(void)
-{
-	if (yDirection == 1)
-	{
+	set_variable_value(MPPTX, xDuty);
+	
+	// Set Y Duty
+	if (yDirection == 1){
 		yDuty = yDuty + DUTY_INCREMENT;
 	}
 	
-	else if (yDirection == 0)
-	{
+	else if (yDirection == 0){
 		yDuty = yDuty - DUTY_INCREMENT;
 	}
 	set_variable_value(MPPTY, yDuty);
+	
+	last_mppt_second = CURRENT_SECOND;
 }
-
 
 /************************************************************************/
 /* SET UP MPPT															*/
@@ -457,7 +436,7 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 /************************************************************************/
 /* BATTERY_BALANCE														*/
 /*																		*/
-/* @Purpose: This function runns battery balancing for the eps		 	*/
+/* @Purpose: This function runs battery balancing for the eps		 	*/
 /*				subsystem. It will only run when the batteries are		*/
 /*				charging and it will currently only run every X minutes	*/
 /*																		*/
@@ -529,7 +508,8 @@ static void battery_heater(void){
 	
 	//Declare variables
 	uint32_t batt_heater_control;
-	uint32_t* val;
+	uint32_t* val = 0;
+	*val = 0xFF;
 
 	//Update all the values we need to make decisions for battery heater
 	epstemp = get_sensor_data(EPS_TEMP);
@@ -650,7 +630,6 @@ static void update_battery_capacity(void){
 		previous_current_state = 1;
 		battery_capacity = battery_capacity - 3000; //battery capacity is in mC and we lose 6C every cycle, or 3C every half cycle
 	}
-
 }
 
 /************************************************************************/

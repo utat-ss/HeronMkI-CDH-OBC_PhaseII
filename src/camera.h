@@ -51,26 +51,26 @@ Modified by Brendan Graham
 #define CAMERABUFFSIZ 100
 #define CAMERADELAY 10
 
-void cam_initialize();
-int cam_begin();
+void cam_initialize(void);
+int cam_begin(void);
 int reset(void);
 int takePicture(void);
 uint8_t *readPicture(uint8_t n);
 int resumeVideo(void);
 uint32_t frameLength(void);
 char *getVersion(void);
-uint8_t available();
+uint8_t available(void);
 uint8_t getDownsize(void);
 int setDownsize(uint8_t);
-uint8_t getImageSize();
+uint8_t getImageSize(void);
 int setImageSize(uint8_t);
-int getMotionDetect();
+int getMotionDetect(void);
 uint8_t getMotionStatus(uint8_t);
-int motionDetected();
+int motionDetected(void);
 int setMotionDetect(int f);
 int setMotionStatus(uint8_t x, uint8_t d1, uint8_t d2);
 int cameraFrameBuffCtrl(uint8_t command);
-uint8_t getCompression();
+uint8_t getCompression(void);
 int setCompression(uint8_t c);
 
 void OSD(uint8_t x, uint8_t y, char *s); // isnt supported by the chip :(

@@ -237,7 +237,10 @@ SemaphoreHandle_t	Can0_Mutex;
 #define COMS_TAKEOVER_ENTERED	0x23
 #define COMS_TAKEOVER_EXITED	0x24
 #define OPERATIONS_PAUSED		0x25
-#define OPERATIONS_RESUMED		0x26		
+#define OPERATIONS_RESUMED		0x26	
+#define OPEN_VALVES				0x27	
+#define COLLECT_PD				0x28
+#define PD_COLLECTED			0x29
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09
@@ -381,6 +384,10 @@ SemaphoreHandle_t	Can0_Mutex;
 #define EPS_FDIR_SIGNAL			0xEA
 #define PAY_FDIR_SIGNAL			0xE9
 #define BATT_HEAT				0xE8
+#define EPS_BAL_INTV			0xE7
+#define EPS_HEAT_INTV			0xE6
+#define EPS_TRGT_TMP			0xE5
+#define EPS_TEMP_INTV			0xE4
 
 /* CAN frame max data length */
 #define MAX_CAN_FRAME_DATA_LEN      8

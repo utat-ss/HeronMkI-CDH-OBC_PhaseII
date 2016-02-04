@@ -303,6 +303,13 @@ uint32_t	TIME_BASE;			// TIME = 4B: 0xFFFFC - 0xFFFFF
 uint32_t	MAX_SCHED_COMMANDS;
 uint32_t	LENGTH_OF_HK;
 
+/* Payload Global Variables */
+uint8_t		pd_collectedf;
+
+/* EPS Global Variables */
+uint32_t eps_balance_interval, eps_heater_interval;
+uint32_t eps_target_temp, eps_temp_interval, active_eps_mode;
+
 /* Global variables for experiment commencement */
 uint8_t		experiment_armed;
 uint8_t		experiment_started;

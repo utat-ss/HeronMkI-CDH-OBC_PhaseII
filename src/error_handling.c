@@ -67,72 +67,72 @@ int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, Semap
 	{
 		xQueueSendToBack(high_sev_to_fdir_fifo, high_error_array, wait_time);		// This should return pdTrue
 	}
-		xSemaphoreGive(Highsev_Mutex);
+	xSemaphoreGive(Highsev_Mutex);
 	// Release the currently acquired mutex lock if there is one.
 	if(mutex)
-		xSemaphoreGive(mutex);
+	xSemaphoreGive(mutex);
 	// Wait for the error to be resolved.
 	switch(task)
 	{
 		case HK_TASK_ID:
-			hk_fdir_signal = 1;
-			while(hk_fdir_signal & timeout--){taskYIELD();}	// Wait until the problem is solved for a maximum of 5 minutes.
-			ret_val = -1;
-			if(!hk_fdir_signal)
-				ret_val =  1;
+		hk_fdir_signal = 1;
+		while(hk_fdir_signal & timeout--){taskYIELD();}	// Wait until the problem is solved for a maximum of 5 minutes.
+		ret_val = -1;
+		if(!hk_fdir_signal)
+		ret_val =  1;
 		case TIME_TASK_ID:
-			time_fdir_signal = 1;
-			while(time_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!time_fdir_signal)
-				ret_val = 1;
+		time_fdir_signal = 1;
+		while(time_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!time_fdir_signal)
+		ret_val = 1;
 		case COMS_TASK_ID:
-			coms_fdir_signal = 1;
-			while(coms_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!coms_fdir_signal)
-				ret_val =  1;
+		coms_fdir_signal = 1;
+		while(coms_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!coms_fdir_signal)
+		ret_val =  1;
 		case EPS_TASK_ID:
-			eps_fdir_signal = 1;
-			while(eps_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!eps_fdir_signal)
-				ret_val = 1;
+		eps_fdir_signal = 1;
+		while(eps_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!eps_fdir_signal)
+		ret_val = 1;
 		case PAY_TASK_ID:
-			pay_fdir_signal = 1;
-			while(pay_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!pay_fdir_signal)
-				ret_val = 1;
+		pay_fdir_signal = 1;
+		while(pay_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!pay_fdir_signal)
+		ret_val = 1;
 		case OBC_PACKET_ROUTER_ID:
-			opr_fdir_signal = 1;
-			while(opr_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!opr_fdir_signal)
-				ret_val = 1;
+		opr_fdir_signal = 1;
+		while(opr_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!opr_fdir_signal)
+		ret_val = 1;
 		case SCHEDULING_TASK_ID:
-			sched_fdir_signal = 1;
-			while(sched_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!sched_fdir_signal)
-				ret_val = 1;
+		sched_fdir_signal = 1;
+		while(sched_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!sched_fdir_signal)
+		ret_val = 1;
 		case WD_RESET_TASK_ID:
-			wdt_fdir_signal = 1;
-			while(wdt_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!wdt_fdir_signal)
-				ret_val = 1;
+		wdt_fdir_signal = 1;
+		while(wdt_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!wdt_fdir_signal)
+		ret_val = 1;
 		case MEMORY_TASK_ID:
-			mem_fdir_signal = 1;
-			while(mem_fdir_signal & timeout--){taskYIELD();}
-			ret_val = -1;
-			if(!mem_fdir_signal)
-				ret_val = 1;
+		mem_fdir_signal = 1;
+		while(mem_fdir_signal & timeout--){taskYIELD();}
+		ret_val = -1;
+		if(!mem_fdir_signal)
+		ret_val = 1;
 		default:
-			ret_val = -1;
+		ret_val = -1;
 	}
 	if(mutex)
-		xSemaphoreTake(mutex, wait_time);
+	xSemaphoreTake(mutex, wait_time);
 	return ret_val;
 }
 
@@ -169,7 +169,7 @@ int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data)
 		return 1;
 	}
 	else
-		return -1;
+	return -1;
 }
 
 /************************************************************************/
@@ -185,24 +185,24 @@ BaseType_t xQueueSendToBackTask(uint8_t task, uint8_t direction, QueueHandle_t f
 	switch(task)
 	{
 		case HK_TASK_ID:
-			error = HK_FIFO_RW_ERROR;
+		error = HK_FIFO_RW_ERROR;
 		case SCHEDULING_TASK_ID:
-			error = SCHED_FIFO_RW_ERROR;
+		error = SCHED_FIFO_RW_ERROR;
 		case TIME_TASK_ID:
-			error = TM_FIFO_RW_ERROR;
+		error = TM_FIFO_RW_ERROR;
 		case MEMORY_TASK_ID:
-			error = MEM_FIFO_RW_ERROR;
+		error = MEM_FIFO_RW_ERROR;
 		case EPS_TASK_ID:
-			error = EPS_FIFO_W_ERROR;
+		error = EPS_FIFO_W_ERROR;
 		default:
-			return pdFAIL;
+		return pdFAIL;
 	}
 	while (attempts < 3 && xQueueSendToBack(fifo, itemToQueue, ticks) != pdTRUE )
 	{
 		attempts++;
 	}
 	if (attempts == 3)
-		errorREPORT(task, direction, error, itemToQueue);
+	errorREPORT(task, direction, error, itemToQueue);
 	return pdPASS;
 }
 
@@ -215,15 +215,15 @@ BaseType_t xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo
 	switch(task)
 	{
 		case HK_TASK_ID:
-			error = HK_FIFO_RW_ERROR;
+		error = HK_FIFO_RW_ERROR;
 		case SCHEDULING_TASK_ID:
-			error = SCHED_FIFO_RW_ERROR;
+		error = SCHED_FIFO_RW_ERROR;
 		case TIME_TASK_ID:
-			error = TM_FIFO_RW_ERROR;
+		error = TM_FIFO_RW_ERROR;
 		case MEMORY_TASK_ID:
-			error = MEM_FIFO_RW_ERROR;
+		error = MEM_FIFO_RW_ERROR;
 		default:
-			return pdFALSE;
+		return pdFALSE;
 	}
 	while (attempts < 3 && xQueueReceive(fifo, itemToQueue, ticks) != pdPASS )
 	{

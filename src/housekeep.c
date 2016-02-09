@@ -442,7 +442,8 @@ static int store_housekeeping(void)
 }
 
 //Returns the proper ssm_id for a given sensor/variable
-uint8_t get_ssm_id(uint8_t sensor_name){
+uint8_t get_ssm_id(uint8_t sensor_name)
+{
 	//for sensors:
 	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
 		return EPS_ID;
@@ -450,16 +451,20 @@ uint8_t get_ssm_id(uint8_t sensor_name){
 		return COMS_ID;
 	if ((sensor_name == 0x13) || (sensor_name == 0xFA) || (sensor_name>=0xF2 && sensor_name <=0xF8))
 		return OBC_ID; //not sure if this is right
-	if ((sensor_name>0x13 && sensor_name <= 0x1B) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
+	if ((sensor_name>0x13 && sensor_name <= 0x63) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
 		return PAY_ID;
 	//for global variables:
-	if ((sensor_name == MPPTX) || (sensor_name == MPPTY) || (sensor_name == EPS_MODE) || (sensor_name == EPS_FDIR_SIGNAL) || (sensor_name == BALANCE_H) || (sensor_name == BALANCE_L) || (sensor_name == BATT_HEAT))
+	if ((sensor_name == MPPTX) || (sensor_name == MPPTY) || (sensor_name == EPS_MODE) || (sensor_name == EPS_FDIR_SIGNAL) || 
+		(sensor_name == BALANCE_H) || (sensor_name == BALANCE_L) || (sensor_name == BATT_HEAT) || (sensor_name == EPS_BAL_INTV)
+		 || (sensor_name == EPS_HEAT_INTV) || (sensor_name == EPS_TRGT_TMP) || (sensor_name == EPS_TEMP_INTV))
 		return EPS_ID;
-	if ((sensor_name == COMS_MODE) || (sensor_name == SSM_CTT) || (sensor_name == SSM_OGT))
+	if ((sensor_name == COMS_MODE) || (sensor_name == SSM_CTT) || (sensor_name == SSM_OGT) || (sensor_name == COMS_FDIR_SIGNAL))
 		return COMS_ID;
 	if ((sensor_name == PAY_MODE) || (sensor_name == PAY_STATE) || (sensor_name == PAY_FDIR_SIGNAL))
 		return PAY_ID;
-	if ((sensor_name == OBC_MODE) || (sensor_name == ABS_TIME_D) || (sensor_name == ABS_TIME_H) || (sensor_name == ABS_TIME_M) || (sensor_name == ABS_TIME_S) || (sensor_name == SPI_CHIP_1) || (sensor_name == SPI_CHIP_2) || (sensor_name == SPI_CHIP_3) || (sensor_name == OBC_CTT) || (sensor_name == OBC_OGT))
+	if ((sensor_name == OBC_MODE) || (sensor_name == ABS_TIME_D) || (sensor_name == ABS_TIME_H) || (sensor_name == ABS_TIME_M) || 
+		(sensor_name == ABS_TIME_S) || (sensor_name == SPI_CHIP_1) || (sensor_name == SPI_CHIP_2) || (sensor_name == SPI_CHIP_3) || 
+		(sensor_name == OBC_CTT) || (sensor_name == OBC_OGT))
 		return OBC_ID;
 	//assume the worst:
 	return OBC_ID;

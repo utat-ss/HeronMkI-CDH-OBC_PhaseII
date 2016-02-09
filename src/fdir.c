@@ -194,6 +194,10 @@ extern void broadcast_minute(void);
 extern void update_absolute_time(void);
 extern void report_time(void);
 
+/* External functions used for OBC variables */
+extern void set_obc_variable(uint8_t parameter, uint32_t val);
+extern uint32_t get_obc_variable(uint8_t parameter);
+
 /* External functions used for diagnostics */
 extern uint8_t get_ssm_id(uint8_t sensor_name);
 
@@ -1076,12 +1080,12 @@ static uint8_t get_fdir_signal(uint8_t task)
 // exec_commands for FDIR is special in that commands are coming from two different service types (Housekeeping and FDIR).
 static void exec_commands(void)
 {
-	uint8_t i, command, service_type, memid, status, j;
+	uint8_t i, command, service_type, memid, status, j, ssmID;
 	uint16_t packet_id, psc;
-	uint32_t address, length, num_transfers = 0;
+	uint32_t address, length, num_transfers = 0, val;
 	uint8_t* mem_ptr = 0;
 	clear_current_command();
-	if( xQueueReceive(obc_to_fdir_fifo, current_command, (TickType_t)100) == pdTRUE)
+	if(xQueueReceive(obc_to_fdir_fifo, current_command, (TickType_t)100) == pdTRUE)
 	{
 		packet_id = ((uint16_t)current_command[140]) << 8;
 		packet_id += (uint16_t)current_command[139];
@@ -1195,6 +1199,37 @@ static void exec_commands(void)
 					restart_task(current_command[144], (TaskHandle_t)0);
 				case	DELETE_TASK:
 					delete_task(current_command[144]);
+				case	13:
+					ssmID = get_ssm_id(current_command[136]);
+					val = (uint32_t)current_command[132];
+					val += ((uint32_t)current_command[133]) << 8;
+					val += ((uint32_t)current_command[134]) << 16;
+					val += ((uint32_t)current_command[135]) << 24;
+					if(ssmID < 3)
+						set_variable(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], (uint16_t)val);
+					else
+						set_obc_variable(current_command[136], val);
+					send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);			
+				case	14:
+					ssmID = get_ssm_id(current_command[136]);
+					val = (uint32_t)current_command[132];
+					val += ((uint32_t)current_command[133]) << 8;
+					val += ((uint32_t)current_command[134]) << 16;
+					val += ((uint32_t)current_command[135]) << 24;
+					if(ssmID < 3)
+						val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status)
+					else
+						val = get_obc_variable(current_command[136]);
+					send_tc_verification(OBC_PACKET_ROUTER_ID, packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);
+					i = current_command[136];
+					clear_current_command();
+					current_command[146] = SINGLE_PARAMETER_REPORT;
+					current_command[136] = i;
+					current_command[132] = (uint8_t)val;
+					current_command[133] = (uint8_t)(val >> 8);
+					current_command[134] = (uint8_t)(val >> 16);
+					current_command[135] = (uint8_t)(val >> 24);
+					xQueueSendToBack(fdir_to_obc_fifo, current_command, (TickType_t)1);
 				default:
 					break;
 			}

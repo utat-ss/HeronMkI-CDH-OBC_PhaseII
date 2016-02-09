@@ -417,8 +417,14 @@ static void prvInitializeGlobalVars(void)
 	EPS_PAUSED = 0;
 	INTERNAL_MEMORY_FALLBACK_MODE = 0;
 	
-	/* Initialize the data reception flag	*/
+	/* Initialize the data reception flags	*/
 	glob_drf = 0;
+	eps_data_receivedf = 0;
+	coms_data_receivedf = 0;
+	pay_data_receivedf = 0;
+	opr_data_receivedf = 0;
+	sched_data_receivedf = 0;
+	fdir_data_receivedf = 0;
 		
 	/* Initialize the message reception flag */
 	glob_comsf = 0;

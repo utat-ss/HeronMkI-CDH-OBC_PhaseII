@@ -105,6 +105,9 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 static int generate_command_report(uint16_t cID, uint8_t status);
 static int exec_k_commands(void);
 
+extern void set_obc_variable(uint8_t parameter, uint32_t val);
+extern uint32_t get_obc_variable(uint8_t parameter);
+
 /* Local variables for scheduling */
 static uint32_t num_commands, next_command_time, furthest_command_time;
 static uint8_t temp_arr[256];
@@ -490,7 +493,8 @@ static int check_schedule(void){
 // The new command is assumed to be located in command_arra[].
 static int exec_k_commands(void)
 {
-	uint8_t service_type = command_array[10] >> 4;
+	uint8_t service_type = command_array[10] >> 4, i, ssmID;
+	uint32_t val = 0;
 	uint8_t service_sub_type = command_array[10] & 0x0F;
 	clear_current_command();
 	current_command[146] = service_type;
@@ -513,6 +517,11 @@ static int exec_k_commands(void)
 		case TIME_SERVICE:
 			xQueueSendToBack(sched_to_time_fifo, current_command, (TickType_t)1);
 		case 0:
+			if(service_sub_type == 11)
+			{
+				send_event_report(2, COMMAND_NOT_SCHEDULABLE, 0, command_array[10]);
+				return -1;
+			}
 			if(service_sub_type == START_EXPERIMENT_ARM)
 			{
 				experiment_armed = 1;
@@ -527,6 +536,19 @@ static int exec_k_commands(void)
 				}
 				else
 					send_tc_verification(packet_id, psc, 0xFF, 5, 0, 2);				// Failed telecommand execution report (usage error due to experiment_armed = 0)
+			}
+			if(service_sub_type == SET_VARIABLE)
+			{
+				ssmID = get_ssm_id(current_command[136]);
+				val = (uint32_t)current_command[132];
+				val += ((uint32_t)current_command[133]) << 8;
+				val += ((uint32_t)current_command[134]) << 16;
+				val += ((uint32_t)current_command[135]) << 24;
+				if(ssmID < 3)
+					set_variable(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], (uint16_t)val);
+				else
+					set_obc_variable(current_command[136], val);
+				send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);
 			}
 		default:
 			return -1;

@@ -123,12 +123,17 @@ static void send_event_packet(uint8_t sender, uint8_t severity);
 static int store_current_tm(void);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 
+void set_obc_variable(uint8_t parameter, uint32_t val);
+uint32_t get_obc_variable(uint8_t parameter);
+
+extern void uint8_t get_ssm_id(uint8_t sensor_name);
+
 /* Global variables											 */
 static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
-static uint8_t diag_telem_count, diag_def_report_count;
+static uint8_t diag_telem_count, diag_def_report_count, sin_par_rep_count;
 static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count, sched_command_count;
@@ -194,6 +199,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	sched_report_count = 0;
 	sched_command_count = 0;
 	mem_check_count = 0;
+	sin_par_rep_count = 0;
 	clear_current_data();
 	clear_current_command();
 	task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);	// FAILURE_HANDLING
@@ -387,6 +393,10 @@ static void exec_commands(void)
 		{
 			diag_def_report_count++;
 			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
+		}
+		if (current_command[146] == SINGLE_PARAMETER_REPORT)
+		{
+			packetize_send_telemetry(OBC_PACKET_ROUTER_ID, GROUND_PACKET_ROUTER_ID, K_SERVICE, SINGLE_PARAMETER_REPORT, sin_par_rep_count++, 1, current_command);
 		}
 	}
 	if(xQueueReceive(eps_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
@@ -816,11 +826,13 @@ static int decode_telecommand(void)
 /************************************************************************/
 static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 {	
-	uint8_t sID = 0xFF;
+	uint8_t sID = 0xFF, ssmID;
 	uint8_t collection_interval = 0;
 	uint8_t npar1 = 0;
 	uint8_t i; //severity=0;
+	uint32_t val = 0;
 	uint32_t time = 0;
+	int* status;
 	clear_current_command();
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
@@ -954,6 +966,40 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			}
 			else
 				send_tc_verification(packet_id, psc, 0xFF, 5, 0, 1);				// Failed telecommand acceptance report (usage error due to experiment_armed = 0)
+		}
+		if(service_sub_type == SET_VARIABLE)
+		{
+			ssmID = get_ssm_id(current_command[136]);
+			val = (uint32_t)current_command[132];
+			val += ((uint32_t)current_command[133]) << 8;
+			val += ((uint32_t)current_command[134]) << 16;
+			val += ((uint32_t)current_command[135]) << 24;			
+			if(ssmID < 3)
+				set_variable(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], (uint16_t)val);
+			else
+				set_obc_variable(current_command[136], val);
+			send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);
+		}
+		if(service_sub_type == GET_PARAMETER)
+		{
+			ssmID = get_ssm_id(current_command[136]);
+			val = (uint32_t)current_command[132];
+			val += ((uint32_t)current_command[133]) << 8;
+			val += ((uint32_t)current_command[134]) << 16;
+			val += ((uint32_t)current_command[135]) << 24;
+			if(ssmID < 3)
+				val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status)
+			else
+				val = get_obc_variable(current_command[136]);
+			send_tc_verification(OBC_PACKET_ROUTER_ID, packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);
+			i = current_command[136];
+			clear_current_command();
+			current_command[136] = i;
+			current_command[132] = (uint8_t)val;
+			current_command[133] = (uint8_t)(val >> 8);
+			current_command[134] = (uint8_t)(val >> 16);
+			current_command[135] = (uint8_t)(val >> 24);			
+			packetize_send_telemetry(OBC_PACKET_ROUTER_ID, GROUND_PACKET_ROUTER_ID, K_SERVICE, SINGLE_PARAMETER_REPORT, sin_par_rep_count++, 1, current_command);
 		}
 		else
 		{
@@ -1287,4 +1333,76 @@ void opr_kill(uint8_t killer)
 	else
 		vTaskDelete(NULL);
 	return;
+}
+
+void set_obc_variable(uint8_t parameter, uint32_t val)
+{
+	switch(parameter)
+	{
+		case ABS_TIME_D:
+			ABSOLUTE_DAY = (uint8_t)val;
+		case ABS_TIME_H:
+			CURRENT_HOUR = (uint8_t)val;
+		case ABS_TIME_M:
+			CURRENT_MINUTE = (uint8_t)val;
+		case ABS_TIME_S:
+			CURRENT_SECOND = (uint8_t)val;
+		case SPI_CHIP_1:
+			SPI_HEALTH1 = (uint8_t)val;
+		case SPI_CHIP_2:
+			SPI_HEALTH2 = (uint8_t)val;
+		case SPI_CHIP_3:
+			SPI_HEALTH3 = (uint8_t)val;
+		case OBC_CTT:
+			obc_consec_trans_timeout = val
+		case OBC_OGT:
+			obc_ok_go_timeout = val;
+		case EPS_BAL_INTV:
+			eps_balance_interval = val;
+		case EPS_HEAT_INTV:
+			eps_heater_interval = val;
+		case EPS_TRGT_TMP:
+			eps_target_temp = val;
+		case EPS_TEMP_INTV:
+			eps_temp_interval = val;
+		default:
+			return;
+	}
+	return;
+}
+
+uint32_t get_obc_variable(uint8_t parameter)
+{
+	switch(parameter)
+	{
+		case ABS_TIME_D:
+			return (uint32_t)ABSOLUTE_DAY;
+		case ABS_TIME_H:
+			return (uint32_t)CURRENT_HOUR;
+		case ABS_TIME_M:
+			return (uint32_t)CURRENT_MINUTE;
+		case ABS_TIME_S:
+			return (uint32_t)CURRENT_SECOND;
+		case SPI_CHIP_1:
+			return (uint32_t)SPI_HEALTH1;
+		case SPI_CHIP_2:
+			return (uint32_t)SPI_HEALTH2;
+		case SPI_CHIP_3:
+			return (uint32_t)SPI_HEALTH3;
+		case OBC_CTT:
+			return obc_consec_trans_timeout;
+		case OBC_OGT:
+			return obc_ok_go_timeout;
+		case EPS_BAL_INTV:
+			return eps_balance_interval;
+		case EPS_HEAT_INTV:
+			return eps_heater_interval;
+		case EPS_TRGT_TMP:
+			return eps_target_temp;
+		case EPS_TEMP_INTV:
+			return eps_temp_interval;
+		default:
+			return 0;
+	}
+	return 0;
 }

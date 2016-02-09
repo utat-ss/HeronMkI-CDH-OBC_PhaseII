@@ -404,6 +404,18 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 			pay_data_receivedf = 1;
 			pay_data_receive[1] = uh_data_incom;
 			pay_data_receive[0] = ul_data_incom;
+		case OBC_PACKET_ROUTER_ID:
+			opr_data_receivedf = 1;
+			opr_data_receive[1] = uh_data_incom;
+			opr_data_receive[0] = ul_data_incom;
+		case FDIR_TASK_ID:
+			fdir_data_receivedf = 1;
+			fdir_data_receive[1] = uh_data_incom;
+			fdir_data_receive[0] = ul_data_incom;
+		case SCHEDULING_TASK_ID:
+			sched_data_receivedf = 1;
+			sched_data_receive[1] = uh_data_incom;
+			sched_data_receive[0] = ul_data_incom;
 		default:
 			return;	
 	}
@@ -1251,6 +1263,78 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 		ret_val = pay_data_receive[0];	// 32-bit return value.
 	
 		pay_data_receivedf = 0;		// Zero this last to keep in sync.
+	}
+	
+	if(sender_id == OBC_PACKET_ROUTER_ID)
+	{
+		while(!opr_data_receivedf)	// Wait for the response to come back.
+		{
+			if(!timeout--)
+			{
+				*status = 0xFF;
+				return 0xFFFFFFFF;			// The operation failed.
+			}
+		}
+		s = (uint8_t)((opr_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+		
+		if (s != sensor_name)
+		{
+			opr_data_receivedf = 0;
+			*status = 0xFF;
+			return 0xFFFFFFFF;			// The operation failed.
+		}
+		
+		ret_val = opr_data_receive[0];	// 32-bit return value.
+		
+		opr_data_receivedf = 0;		// Zero this last to keep in sync.
+	}
+	
+	if(sender_id == FDIR_TASK_ID)
+	{
+		while(!fdir_data_receivedf)	// Wait for the response to come back.
+		{
+			if(!timeout--)
+			{
+				*status = 0xFF;
+				return 0xFFFFFFFF;			// The operation failed.
+			}
+		}
+		s = (uint8_t)((fdir_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+		
+		if (s != sensor_name)
+		{
+			fdir_data_receivedf = 0;
+			*status = 0xFF;
+			return 0xFFFFFFFF;			// The operation failed.
+		}
+		
+		ret_val = fdir_data_receive[0];	// 32-bit return value.
+		
+		fdir_data_receivedf = 0;		// Zero this last to keep in sync.
+	}
+	
+	if(sender_id == SCHEDULING_TASK_ID)
+	{
+		while(!sched_data_receivedf)	// Wait for the response to come back.
+		{
+			if(!timeout--)
+			{
+				*status = 0xFF;
+				return 0xFFFFFFFF;			// The operation failed.
+			}
+		}
+		s = (uint8_t)(sched_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+		
+		if (s != sensor_name)
+		{
+			sched_data_receivedf = 0;
+			*status = 0xFF;
+			return 0xFFFFFFFF;			// The operation failed.
+		}
+		
+		ret_val = sched_data_receive[0];	// 32-bit return value.
+		
+		sched_data_receivedf = 0;		// Zero this last to keep in sync.
 	}
 
 	*status = 1;				// The operation succeeded.

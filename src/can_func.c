@@ -1323,7 +1323,7 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 				return 0xFFFFFFFF;			// The operation failed.
 			}
 		}
-		s = (uint8_t)(sched_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+		s = (uint8_t)((sched_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
 		
 		if (s != sensor_name)
 		{

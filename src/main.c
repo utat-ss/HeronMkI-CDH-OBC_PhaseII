@@ -221,7 +221,7 @@ int main(void)
 	//data_test();
 	//time_manage_HANDLE = time_manage();
 	//memory_manage_HANDLE = memory_manage();
-	eps_HANDLE = eps();
+	//eps_HANDLE = eps();
 	//coms_HANDLE = coms();
 	//pay_HANDLE = payload();
 	wdt_reset_HANDLE = wdt_reset();

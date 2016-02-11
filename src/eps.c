@@ -88,7 +88,7 @@ static void clear_current_command(void);
 
 /* Global Variables Prototypes								*/
 // For Scheduling
-static uint32_t eps_balance_interval, eps_heater_control_interval, eps_mppt_interval;
+static uint32_t eps_heater_control_interval, eps_mppt_interval;
 static uint32_t eps_battery_capacity_interval, eps_modes_interval, eps_verify_sensor_interval;
 
 static uint32_t last_balance_minute = 0;

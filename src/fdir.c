@@ -1217,7 +1217,7 @@ static void exec_commands(void)
 					val += ((uint32_t)current_command[134]) << 16;
 					val += ((uint32_t)current_command[135]) << 24;
 					if(ssmID < 3)
-						val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status)
+						val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status);
 					else
 						val = get_obc_variable(current_command[136]);
 					send_tc_verification(OBC_PACKET_ROUTER_ID, packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);

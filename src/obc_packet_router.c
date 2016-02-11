@@ -126,7 +126,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 void set_obc_variable(uint8_t parameter, uint32_t val);
 uint32_t get_obc_variable(uint8_t parameter);
 
-extern void uint8_t get_ssm_id(uint8_t sensor_name);
+extern uint8_t get_ssm_id(uint8_t sensor_name);
 
 /* Global variables											 */
 static uint8_t version;															// The version of PUS we are using.
@@ -988,10 +988,10 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			val += ((uint32_t)current_command[134]) << 16;
 			val += ((uint32_t)current_command[135]) << 24;
 			if(ssmID < 3)
-				val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status)
+				val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status);
 			else
 				val = get_obc_variable(current_command[136]);
-			send_tc_verification(OBC_PACKET_ROUTER_ID, packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);
+			send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);
 			i = current_command[136];
 			clear_current_command();
 			current_command[136] = i;
@@ -1354,7 +1354,7 @@ void set_obc_variable(uint8_t parameter, uint32_t val)
 		case SPI_CHIP_3:
 			SPI_HEALTH3 = (uint8_t)val;
 		case OBC_CTT:
-			obc_consec_trans_timeout = val
+			obc_consec_trans_timeout = val;
 		case OBC_OGT:
 			obc_ok_go_timeout = val;
 		case EPS_BAL_INTV:

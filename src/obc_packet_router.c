@@ -449,12 +449,14 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	else
 		sequence_flags = 0x3;	// Indicates that this is a standalone packet.
 	// Packet Header
+	version = 0;
 	current_tm[151] = ((version & 0x07) << 5) | ((type & 0x01) << 4) | (0x08);
 	current_tm[150] = sender;
 	current_tm[149] = (sequence_flags & 0x03) << 6;
 	current_tm[148] = sequence_count;
 	current_tm[147] = 0x00;
 	current_tm[146]	= PACKET_LENGTH - 1;	// Represents the length of the data field - 1.
+	version = 1;
 	// Data Field Header
 	current_tm[145] = (version & 0x07) << 4;
 	current_tm[144] = service_type;

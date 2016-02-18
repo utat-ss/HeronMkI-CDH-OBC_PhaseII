@@ -321,7 +321,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			xQueueSendToBackFromISR(event_msg_fifo, &ul_data_incom, &wake_task);
 			xQueueSendToBackFromISR(event_msg_fifo, &uh_data_incom, &wake_task);	// Event reception FIFO.
 		case ASK_OBC_ALIVE:
-			send_can_command(0x00, 0x00, OBC_ID, COMS_ID, OBC_IS_ALIVE, COMMAND_PRIO);
+			send_can_command_from_int(0x00, 0x00, OBC_ID, COMS_ID, OBC_IS_ALIVE, COMMAND_PRIO);
 		case SSM_ERROR_ASSERT:
 			dumbuf[148] = (uint8_t)(uh_data_incom & 0x000000FF);
 			dumbuf[147] = (uint8_t)((ul_data_incom & 0xFF000000) >> 24);
@@ -545,7 +545,7 @@ uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t P
 /* @return: 1 == completed, (<=0) == failure.							*/
 /* @NOTE: 1 != Success (Necessarily) 									*/
 /************************************************************************/
-static int send_can_command_h2(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
+int send_can_command_h2(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {	
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
 	uint32_t id, ret_val, high;
@@ -595,6 +595,35 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 	{
 		ret_val = send_can_command_h(low, high, id, priority);
 		xSemaphoreGive(Can0_Mutex);
+		return (int)ret_val;
+	}
+	
+	else
+		return -1;												// CAN0 is currently busy, or something has gone wrong.
+}
+
+int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
+{
+	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	uint32_t id, ret_val, high;
+	BaseType_t* higher_task_woken;
+	higher_task_woken = pdFALSE;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID0;
+	if(ssm_id == EPS_ID)
+		id = SUB1_ID0;
+	if(ssm_id == PAY_ID)
+		id = SUB2_ID0;
+		
+	high = high_command_generator(sender_id, ssm_id, MT_COM, smalltype);
+	if(byte_four)
+		high |= (uint32_t)byte_four;
+
+	if (xSemaphoreTakeFromISR(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		ret_val = send_can_command_h(low, high, id, priority);
+		xSemaphoreGiveFromISR(Can0_Mutex, higher_task_woken);
 		return (int)ret_val;
 	}
 	
@@ -1537,9 +1566,9 @@ int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t v
 /************************************************************************/
 static void start_tc_packet(void)
 {
-	if((!receiving_tcf) && (!current_tc_fullf))
+	if(!current_tc_fullf)
 	{
-		send_can_command(0x00, 0x00, OBC_PACKET_ROUTER_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);		
+		send_can_command_from_int(0x00, 0x00, OBC_PACKET_ROUTER_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);		
 	}
 	receiving_tcf = 1;
 	return;

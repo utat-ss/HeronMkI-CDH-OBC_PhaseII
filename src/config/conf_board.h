@@ -45,7 +45,7 @@ All rights reserved
 #define CONF_BOARD_H_INCLUDED
 
 /* Enabled Watchdog */
-#define CONF_BOARD_KEEP_WATCHDOG_AT_INIT
+//#define CONF_BOARD_KEEP_WATCHDOG_AT_INIT
 
 /* Enabled CAN Controllers*/
 #define CONF_BOARD_CAN0

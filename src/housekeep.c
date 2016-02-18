@@ -201,9 +201,9 @@ static void prvHouseKeepTask(void *pvParameters )
 		exec_commands();
 		request_housekeeping_all();
 		store_housekeeping();
-		send_hk_as_tm();
-		if(param_report_requiredf)
-			send_param_report();
+		//send_hk_as_tm();
+		//if(param_report_requiredf)
+			//send_param_report();
 	}
 }
 /*-----------------------------------------------------------*/
@@ -219,11 +219,11 @@ static void prvHouseKeepTask(void *pvParameters )
 
 static void exec_commands(void){
 	int attempts = 1;
-	uint32_t exec_com_success;
+	uint8_t exec_com_success;
 	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
-	exec_com_success = (uint32_t)exec_commands_H();
+	exec_com_success = (uint8_t)exec_commands_H();
 	while (attempts<3 && exec_com_success != 1){
-		exec_com_success = (uint32_t)exec_commands_H();
+		exec_com_success = (uint8_t)exec_commands_H();
 		attempts++;
 	}
 	if (exec_com_success != 1) {
@@ -383,7 +383,7 @@ static int request_housekeeping_all(void)
 static int store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
-	uint32_t temp;
+	uint8_t temp;
 	uint8_t num_parameters = current_hk_definition[134];
 	uint8_t parameter_name = 0, i;
 	int attempts = 1;
@@ -423,7 +423,7 @@ static int store_housekeeping(void)
 			
 			if (req_data_result == -1)
 			{
-				temp = (uint32_t)current_hk_definition[i];
+				temp = (uint8_t)current_hk_definition[i];
 				errorREPORT(HK_TASK_ID,0,HK_COLLECT_ERROR, &temp); 				//malfunctioning sensor is sent to erorREPORT
 			}
 			else {
@@ -487,9 +487,9 @@ static int store_hk_in_spimem(void)
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);
 	offset += (uint32_t)current_hk_mem_offset[3];
 
-	task_spimem_write(HK_TASK_ID, (HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
-	task_spimem_write(HK_TASK_ID, (HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
-	x = task_spimem_write(HK_TASK_ID, (HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
+	//task_spimem_write(HK_TASK_ID, (HK_BASE + offset), absolute_time_arr, 4);		// Write the timestamp and then the housekeeping
+	//task_spimem_write(HK_TASK_ID, (HK_BASE + offset + 4), &current_hk_definitionf, 1);	// Writes the sID to memory.
+	//x = task_spimem_write(HK_TASK_ID, (HK_BASE + offset + 5), current_hk, 128);		// FAILURE_RECOVERY if x < 0
 	if(x < 0)
 		return x;
 	offset = (offset + 137) % LENGTH_OF_HK;								// Make sure HK doesn't overflow into the next section.
@@ -500,7 +500,7 @@ static int store_hk_in_spimem(void)
 	current_hk_mem_offset[2] = (uint8_t)((offset & 0x0000FF00) >> 8);
 	current_hk_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
 	current_hk_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
-	return 	task_spimem_write(HK_TASK_ID, HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
+	//return 	task_spimem_write(HK_TASK_ID, HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
 }
 
 /************************************************************************/

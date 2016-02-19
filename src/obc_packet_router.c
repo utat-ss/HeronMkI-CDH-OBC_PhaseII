@@ -142,7 +142,8 @@ static uint8_t current_command[DATA_LENGTH + 10];
 /* Latest TC packet received, next TM packet to send	*/
 static uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];	// Arrays are 144B for ease of implementation.
 static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH];
-static TickType_t xTimeToWait;
+static uint32_t low_received, high_received;
+static uint32_t new_tc_msg_high, new_tc_msg_low;
 
 /************************************************************************/
 /* OBC_PACKET_ROUTER (Function)											*/
@@ -176,9 +177,10 @@ TaskHandle_t obc_packet_router( void )
 static void prvOBCPacketRouterTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == OBC_PACKET_ROUTER_PARAMETER );
-	uint32_t new_tc_msg_high = 0, new_tc_msg_low = 0;
+
 	int status;
 	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
+	TickType_t	xLastWakeTime;
 
 	/* Initialize Global variables and flags */
 	current_tc_fullf = 0;
@@ -233,12 +235,24 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	version = 0;		// First 3 bits of the packet ID. (0 is default)
 	data_header = 1;	// Include the data field header in the PUS packet.
 
+
+	low_received = 0, high_received = 0;
+	new_tc_msg_high = 0, new_tc_msg_low = 0;
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		if( xQueueReceive(tc_msg_fifo, &new_tc_msg_low, xTimeToWait) == pdTRUE)		// Block on the TC_MSG_FIFO for a maximum of 10 ticks.
+		if(!low_received)
 		{
-			xQueueReceive(tc_msg_fifo, &new_tc_msg_high, xTimeToWait);
+			if(xQueueReceive(tc_msg_fifo, &new_tc_msg_low, xTimeToWait) == pdTRUE)
+				low_received = 1;
+		}
+		if(low_received & !high_received)
+		{
+			if(xQueueReceive(tc_msg_fifo, &new_tc_msg_high, xTimeToWait) == pdTRUE)
+				high_received = 1;
+		}
+		if(high_received)		// Block on the TC_MSG_FIFO for a maximum of 10 ticks.
+		{
 			status = receive_tc_msg();					// FAILURE_RECOVERY if status == -1.
 		}
 		//if(TC_PACKET_COUNT && task_spimem_read(OBC_PACKET_ROUTER_ID, NEXT_TC_PACKET, tc_to_decode, 152) > 0)
@@ -267,6 +281,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 		//}	
 		//exec_commands();
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -529,6 +545,8 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 static int receive_tc_msg(void)
 {
 	uint8_t ssm_seq_count = (uint8_t)(new_tc_msg_high & 0x000000FF);
+	low_received = 0;
+	high_received = 0;
 	
 	if(ssm_seq_count > (tc_sequence_count + 1))
 	{

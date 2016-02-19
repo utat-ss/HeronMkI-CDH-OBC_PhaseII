@@ -311,17 +311,23 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 		case SEND_TC:
 			xQueueSendToBackFromISR(tc_msg_fifo, &ul_data_incom, &wake_task);		// Telecommand reception FIFO.
 			xQueueSendToBackFromISR(tc_msg_fifo, &uh_data_incom, &wake_task);
+			break;
 		case TC_PACKET_READY:
 			start_tc_packet();
+			break;
 		case TM_TRANSACTION_RESP:
 			tm_transfer_completef = (uint8_t)(ul_data_incom & 0x000000FF);
+			break;
 		case OK_START_TM_PACKET:
 			start_tm_transferf = 1;
+			break;
 		case SEND_EVENT:
 			xQueueSendToBackFromISR(event_msg_fifo, &ul_data_incom, &wake_task);
 			xQueueSendToBackFromISR(event_msg_fifo, &uh_data_incom, &wake_task);	// Event reception FIFO.
+			break;
 		case ASK_OBC_ALIVE:
 			send_can_command_from_int(0x00, 0x00, OBC_ID, COMS_ID, OBC_IS_ALIVE, COMMAND_PRIO);
+			break;
 		case SSM_ERROR_ASSERT:
 			dumbuf[148] = (uint8_t)(uh_data_incom & 0x000000FF);
 			dumbuf[147] = (uint8_t)((ul_data_incom & 0xFF000000) >> 24);
@@ -329,16 +335,21 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			dumbuf[145] = (uint8_t)((ul_data_incom & 0x0000FF00) >> 8);
 			dumbuf[144] = (uint8_t)(ul_data_incom & 0x000000FF);	
 			xQueueSendToBackFromISR(high_sev_to_fdir_fifo, dumbuf, &wake_task);
+			break;
 		case SSM_ERROR_REPORT:
 			break;
 		case LOW_POWER_MODE_ENTERED:
 			LOW_POWER_MODE = 1;
+			break;
 		case LOW_POWER_MODE_EXITED:
 			LOW_POWER_MODE = 0;
+			break;
 		case COMS_TAKEOVER_ENTERED:
 			COMS_TAKEOVER_MODE = 1;
+			break;
 		case COMS_TAKEOVER_EXITED:
 			COMS_TAKEOVER_MODE = 0;
+			break;
 		case OPERATIONS_PAUSED:
 			if(sender = COMS_ID)
 				COMS_PAUSED = 1;
@@ -346,6 +357,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				EPS_PAUSED = 1;
 			if(sender == PAY_ID)
 				PAY_PAUSED = 1;
+			break;
 		case OPERATIONS_RESUMED:
 			if(sender == COMS_ID)
 				COMS_PAUSED = 0;
@@ -353,8 +365,10 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				EPS_PAUSED = 0;
 			if(sender == PAY_ID)
 				PAY_PAUSED = 0;
+			break;
 		case PD_COLLECTED:
 			pd_collectedf = 1;
+			break;
 		default :
 			return;
 	}
@@ -524,7 +538,7 @@ uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t P
 
 	/* Write transmit information into mailbox. */
 	can0_mailbox.ul_id = CAN_MID_MIDvA(ID);			// ID of the message being sent,
-	can0_mailbox.ul_datal = low;					// shifted over to the standard frame position.
+	can0_mailbox.ul_datal = low;					// shifted over to the standard frame position./
 	can0_mailbox.ul_datah = high;
 	can0_mailbox.uc_length = MAX_CAN_FRAME_DATA_LEN;
 	can_mailbox_write(CAN0, &can0_mailbox);
@@ -595,6 +609,7 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 	{
 		ret_val = send_can_command_h(low, high, id, priority);
 		xSemaphoreGive(Can0_Mutex);
+		delay_us(100);
 		return (int)ret_val;
 	}
 	
@@ -620,10 +635,11 @@ int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id
 	if(byte_four)
 		high |= (uint32_t)byte_four;
 
-	if (xSemaphoreTakeFromISR(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	if (xSemaphoreTakeFromISR(Can0_Mutex, higher_task_woken) == pdTRUE)		// Attempt to acquire CAN0 Mutex, block for 1 tick.
 	{
 		ret_val = send_can_command_h(low, high, id, priority);
 		xSemaphoreGiveFromISR(Can0_Mutex, higher_task_woken);
+		delay_us(100);
 		return (int)ret_val;
 	}
 	

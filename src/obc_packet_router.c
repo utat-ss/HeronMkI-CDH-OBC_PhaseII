@@ -577,8 +577,8 @@ static int receive_tc_msg(void)
 			tc_sequence_count = 0;
 			receiving_tcf = 0;
 			current_tc_fullf = 1;
-			store_current_tc();
 			send_tc_transaction_response(ssm_seq_count);
+			store_current_tc();
 		}
 		return ssm_seq_count;
 	}
@@ -732,14 +732,14 @@ static int store_current_tc(void)
 		send_event_report(1, TC_BUFFER_HALF_FULL, 0, 0);
 		
 	TC_PACKET_COUNT++;
-	task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE, &TC_PACKET_COUNT, 4);
+	spimem_write(TC_BASE, &TC_PACKET_COUNT, 4);
 	
 	CURRENT_TC_PACKET += 152;
 	if(CURRENT_TC_PACKET > (TC_BASE + 0x20000))
 		CURRENT_TC_PACKET = TC_BASE + 12;
-	task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 8, &CURRENT_TC_PACKET, 4);
+	spimem_write(TC_BASE + 8, &CURRENT_TC_PACKET, 4);
 	
-	if(task_spimem_write(OBC_PACKET_ROUTER_ID, CURRENT_TC_PACKET, current_tc, 152) < 0)
+	if(spimem_write(CURRENT_TC_PACKET, current_tc, 152) < 0)
 		return -1;
 	current_tc_fullf = 0;
 	return;
@@ -757,14 +757,14 @@ static int store_current_tm(void)
 		send_event_report(1, TM_BUFFER_HALF_FULL, 0, 0);
 		
 	TM_PACKET_COUNT++;
-	task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
+	spimem_write(TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
 	
 	CURRENT_TM_PACKET += 152;
 	if(CURRENT_TM_PACKET > (TM_BASE + 0x20000))
 		CURRENT_TM_PACKET = TM_BASE + 12;
-	task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 8, &CURRENT_TM_PACKET, 4);		// FAILURE_RECOVERY
+	spimem_write(TM_BASE + 8, &CURRENT_TM_PACKET, 4);		// FAILURE_RECOVERY
 
-	if(task_spimem_write(OBC_PACKET_ROUTER_ID, CURRENT_TM_PACKET, current_tm, 152) < 0)					// FAILURE_RECOVERY
+	if(spimem_write(CURRENT_TM_PACKET, current_tm, 152) < 0)					// FAILURE_RECOVERY
 		return -1;
 	current_tm_fullf = 0;
 	return 1;

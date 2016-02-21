@@ -214,18 +214,17 @@ int main(void)
 		
 	/* Create Tasks */
 	//fdir_HANDLE = fdir();
-	opr_HANDLE = obc_packet_router();
+	//opr_HANDLE = obc_packet_router();
 	//scheduling_HANDLE = scheduling();
 	//command_loop();
 	//housekeeping_HANDLE = housekeep();
-	data_test();
+	//data_test();
 	//time_manage_HANDLE = time_manage();
 	//memory_manage_HANDLE = memory_manage();
 	//eps_HANDLE = eps();
 	//coms_HANDLE = coms();
 	//pay_HANDLE = payload();
 	wdt_reset_HANDLE = wdt_reset();
-	
 	/* Start Scheduler */
 	vTaskStartScheduler();
 	
@@ -300,7 +299,7 @@ static void prvSetupHardware(void)
 	//rtc_init(DS3234_INTCN);
 	
 	/* Initialize the SPI memory chips	*/
-	//spimem_initialize();
+	spimem_initialize();
 	
 	/* Initialize the Camera */
 	//camera_initialize();
@@ -507,6 +506,10 @@ static void prvInitializeGlobalVars(void)
 	MAX_TM_PACKETS = 862;
 	TM_PACKET_COUNT = 0;
 	TC_PACKET_COUNT = 0;
+	
+	SPI_HEALTH1 = 0;
+	SPI_HEALTH2 = 1;
+	SPI_HEALTH3 = 0;
 	
 	return;
 }

@@ -1,6 +1,5 @@
 /*
 	Author: Keenan Burnett
-
 	***********************************************************************
 *	FILE NAME:		spimem.c
 *
@@ -89,9 +88,7 @@ static uint32_t ready_for_command_h(uint32_t spi_chip);
 /************************************************************************/
 void spimem_initialize(void)
 {
-	uint16_t dumbuf[2], i;
-	uint8_t check;
-	uint8_t attempts;
+	uint16_t i;
 	
 	if(INTERNAL_MEMORY_FALLBACK_MODE)
 		return;
@@ -101,40 +98,18 @@ void spimem_initialize(void)
 	gpio_set_pin_high(SPI0_MEM2_HOLD);	// Turn "holding" off.
 	gpio_set_pin_high(SPI0_MEM2_WP);	// Turn write protection off.
 	
-	//this block is repeated for error handling in other functions
-		attempts = 0;
-		while (attempts<3 && ready_for_command_h(2)!=1){
-			attempts++;
-		}
-		if (attempts == 2)
-		   {errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_BUSY_CHIP_ERROR, msg_buff);
-			return;} 
-	//end error handling block
-	
+	if (ready_for_command_h(2) != 1)
+		errorASSERT(SPIMEM_SENDER_ID, 0, SPIMEM_BUSY_CHIP_ERROR, spi_mem_buff, 0);
+
 	if(ERASE_SPIMEM_ON_RESET)
-	{
-		
-		attempts = 0;
-		while(attempts<3 && erase_spimem()<0){
-			attempts++;
-		}
-		
-		if (attempts == 2)
-		{errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_CHIP_ERASE_ERROR, msg_buff);
-		return;}
-		attempts = 0;
-		
+	{	
+		if(erase_spimem() < 0)
+			errorASSERT(SPIMEM_SENDER_ID, 0, SPIMEM_CHIP_ERASE_ERROR, spi_mem_buff, 0);
 	}
-	
-	
-	attempts = 0;
-	while (attempts<3 && ready_for_command_h(2)!=1){
-		attempts++;
-	}
-	if (attempts == 2)
-		{errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_BUSY_CHIP_ERROR, msg_buff);
-		return;}						
-	
+
+	if (ready_for_command_h(2) != 1)
+		errorASSERT(SPIMEM_SENDER_ID, 0, SPIMEM_BUSY_CHIP_ERROR, spi_mem_buff, 0);
+							
 	for (i = 0; i < 128; i++)
 	{
 		spi_bit_map[i] = 0;				// Initialize the bitmap
@@ -157,19 +132,11 @@ int erase_spimem(void)
 		{
 			spi_mem_buff[i] = 0;			// Initialize the memory buffer.
 		}
-		return;
+		return 1;
 	}
-	uint32_t timeout = chip_erase_timeout;
+	uint32_t timeout = 1500;
 	spi_master_transfer(dumbuf, 1, 2);	// Chip-Erase (this operation can take up to 7s for each chip)
-	while((check_if_wip(2) != 0) && timeout--){ }
-	if((check_if_wip(2) != 0) || !timeout)
-		return -1;
-	timeout = chip_erase_timeout;
-	while((check_if_wip(2) != 0) && timeout--){ }
-	if((check_if_wip(2) != 0) || !timeout)
-		return -1;
-	timeout = chip_erase_timeout;
-	while((check_if_wip(2) != 0) && timeout--){ }
+	while((check_if_wip(2) != 0) && timeout--){delay_ms(10);}
 	if((check_if_wip(2) != 0) || !timeout)
 		return -1;
 	return 1;
@@ -177,18 +144,18 @@ int erase_spimem(void)
 
 // ret > 0 == nunmber of bytes which were successfully written to memory.
 // ret < 0 ==  failure code which should be given to the FDIR task. -1 = All SPI Chips are dead.
-/* @NOTE: Writes a maximum of 256 bytes.									*/
+/* @NOTE: Writes a maximum of 256 bytes									*/
 int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
 	int x = -1;
-	int i;
+	uint32_t i;
 	if(INTERNAL_MEMORY_FALLBACK_MODE)
 	{
 		for(i = 0; i < size; i++)
 		{
 			spi_mem_buff[addr + i] = *(data_buff + i);
 		}
-		return;
+		return size;
 	}
 	if(!SPI_HEALTH1 && ! SPI_HEALTH2 && !SPI_HEALTH3)
 		return -1;
@@ -236,12 +203,12 @@ int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 /************************************************************************/
 int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
-	uint32_t size1, size2, low, dirty = 0, page, sect_num, check, attempts;
-		
+	uint32_t size1, size2, low, dirty = 0, page, sect_num, check;
+	
 	if (size > 256)				// Invalid size to write.
-		return -2;
+	return -1;
 	if (addr > 0xFFFFF)			// Invalid address to write to.
-		return -2;
+	return -1;
 	
 	low = addr & 0x000000FF;
 	if ((size + low) > 256)		// Requested write flows into a second page.
@@ -268,51 +235,21 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 		{
 			exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
-			return -4;
+			return -1;
 		}
-					
+		
 		page = get_page(addr);
 		dirty = check_page(page);
 		if(dirty)
 		{
 			sect_num = get_sector(addr);
-			
-			//load_sector call with error handling
-			attempts = 0;
-			check = 0;
-			while (attempts<3 && check != 4096){
-				check = load_sector_into_spibuffer(spi_chip, sect_num);
-				attempts++;}
-				
-			if (check!=4096){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_LOAD_SECTOR_ERROR, msg_buff);}
-			
-			//update_spibuffer call with error handling
-			attempts = 0; check = 0;	
-			while (attempts<3 && check != size1){
-				check = update_spibuffer_with_new_page(addr, data_buff, size1);
-				attempts++;}
-			if (check!=size1){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_UPDATE_SPIBUFFER_ERROR, msg_buff);}
-			
-			
-			//erase_sector call with error handling
-			attempts = 0; check = -1;
-			while (attempts<3 && check<0){
-				check = erase_sector_on_chip(spi_chip, sect_num);
-				attempts++;
-			}
-			if (check<0){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_ERASE_SECTOR_ERROR, msg_buff);}
-			
-			//write_sector call with error handling
-			
-			attempts = 0; check = -1;
-			while (attempts<3 && check<0){
-				check = write_sector_back_to_spimem(spi_chip);
-				attempts++;
-			}
-			if (check<0){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_WRITE_SECTOR_ERROR, msg_buff);}				
+			check = load_sector_into_spibuffer(spi_chip, sect_num);			// if check != 4096, FAILURE_RECOVERY.
+			check = update_spibuffer_with_new_page(addr, data_buff, size1);	// if check != size1, FAILURE_RECOVERY.
+			check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
+			check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
 		}
 		else
-		{		
+		{
 			if(write_page_h(spi_chip, addr, data_buff, size1) != 1)
 			{
 				exit_atomic();						// Atomic operation ends.
@@ -334,52 +271,14 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 			if(dirty)
 			{
 				sect_num = get_sector(addr + size1);
-				
-				
-				//load_sector call with error handling
-				attempts = 0;
-				check = 0;
-				while (attempts<3 && check != 4096){
-					check = load_sector_into_spibuffer(spi_chip, sect_num);
-					attempts++;}
-				
-				if (check!=4096){
-					errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_LOAD_SECTOR_ERROR, msg_buff);
-					return -4;}
-				
-				//update_spibuffer call with error handling
-				attempts = 0; check = 0;
-				while (attempts<3 && check != size1){
-					check = update_spibuffer_with_new_page(addr, data_buff, size1);
-				attempts++;}
-				if (check!=size1){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_UPDATE_SPIBUFFER_ERROR, msg_buff); return -4;}
-				
-				
-				//erase_sector call with error handling
-				attempts = 0; check = 0;
-				while (attempts<3 && check!=1){
-					check = erase_sector_on_chip(spi_chip, sect_num);
-					attempts++;
-				}
-				if (check!=1){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_ERASE_SECTOR_ERROR, msg_buff); return -4;}
-				
-				//write_sector call with error handling
-				
-				attempts = 0; check = -1;
-				while (attempts<3 && (check<0 || check == 0xFFFFFFFF)){
-					check = write_sector_back_to_spimem(spi_chip);
-					attempts++;
-				}
-				if (check==0xFFFFFFFF){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_WRITE_SECTOR_ERROR, msg_buff);}
-				/*
+				check = load_sector_into_spibuffer(spi_chip, sect_num);						// if check != 4096, FAILURE_RECOVERY.
+				check = update_spibuffer_with_new_page(addr + size1, (data_buff + size1), size2);	// if check != size1, FAILURE_RECOVERY.
+				check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
 				check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
-				if(check == 0xFFFFFFFF)
-					return -4;  //is 0xFFFFFF an error? or is it -1?
-								// if 0xFFFFF is an error, change the previous call to write_sector_back (if and while conditions wrong)
-				*/
+
 			}
 			else
-			{		
+			{
 				if(write_page_h(spi_chip, addr + size1, (data_buff + size1), size2) != 1)
 				{
 					exit_atomic();
@@ -391,12 +290,11 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 		
 		exit_atomic();
 		xSemaphoreGive(Spi0_Mutex);
-		return (size1 + size2);	
+		return (size1 + size2);
 	}
 
 	else
-		return -3;												// SPI0 is currently being used or there is an error.
-}
+	return -1;}
 
 /************************************************************************/
 /* SPIMEM_READ_H 		                                                    */
@@ -416,9 +314,8 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 /************************************************************************/
 static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
-	uint32_t i, attempts, check;
+	uint32_t i;
 	uint32_t size2 = size;
-	uint32_t left_over = 0;
 
 	if (INTERNAL_MEMORY_FALLBACK_MODE)
 	{
@@ -442,22 +339,18 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 	msg_buff[1] = (uint16_t)((addr & 0x000F0000) >> 16);
 	msg_buff[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
 	msg_buff[3] = (uint16_t)(addr & 0x000000FF);
-		
+	
 	for(i = 4; i < 260; i++)
 	{
 		msg_buff[i] = 0;
 	}
-	
-	attempts = 0; check = -1;
-	while (attempts<3 && check != 0){
-		check = check_if_wip(spi_chip);
-		attempts++;
-	}
-	if (check!=0){errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_WR_ERROR, msg_buff); return -4;}
-	
+
+	if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
+	return -1;
+
 	spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
 
-	for(i = 4; i < (size2 + 4); i++)
+	for(i = 4; i < size2 + 4; i++)
 	{
 		*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
 	}
@@ -483,10 +376,9 @@ static int spimem_read_h(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, u
 /************************************************************************/
 int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
-	uint32_t i, attempts, check;
+	uint32_t i;
 	uint32_t spi_chip;
 	uint32_t size2 = size;
-	uint32_t left_over = 0;
 	
 	if (INTERNAL_MEMORY_FALLBACK_MODE)
 	{
@@ -509,48 +401,38 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 		spi_chip = 3;
 	else
 	{
-		
-		// Something has gone horribly wrong, let the FDIR task know.
-			//Assuming ^this means it's a HIGHSEV error?
-		errorASSERT(SPIMEM_SENDER_ID, 0, SPIMEM_ALL_CHIPS_ERROR, msg_buff, Spi0_Mutex); 
-		
+		errorASSERT(SPIMEM_SENDER_ID, 0, SPIMEM_ALL_CHIPS_ERROR, read_buff, Spi0_Mutex); 
 		return -1;
 	}
-	
 	if (addr > 0xFFFFF)										// Invalid address to write to.
-		return -2;		// USAGE_ERROR
-	if ((addr + size2 - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
-		size2 = 0xFFFFF - size2;
+		return -1;
+	if ((addr + size - 1) > 0xFFFFF)						// Read would overflow highest address, read less.
+		size = 0xFFFFF - size;
 
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t) 1) == pdTRUE)	// Only Block for a single tick.
 	{
 		enter_atomic();											// Atomic operation begins.
-		
+			
 		msg_buff[0] = RD;
 		msg_buff[1] = (uint16_t)((addr & 0x000F0000) >> 16);
 		msg_buff[2] = (uint16_t)((addr & 0x0000FF00) >> 8);
 		msg_buff[3] = (uint16_t)(addr & 0x000000FF);
-		
+			
 		for(i = 4; i < 260; i++)
 		{
 			msg_buff[i] = 0;
 		}
-	
-	
-		attempts = 0; check = -1;
-		while (attempts<3 && check != 0){
-			check = check_if_wip(spi_chip);
-			attempts++;
-		}
-		if (check!=0){
-			errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_WR_ERROR, msg_buff); 
+
+		if(check_if_wip(spi_chip) != 0)							// A write is still in effect, FAILURE_RECOVERY.
+		{
 			exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
-			return -4;}
-		
+			return -1;
+		}
+			
 		spi_master_transfer(msg_buff, 260, spi_chip);	// Keeps CS low so that read may begin immediately.
 
-		for(i = 4; i < (size2 + 4); i++)
+		for(i = 4; i < 260; i++)
 		{
 			*(read_buff + (i - 4)) = (uint8_t)msg_buff[i];
 		}
@@ -560,7 +442,7 @@ int spimem_read(uint32_t addr, uint8_t* read_buff, uint32_t size)
 		return size;
 	}
 	else
-		return -3;												// SPI0 is currently being used or there is an error.
+		return -1;
 }
 
 /************************************************************************/
@@ -611,7 +493,7 @@ int spimem_read_alt(uint32_t spi_chip, uint32_t addr, uint8_t* read_buff, uint32
 			attempts++;
 		}
 		if (check!=0){
-			errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_WR_ERROR, msg_buff);
+			errorREPORT(SPIMEM_SENDER_ID, 0, SPIMEM_WR_ERROR, read_buff);
 			exit_atomic();
 			xSemaphoreGive(Spi0_Mutex);
 			return -1;}
@@ -657,8 +539,8 @@ uint32_t load_sector_into_spibuffer(uint32_t spi_chip, uint32_t sect_num)
 
 	for(i = 0; i < 16; i++)
 	{
-		temp = spimem_read_h(spi_chip, (addr + i * 256), (spi_mem_buff + i * 256), 256);
-		if(temp == -1)
+		temp = (uint32_t)spimem_read_h(spi_chip, (addr + i * 256), (spi_mem_buff + i * 256), 256);
+		if(temp == 0xFFFFFFFF)
 			return i * 256;
 		read += temp;
 	}
@@ -1049,7 +931,8 @@ static uint32_t ready_for_command_h(uint32_t spi_chip)
 // Meant to be used by either housekeeping, scheduling, or payload, but can be extended to other tasks easily.
 int task_spimem_write(uint8_t task, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
-	uint8_t error, attempts, spimem_success;
+	uint8_t error, attempts;
+	int spimem_success;
 	switch(task)
 	{
 		case HK_TASK_ID:
@@ -1082,7 +965,8 @@ int task_spimem_write(uint8_t task, uint32_t addr, uint8_t* data_buff, uint32_t 
 // Meant to be used by either housekeeping, scheduling, or payload, but can be extended to other tasks easily.
 int task_spimem_read(uint8_t task, uint32_t addr, uint8_t* read_buff, uint32_t size)
 {
-	uint8_t error, attempts, spimem_success;
+	uint8_t error, attempts;
+	int spimem_success;
 	switch(task)
 	{
 		case HK_TASK_ID:
@@ -1102,8 +986,10 @@ int task_spimem_read(uint8_t task, uint32_t addr, uint8_t* read_buff, uint32_t s
 	}
 	if (spimem_success < 0) 
 	{
-		errorREPORT(task, spimem_success, error, read_buff);
-		return -1;
+		if(task == PAY_TASK_ID)
+			errorASSERT(task, spimem_success, error, read_buff, 0);
+		else
+			errorREPORT(task, spimem_success, error, read_buff);
 	}
 	else
 		return 0;

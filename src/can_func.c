@@ -475,8 +475,9 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
 		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
 	case 7 :
-		xQueueSendToBackFromISR(can_com_fifo, &ul_data_incom, &wake_task);		// Global CAN Command FIFO
-		xQueueSendToBackFromISR(can_com_fifo, &uh_data_incom, &wake_task);
+		break;
+		//xQueueSendToBackFromISR(can_com_fifo, &ul_data_incom, &wake_task);		// Global CAN Command FIFO
+		//xQueueSendToBackFromISR(can_com_fifo, &uh_data_incom, &wake_task);
 		// Note that the above line is not going to be necessary in the future
 		// as we shall use decode_can_msg() to set flags which processes will then
 		// be able to use without reading CAN messages.
@@ -622,7 +623,7 @@ int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
 	uint32_t id, ret_val, high;
 	BaseType_t* higher_task_woken;
-	higher_task_woken = pdFALSE;
+	*higher_task_woken = pdFALSE;
 	
 	if(ssm_id == COMS_ID)
 		id = SUB0_ID0;

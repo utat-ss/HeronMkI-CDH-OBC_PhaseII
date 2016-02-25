@@ -141,7 +141,7 @@ static uint8_t current_data[DATA_LENGTH];
 static uint8_t current_command[DATA_LENGTH + 10];
 /* Latest TC packet received, next TM packet to send	*/
 static uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];	// Arrays are 144B for ease of implementation.
-static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH], tc_buffer[PACKET_LENGTH];
+static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH];
 static uint32_t low_received, high_received;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
 
@@ -204,12 +204,12 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	sin_par_rep_count = 0;
 	clear_current_data();
 	clear_current_command();
-	task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);	// FAILURE_HANDLING
-	task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);
-	task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE + 8, &CURRENT_TM_PACKET, 4);
-	task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE, &TC_PACKET_COUNT, 4);	// FAILURE_HANDLING
-	task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
-	task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 8, &CURRENT_TC_PACKET, 4);
+	//task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);	// FAILURE_HANDLING
+	//task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);
+	//task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE + 8, &CURRENT_TM_PACKET, 4);
+	//task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE, &TC_PACKET_COUNT, 4);	// FAILURE_HANDLING
+	//task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
+	//task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 8, &CURRENT_TC_PACKET, 4);
 	if(NEXT_TM_PACKET == 0)
 	{
 		NEXT_TM_PACKET = TM_BASE + 12;
@@ -225,7 +225,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 		NEXT_TC_PACKET = TC_BASE + 12;
 		task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
 	}
-	if(CURRENT_TM_PACKET == 0)
+	if(CURRENT_TC_PACKET == 0)
 	{
 		CURRENT_TC_PACKET = TC_BASE + 12;
 		task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 8, CURRENT_TC_PACKET, 4);
@@ -234,8 +234,6 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	/* Initialize variable used in PUS Packets */
 	version = 0;		// First 3 bits of the packet ID. (0 is default)
 	data_header = 1;	// Include the data field header in the PUS packet.
-	uint8_t i;
-
 	low_received = 0, high_received = 0;
 	new_tc_msg_high = 0, new_tc_msg_low = 0;
 	/* @non-terminating@ */	
@@ -255,20 +253,19 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 		{
 			status = receive_tc_msg();					// FAILURE_RECOVERY if status == -1.
 		}
-		if(TC_PACKET_COUNT && spimem_read(NEXT_TC_PACKET, tc_to_decode, 152) > 0)
-		{
-			TC_PACKET_COUNT--;
-			for(i = 0; i < 152; i++)
-			{
-				tc_to_decode[i] = tc_buffer[i];
-			}
-			spimem_write(TC_BASE, &TC_PACKET_COUNT, 4);		// FAILURE_RECOVERY
-			NEXT_TC_PACKET += 152;
-			if (NEXT_TC_PACKET > (TC_BASE + 0x20000))
-			NEXT_TC_PACKET = TC_BASE + 12;
-			spimem_write(TC_BASE + 4, &NEXT_TC_PACKET, 4);	// Update the position of the next packet		
+		//if(TC_PACKET_COUNT && spimem_read(NEXT_TC_PACKET, tc_to_decode, PACKET_LENGTH) == PACKET_LENGTH)
+		//{
+			//TC_PACKET_COUNT--;
+			//spimem_write(TC_BASE, &TC_PACKET_COUNT, 4);		// FAILURE_RECOVERY
+			//NEXT_TC_PACKET += PACKET_LENGTH;
+			//if (NEXT_TC_PACKET > (TC_BASE + 0x20000))
+				//NEXT_TC_PACKET = TC_BASE + 12;
+			//spimem_write(TC_BASE + 4, &NEXT_TC_PACKET, 4);	// Update the position of the next packet		
+			//decode_telecommand();
+		//}
+		if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
 			decode_telecommand();
-		}
+		
 		//if (tm_down_fullf)
 		//{
 			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
@@ -730,27 +727,31 @@ static void clear_current_command(void)
 /************************************************************************/
 static int store_current_tc(void)
 {
-	uint8_t i;
-	if(TC_PACKET_COUNT == MAX_TM_PACKETS)
-		return -1;
-	if(TC_PACKET_COUNT == MAX_TM_PACKETS / 2)
-		send_event_report(1, TC_BUFFER_HALF_FULL, 0, 0);
-	for(i = 0; i < 152; i++)
+	uint8_t i, test = 0;
+	//if(TC_PACKET_COUNT == MAX_TM_PACKETS)
+		//return -1;
+	//if(TC_PACKET_COUNT == MAX_TM_PACKETS / 2)
+		//send_event_report(1, TC_BUFFER_HALF_FULL, 0, 0);
+	//for(i = 0; i < 152; i++)
+	//{
+		//test = current_tc[i];
+	//}
+	//
+	//if(spimem_write(CURRENT_TC_PACKET, current_tc, 152) != 152)
+		//return -1;
+		//
+	//TC_PACKET_COUNT++;
+	//spimem_write(TC_BASE, &TC_PACKET_COUNT, 4);
+//
+	//CURRENT_TC_PACKET += 152;
+	//if(CURRENT_TC_PACKET > (TC_BASE + 0x20000))
+		//CURRENT_TC_PACKET = TC_BASE + 12;
+	//spimem_write(TC_BASE + 8, &CURRENT_TC_PACKET, 4);
+	if(xQueueSendToBack(tc_buffer, current_tc, (TickType_t)1) != pdPASS)
 	{
-		tc_buffer[i] = current_tc[i];
+		send_event_report(1, TC_BUFFER_FULL, 0, 0);		// FAILURE_RECOVERY
+		return;
 	}
-	
-	if(spimem_write(CURRENT_TC_PACKET, current_tc, 152) < 0)
-		return -1;
-		
-	TC_PACKET_COUNT++;
-	spimem_write(TC_BASE, &TC_PACKET_COUNT, 4);
-
-	CURRENT_TC_PACKET += 152;
-	if(CURRENT_TC_PACKET > (TC_BASE + 0x20000))
-		CURRENT_TC_PACKET = TC_BASE + 12;
-	spimem_write(TC_BASE + 8, &CURRENT_TC_PACKET, 4);
-	
 	current_tc_fullf = 0;
 	return;
 }
@@ -792,7 +793,7 @@ static int store_current_tm(void)
 /************************************************************************/
 static int decode_telecommand(void)
 {
-	uint8_t data_field_headerf, apid;
+	uint8_t data_field_headerf, apid, test = 0, i;
 	int x, attempts;
 	uint8_t packet_length;
 	uint16_t pec1, pec0;
@@ -827,11 +828,16 @@ static int decode_telecommand(void)
 	pec1 = pec1 << 8;
 	pec1 += (uint16_t)(tc_to_decode[0]);
 	
+	for(i = 0; i < PACKET_LENGTH; i++)
+	{
+		test = tc_to_decode[i];
+	}
+	
 	/* Check that the packet error control is correct		*/
 	pec0 = fletcher16(tc_to_decode + 2, 150);
 	/* Verify that the telecommand is ready to be decoded.	*/
 	
-	attempts = 0; x = 0;
+	attempts = 0; x = -1;
 	while (attempts<3 && x<0){
 		x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
 		attempts++;
@@ -1184,7 +1190,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		}
 	}
 	
-	if(version != 1)
+	if(version != 0)
 	{
 		send_tc_verification(packet_id, psc, 0xFF, 5, 0x00, 1);							// TC verify acceptance repoort, failure, 5 == usage error
 		return -1;

@@ -215,15 +215,19 @@ BaseType_t xQueueReceiveTask(uint8_t task, uint8_t direction, QueueHandle_t fifo
 	switch(task)
 	{
 		case HK_TASK_ID:
-		error = HK_FIFO_RW_ERROR;
+			error = HK_FIFO_RW_ERROR;
+			break;
 		case SCHEDULING_TASK_ID:
-		error = SCHED_FIFO_RW_ERROR;
+			error = SCHED_FIFO_RW_ERROR;
+			break;
 		case TIME_TASK_ID:
-		error = TM_FIFO_RW_ERROR;
+			error = TM_FIFO_RW_ERROR;
+			break;
 		case MEMORY_TASK_ID:
-		error = MEM_FIFO_RW_ERROR;
+			error = MEM_FIFO_RW_ERROR;
+			break;
 		default:
-		return pdFALSE;
+			return pdFALSE;
 	}
 	while (attempts < 3 && xQueueReceive(fifo, itemToQueue, ticks) != pdPASS )
 	{

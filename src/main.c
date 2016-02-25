@@ -342,7 +342,9 @@ static void prvInitializeFifos(void)
 	can_msg_fifo = xQueueCreate(fifo_length, item_size);
 	can_hk_fifo = xQueueCreate(fifo_length, item_size);
 	can_com_fifo = xQueueCreate(fifo_length, item_size);
+	fifo_length = 152;
 	tc_msg_fifo = xQueueCreate(fifo_length, item_size);
+	fifo_length = 100;
 	event_msg_fifo = xQueueCreate(fifo_length, item_size);
 
 	/* Initialize global PUS Packet FIFOs			*/
@@ -375,6 +377,12 @@ static void prvInitializeFifos(void)
 	item_size = 152;	
 	high_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
 	low_sev_to_fdir_fifo = xQueueCreate(fifo_length, item_size);
+
+	/* Initialize PUS packet buffers				*/
+	fifo_length = 10;
+	item_size = 152;
+	tc_buffer = xQueueCreate(fifo_length, item_size);
+	tm_buffer = xQueueCreate(fifo_length, item_size);
 	
 	return;
 }

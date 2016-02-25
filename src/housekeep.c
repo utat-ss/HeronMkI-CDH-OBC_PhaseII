@@ -84,6 +84,8 @@
 /* Error Handling includes */
 #include "error_handling.h"
 
+#include "global_var.h"
+
 /* Priorities at which the tasks are created. */
 #define Housekeep_PRIORITY		( tskIDLE_PRIORITY + 1 )		// Lower the # means lower the priority
 
@@ -186,6 +188,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	param_report_requiredf = 0;
 	collection_interval0 = 30;
 	collection_interval1 = 30;
+	xTimeToWait = 10;
 
 	clear_current_hk();
 	clear_current_command();
@@ -198,12 +201,14 @@ static void prvHouseKeepTask(void *pvParameters )
 	for( ;; )
 	{
 		
-		exec_commands();
-		request_housekeeping_all();
-		store_housekeeping();
+		//exec_commands();
+		//request_housekeeping_all();
+		//store_housekeeping();
 		//send_hk_as_tm();
 		//if(param_report_requiredf)
 			//send_param_report();
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -222,22 +227,22 @@ static void exec_commands(void){
 	uint8_t exec_com_success;
 	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
 	exec_com_success = (uint8_t)exec_commands_H();
-	while (attempts<3 && exec_com_success != 1){
-		exec_com_success = (uint8_t)exec_commands_H();
-		attempts++;
-	}
-	if (exec_com_success != 1) {
-		errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR, &exec_com_success);
-	}
+	//while (attempts<3 && exec_com_success != 1){
+		//exec_com_success = (uint8_t)exec_commands_H();
+		//attempts++;
+	//}
+	//if (exec_com_success != 1) {
+		//errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR, &exec_com_success);
+	//}
 	return;
 }
 
-// Will return 1 if successful, current_command if there is a FIFO error
+// Will return 1 if successful, current_command if there is a FIFO error/
 
 static int exec_commands_H(void)
 {
 	clear_current_command();
-	if(xQueueReceiveTask(HK_TASK_ID, 0, obc_to_hk_fifo, current_command, xTimeToWait) == pdTRUE)
+	if(xQueueReceive(obc_to_hk_fifo, current_command, (TickType_t)1) == pdTRUE)
 		return exec_commands_H2();
 	else if(xQueueReceive(sched_to_hk_fifo, current_command, (TickType_t)1))
 		return exec_commands_H2();
@@ -501,6 +506,7 @@ static int store_hk_in_spimem(void)
 	current_hk_mem_offset[1] = (uint8_t)((offset & 0x00FF0000) >> 16);
 	current_hk_mem_offset[0] = (uint8_t)((offset & 0xFF000000) >> 24);
 	//return 	task_spimem_write(HK_TASK_ID, HK_BASE, current_hk_mem_offset, 4);			// FAILURE_RECOVERY if x < 0
+	return 1;
 }
 
 /************************************************************************/

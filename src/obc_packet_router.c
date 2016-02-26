@@ -96,7 +96,7 @@ Author: Keenan Burnett
 #include "checksum.h"
 
 /* Priorities at which the tasks are created. */
-#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 4 )	// Shares highest priority with FDIR.
+#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 1 )	// Shares highest priority with FDIR.
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -210,26 +210,26 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	//task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE, &TC_PACKET_COUNT, 4);	// FAILURE_HANDLING
 	//task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
 	//task_spimem_read(OBC_PACKET_ROUTER_ID, TC_BASE + 8, &CURRENT_TC_PACKET, 4);
-	if(NEXT_TM_PACKET == 0)
-	{
-		NEXT_TM_PACKET = TM_BASE + 12;
-		task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);
-	}
-	if(CURRENT_TM_PACKET == 0)
-	{
-		CURRENT_TM_PACKET = TM_BASE + 12;
-		task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 8, CURRENT_TM_PACKET, 4);
-	}
-	if(NEXT_TC_PACKET == 0)
-	{
-		NEXT_TC_PACKET = TC_BASE + 12;
-		task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
-	}
-	if(CURRENT_TC_PACKET == 0)
-	{
-		CURRENT_TC_PACKET = TC_BASE + 12;
-		task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 8, CURRENT_TC_PACKET, 4);
-	}
+	//if(NEXT_TM_PACKET == 0)
+	//{
+		//NEXT_TM_PACKET = TM_BASE + 12;
+		//task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);
+	//}
+	//if(CURRENT_TM_PACKET == 0)
+	//{
+		//CURRENT_TM_PACKET = TM_BASE + 12;
+		//task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 8, CURRENT_TM_PACKET, 4);
+	//}
+	//if(NEXT_TC_PACKET == 0)
+	//{
+		//NEXT_TC_PACKET = TC_BASE + 12;
+		//task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 4, &NEXT_TC_PACKET, 4);
+	//}
+	//if(CURRENT_TC_PACKET == 0)
+	//{
+		//CURRENT_TC_PACKET = TC_BASE + 12;
+		//task_spimem_write(OBC_PACKET_ROUTER_ID, TC_BASE + 8, CURRENT_TC_PACKET, 4);
+	//}
 
 	/* Initialize variable used in PUS Packets */
 	version = 0;		// First 3 bits of the packet ID. (0 is default)
@@ -265,6 +265,16 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 		//}
 		if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
 			decode_telecommand();
+
+		if (tm_down_fullf)
+		{
+			send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
+		}
+		else if(xQueueReceive(tm_buffer, tm_to_downlink, (TickType_t)1) == pdTRUE)
+		{
+			//tm_down_fullf = 1;
+			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
+		}
 		
 		//if (tm_down_fullf)
 		//{
@@ -579,6 +589,7 @@ static int receive_tc_msg(void)
 			receiving_tcf = 0;
 			current_tc_fullf = 1;
 			send_tc_transaction_response(ssm_seq_count);
+			send_tc_transaction_response(ssm_seq_count);
 			store_current_tc();
 		}
 		return ssm_seq_count;
@@ -746,7 +757,7 @@ static int store_current_tc(void)
 	//CURRENT_TC_PACKET += 152;
 	//if(CURRENT_TC_PACKET > (TC_BASE + 0x20000))
 		//CURRENT_TC_PACKET = TC_BASE + 12;
-	//spimem_write(TC_BASE + 8, &CURRENT_TC_PACKET, 4);
+	spimem_write(TC_BASE + 8, &CURRENT_TC_PACKET, 4);
 	if(xQueueSendToBack(tc_buffer, current_tc, (TickType_t)1) != pdPASS)
 	{
 		send_event_report(1, TC_BUFFER_FULL, 0, 0);		// FAILURE_RECOVERY
@@ -762,21 +773,26 @@ static int store_current_tc(void)
 /************************************************************************/
 static int store_current_tm(void)
 {
-	if(TM_PACKET_COUNT == MAX_TM_PACKETS)
-		return -1;
-	if(TM_PACKET_COUNT == MAX_TM_PACKETS / 2)
-		send_event_report(1, TM_BUFFER_HALF_FULL, 0, 0);
-		
-	TM_PACKET_COUNT++;
-	spimem_write(TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
-	
-	CURRENT_TM_PACKET += 152;
-	if(CURRENT_TM_PACKET > (TM_BASE + 0x20000))
-		CURRENT_TM_PACKET = TM_BASE + 12;
-	spimem_write(TM_BASE + 8, &CURRENT_TM_PACKET, 4);		// FAILURE_RECOVERY
-
-	if(spimem_write(CURRENT_TM_PACKET, current_tm, 152) < 0)					// FAILURE_RECOVERY
-		return -1;
+	//if(TM_PACKET_COUNT == MAX_TM_PACKETS)
+		//return -1;
+	//if(TM_PACKET_COUNT == MAX_TM_PACKETS / 2)
+		//send_event_report(1, TM_BUFFER_HALF_FULL, 0, 0);
+		//
+	//TM_PACKET_COUNT++;
+	//spimem_write(TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
+	//
+	//CURRENT_TM_PACKET += 152;
+	//if(CURRENT_TM_PACKET > (TM_BASE + 0x20000))
+		//CURRENT_TM_PACKET = TM_BASE + 12;
+	//spimem_write(TM_BASE + 8, &CURRENT_TM_PACKET, 4);		// FAILURE_RECOVERY
+//
+	//if(spimem_write(CURRENT_TM_PACKET, current_tm, 152) < 0)					// FAILURE_RECOVERY
+		//return -1;
+	//current_tm_fullf = 0;
+	if(xQueueSendToBack(tm_buffer, current_tm, (TickType_t)1) != pdPASS)
+	{
+		return -1;										// FAILURE_RECOVERY
+	}
 	current_tm_fullf = 0;
 	return 1;
 }

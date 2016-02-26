@@ -195,20 +195,20 @@ static void prvHouseKeepTask(void *pvParameters )
 	setup_default_definition();
 	set_definition(DEFAULT);
 	clear_alternate_hk_definition();
-	set_hk_mem_offset();
+	//set_hk_mem_offset();
 		
 	/* @non-terminating@ */	
 	for( ;; )
 	{
 		
-		//exec_commands();
+		exec_commands();
 		//request_housekeeping_all();
 		//store_housekeeping();
 		//send_hk_as_tm();
 		//if(param_report_requiredf)
 			//send_param_report();
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/

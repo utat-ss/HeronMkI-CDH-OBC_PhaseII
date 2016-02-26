@@ -137,9 +137,9 @@ SemaphoreHandle_t	Can0_Mutex;
 
 #define CAN1_MB0				10
 #define CAN1_MB1				10
-#define CAN1_MB2				10
-#define CAN1_MB3				10
-#define CAN1_MB4				14
+#define CAN1_MB2				11
+#define CAN1_MB3				11
+#define CAN1_MB4				11
 #define CAN1_MB5				14
 #define CAN1_MB6				14
 #define CAN1_MB7				17
@@ -430,4 +430,6 @@ int set_sensor_low(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint1
 int set_variable(uint8_t sender_id, uint8_t ssm_id, uint8_t var_name, uint16_t value);				// API Function.
 int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);
 int send_can_command_h2(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);
+int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);
+int send_tc_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);
 #endif

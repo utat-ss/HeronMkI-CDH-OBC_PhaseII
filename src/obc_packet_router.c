@@ -156,7 +156,7 @@ TaskHandle_t obc_packet_router( void )
 		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvOBCPacketRouterTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
-					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
+					configMINIMAL_STACK_SIZE * 5, 			/* The size of the stack to allocate to the task. */
 					( void * ) OBC_PACKET_ROUTER_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					OBC_PACKET_ROUTER_PRIORITY, 			/* The priority assigned to the task. */
 					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
@@ -282,8 +282,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 		//}	
 		//exec_commands();
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -675,7 +675,7 @@ static void send_tc_transaction_response(uint8_t code)
 {
 	uint32_t low;
 	low = (uint32_t)code;	
-	send_can_command(low, CURRENT_MINUTE, OBC_PACKET_ROUTER_ID, COMS_ID, TC_TRANSACTION_RESP, COMMAND_PRIO);
+	send_tc_can_command(low, CURRENT_MINUTE, OBC_PACKET_ROUTER_ID, COMS_ID, TC_TRANSACTION_RESP, COMMAND_PRIO);
 	return;
 }
 

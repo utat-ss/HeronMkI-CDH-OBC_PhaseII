@@ -98,7 +98,7 @@ static void prvDataTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == DATA_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 100;	//Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 10000;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t low, high, PRIORITY, i;
@@ -111,9 +111,9 @@ static void prvDataTask( void *pvParameters )
 	{
 		low = DATA_REQUEST;
 		//send_can_command_h2(0x00, 0x00, OBC_PACKET_ROUTER_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);
-		//x = send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_DATA, PRIORITY);				// Request response from COMS.
-		//x = send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_DATA, PRIORITY);				// Request response from EPS.
-		//x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_DATA, PRIORITY);				// Request response from PAY.					
+		x = send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_DATA, PRIORITY);				// Request response from COMS.
+		x = send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_DATA, PRIORITY);				// Request response from EPS.
+		x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_DATA, PRIORITY);				// Request response from PAY.					
 
 		if(glob_drf)		// data reception flag;
 		{

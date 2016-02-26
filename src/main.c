@@ -216,9 +216,9 @@ int main(void)
 	//fdir_HANDLE = fdir();
 	opr_HANDLE = obc_packet_router();
 	//scheduling_HANDLE = scheduling();
-	//command_loop();
+	command_loop();
 	//housekeeping_HANDLE = housekeep();
-	//data_test();
+	data_test();
 	//time_manage_HANDLE = time_manage();
 	//memory_manage_HANDLE = memory_manage();
 	//eps_HANDLE = eps();

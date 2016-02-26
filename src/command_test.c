@@ -110,7 +110,7 @@ static void prvCommandTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == COMMAND_PARAMETER );
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 1;	//Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 10000;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
 	uint32_t low, high, ID, PRIORITY;
@@ -127,8 +127,8 @@ static void prvCommandTask( void *pvParameters )
 		x = send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_RESPONSE, PRIORITY);				// Request response from EPS.
 		x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_RESPONSE, PRIORITY);				// Request response from PAY.
 		
-		//xLastWakeTime = xTaskGetTickCount();
-		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/

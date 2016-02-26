@@ -178,9 +178,9 @@ void CAN1_Handler(void)
 				/* Debug CAN Message 	*/
 				debug_can_msg(&can1_mailbox, CAN1);
 				/* Decode CAN Message 	*/
-				if (i == 7)
+				if (i == 7 || i == 2 || i == 3 || i == 4)
 					decode_can_command(&can1_mailbox, CAN1);
-				if (i < 5)
+				if (i < 2)
 					alert_can_data(&can1_mailbox, CAN1);
 					
 				/*assert(g_ul_recv_status); ***Implement assert here.*/
@@ -294,6 +294,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				default :
 					break;
 			}
+			break;
 		case ACK_WRITE :
 			switch(destination)
 			{
@@ -308,6 +309,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 				default :
 					break;
 			}
+			break;
 		case SEND_TC:
 			xQueueSendToBackFromISR(tc_msg_fifo, &ul_data_incom, &wake_task);		// Telecommand reception FIFO.
 			xQueueSendToBackFromISR(tc_msg_fifo, &uh_data_incom, &wake_task);
@@ -459,15 +461,15 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 	case 1 :
 		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
 		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
-	case 2 :
-		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
-		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
-	case 3 :
-		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
-		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
-	case 4 :
-		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
-		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
+	//case 2 :
+		//xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
+		//xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+	//case 3 :
+		//xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
+		//xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+	//case 4 :
+		//xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
+		//xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
 	case 5 :
 		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
 		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
@@ -618,12 +620,38 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 		return -1;												// CAN0 is currently busy, or something has gone wrong.
 }
 
+int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
+{
+	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	uint32_t id, ret_val, high;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID3;
+	else
+		return -1;
+	
+	high = high_command_generator(sender_id, ssm_id, MT_COM, smalltype);
+	if(byte_four)
+		high |= (uint32_t)byte_four;
+
+	if (xSemaphoreTake(Can0_Mutex, (TickType_t) 1) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+	{
+		ret_val = send_can_command_h(low, high, id, priority);
+		xSemaphoreGive(Can0_Mutex);
+		delay_us(100);
+		return (int)ret_val;
+	}
+	
+	else
+		return -1;												// CAN0 is currently busy, or something has gone wrong.
+}
+
 int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
 	uint32_t id, ret_val, high;
 	BaseType_t* higher_task_woken;
-	*higher_task_woken = pdFALSE;
+	higher_task_woken = pdFALSE;
 	
 	if(ssm_id == COMS_ID)
 		id = SUB0_ID0;
@@ -632,6 +660,34 @@ int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id
 	if(ssm_id == PAY_ID)
 		id = SUB2_ID0;
 		
+	high = high_command_generator(sender_id, ssm_id, MT_COM, smalltype);
+	if(byte_four)
+		high |= (uint32_t)byte_four;
+
+	if (xSemaphoreTakeFromISR(Can0_Mutex, higher_task_woken) == pdTRUE)		// Attempt to acquire CAN0 Mutex, block for 1 tick.
+	{
+		ret_val = send_can_command_h(low, high, id, priority);
+		xSemaphoreGiveFromISR(Can0_Mutex, higher_task_woken);
+		delay_us(100);
+		return (int)ret_val;
+	}
+	
+	else
+		return -1;												// CAN0 is currently busy, or something has gone wrong.
+}
+
+int send_tc_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
+{
+	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	uint32_t id, ret_val, high;
+	BaseType_t* higher_task_woken;
+	higher_task_woken = pdFALSE;
+	
+	if(ssm_id == COMS_ID)
+		id = SUB0_ID3;
+	else
+		return -1;
+	
 	high = high_command_generator(sender_id, ssm_id, MT_COM, smalltype);
 	if(byte_four)
 		high |= (uint32_t)byte_four;
@@ -1016,6 +1072,10 @@ uint32_t can_init_mailboxes(uint32_t x)
 	can_mailbox_init(CAN0, &can0_mailbox);
 
 	can_enable_interrupt(CAN1, CAN_IER_MB0);
+	can_enable_interrupt(CAN1, CAN_IER_MB1);
+	can_enable_interrupt(CAN1, CAN_IER_MB2);
+	can_enable_interrupt(CAN1, CAN_IER_MB3);
+	can_enable_interrupt(CAN1, CAN_IER_MB4);
 	can_enable_interrupt(CAN1, CAN_IER_MB5);
 	can_enable_interrupt(CAN1, CAN_IER_MB6);
 	can_enable_interrupt(CAN1, CAN_IER_MB7);
@@ -1585,7 +1645,7 @@ static void start_tc_packet(void)
 {
 	if(!current_tc_fullf)
 	{
-		send_can_command_from_int(0x00, 0x00, OBC_PACKET_ROUTER_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);		
+		send_tc_can_command_from_int(0x00, 0x00, OBC_PACKET_ROUTER_ID, COMS_ID, OK_START_TC_PACKET, COMMAND_PRIO);
 	}
 	receiving_tcf = 1;
 	return;

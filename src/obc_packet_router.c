@@ -272,8 +272,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 		}
 		else if(xQueueReceive(tm_buffer, tm_to_downlink, (TickType_t)1) == pdTRUE)
 		{
-			//tm_down_fullf = 1;
-			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
+			tm_down_fullf = 1;
+			send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 		}
 		
 		//if (tm_down_fullf)
@@ -624,19 +624,20 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	uint32_t num_transfers = PACKET_LENGTH / 4;
 	uint8_t timeout;
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 10;
+	const TickType_t xTimeToWait = 200;
 	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
-	send_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
-	timeout = obc_ok_go_timeout;
+	send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
+	timeout = 500;
 	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
 	{
 		if(!timeout--)
 		{
 			return -1;
-			taskYIELD();
 		}
+		taskYIELD();
+		send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
 	}
 	start_tm_transferf = 0;
 	
@@ -648,21 +649,21 @@ static int send_pus_packet_tm(uint8_t sender_id)
 		low += (uint32_t)(tm_to_downlink[(i * 4) + 1] << 8);
 		low += (uint32_t)(tm_to_downlink[(i * 4) + 2] << 16);
 		low += (uint32_t)(tm_to_downlink[(i * 4) + 3] << 24);
-		send_can_command(low, i, sender_id, COMS_ID, SEND_TM, COMMAND_PRIO);
-		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 10ms (10 * 1ms)
+		send_tc_can_command(low, i, sender_id, COMS_ID, SEND_TM, COMMAND_PRIO);
+		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 100ms (10 * 1ms)
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
-	timeout = obc_consec_trans_timeout;
+	timeout = 250;
 	while(!tm_transfer_completef)					// Delay for ~100 ms for the SSM to let the OBC know that
 	{												// the transfer has completed.
 		if(!timeout--)
 		{
-			return -1;
-			taskYIELD();			
+			return -1;			
 		}
+		taskYIELD();
 	}
 	
-	if(tm_transfer_completef != 35)
+	if(tm_transfer_completef != (PACKET_LENGTH / 4) - 1)
 	{
 		tm_transfer_completef = 0;
 		return -1;

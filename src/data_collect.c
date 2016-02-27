@@ -138,9 +138,9 @@ static void prvDataTask( void *pvParameters )
 				glob_comsf = 0;
 			}
 		}
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 100 ticks.
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 	
-	xLastWakeTime = xTaskGetTickCount();						// Delay for 100 ticks.
-	vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 }
 

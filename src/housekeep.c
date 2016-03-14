@@ -188,7 +188,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	param_report_requiredf = 0;
 	collection_interval0 = 30;
 	collection_interval1 = 30;
-	xTimeToWait = 10;
+	xTimeToWait = 1000;
 
 	clear_current_hk();
 	clear_current_command();
@@ -200,14 +200,13 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		
 		exec_commands();
 		//request_housekeeping_all();
 		//store_housekeeping();
 		//send_hk_as_tm();
-		//if(param_report_requiredf)
-			//send_param_report();
-		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		if(param_report_requiredf)
+			send_param_report();
+		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 seconds
 		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
@@ -288,7 +287,7 @@ static int exec_commands_H2(void)
 			send_tc_execution_verify(1, packet_id, psc);
 		case	REPORT_HK_DEFINITIONS:
 			param_report_requiredf = 1;
-			send_tc_execution_verify(1, packet_id, psc);
+			//send_tc_execution_verify(1, packet_id, psc);
 		default:
 			return -1;
 	}
@@ -372,8 +371,8 @@ static int request_housekeeping_all(void)
 	if(request_housekeeping(PAY_ID) > 1)							// Request housekeeping from PAY.
 		return -1;
 													// Give the SSMs >100ms to transmit their housekeeping
-	xLastWakeTime = xTaskGetTickCount();
-	vTaskDelayUntil(&xLastWakeTime, (TickType_t)100);
+	//xLastWakeTime = xTaskGetTickCount();
+	//vTaskDelayUntil(&xLastWakeTime, (TickType_t)100);
 	return 1;
 }
 
@@ -388,48 +387,70 @@ static int request_housekeeping_all(void)
 static int store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
-	uint8_t temp;
-	uint8_t num_parameters = current_hk_definition[134];
+	uint8_t num_parameters = current_hk_definition[129];	// ALTERED FOR CSDC 134 --> 129
 	uint8_t parameter_name = 0, i;
-	int attempts = 1;
+	//int attempts = 1;
 	int* status = 0; // this might be wrong
 	req_data_result = 0;
 	if(current_hk_fullf)
 		return -1;
-	clear_current_hk();
-	while(read_can_hk(&new_hk_msg_high, &new_hk_msg_low, 1234) == 1)
+	for(i = 0; i < PACKET_LENGTH; i++)
 	{
-		sender = (new_hk_msg_high & 0xF0000000) >> 28;			// Can be EPS_ID/COMS_ID/PAY_ID/OBC_ID
-		parameter_name = (new_hk_msg_high & 0x0000FF00) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
-		for(i = 0; i < num_parameters; i+=2)
+		hk_updated[i] = 0;
+	}
+	uint8_t parameter_count = num_parameters;
+	uint32_t timeout = 5000;
+	//clear_current_hk();									// Commented out for CSDC
+	
+	// CSDC ONLY  // (Filling in OBC values for housekeeping)
+	current_hk[94] = 0x55;
+	current_hk[93] = 0x55;
+	current_hk[83] = ABSOLUTE_DAY;
+	current_hk[81] = CURRENT_HOUR;
+	current_hk[79] = CURRENT_MINUTE;
+	hk_updated[94] = 1;
+	hk_updated[93] = 1;
+	hk_updated[84] = 1;
+	hk_updated[83] = 1;
+	hk_updated[82] = 1;
+	hk_updated[81] = 1;
+	hk_updated[80] = 1;
+	hk_updated[79] = 1;
+	
+	while(parameter_count && timeout--)
+	{
+		if(read_can_hk(&new_hk_msg_high, &new_hk_msg_low, 1234) == 1)
 		{
-			if(current_hk_definition[i] == parameter_name)
+			parameter_count--;
+			parameter_name = (new_hk_msg_high & 0x00000FF) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
+			for(i = 79; i < num_parameters; i+=2)					// ALTERED FOR CSDC (i = 0 before)
 			{
-				
-				current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
-				current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
-				hk_updated[i] = 1;
-				hk_updated[i + 1] = 1;
-			}
+				if(current_hk_definition[i] == parameter_name)
+				{
+					current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
+					current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
+					hk_updated[i] = 1;
+					hk_updated[i + 1] = 1;
+				}
+			}			
 		}
 		taskYIELD();		// Allows for more messages to come in.
 	}
 	
-	for(i = 0; i < num_parameters; i+=2)
+	for(i = 79; i < 79 + num_parameters * 2; i+=2)							// ALTERED FOR CSDC (i = 0 before)
 	{
 		if(!hk_updated[i])
 		{//failed updates are requested 3 times. If they fail, error is reported
 			
 			req_data_result = (int)request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
-			while (attempts < 3 && req_data_result == -1){
-				attempts++;
-				req_data_result = (int)request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
-			}
+			//while (attempts < 3 && req_data_result == -1){
+				//attempts++;
+				//req_data_result = (int)request_sensor_data(HK_TASK_ID,get_ssm_id(current_hk_definition[i]),current_hk_definition[i],status);
+			//}
 			
-			if (req_data_result == -1)
+			if (*status == -1)
 			{
-				temp = (uint8_t)current_hk_definition[i];
-				errorREPORT(HK_TASK_ID,0,HK_COLLECT_ERROR, &temp); 				//malfunctioning sensor is sent to erorREPORT
+				//errorREPORT(HK_TASK_ID,0,HK_COLLECT_ERROR, current_hk_definition[i]); 				//malfunctioning sensor is sent to erorREPORT
 			}
 			else {
 				current_hk[i] = (uint8_t)(req_data_result & 0x000000FF);
@@ -440,7 +461,7 @@ static int store_housekeeping(void)
 		}
 	}
 	/* Store the new housekeeping in SPI memory */
-	store_hk_in_spimem();
+	//store_hk_in_spimem();				// Removed for CSDC
 	
 	current_hk_fullf = 1;
 	return 1;
@@ -523,93 +544,152 @@ static void setup_default_definition(void)
 		hk_definition0[i] = 0;
 	}
 	
-	hk_definition0[136] = 0;							// sID = 0
-	hk_definition0[135] = collection_interval0;			// Collection interval = 30 min
-	hk_definition0[134] = 36;							// Number of parameters (2B each)
-	hk_definition0[81] = PANELX_V;
-	hk_definition0[80] = PANELX_V;
-	hk_definition0[79] = PANELX_I;
-	hk_definition0[78] = PANELX_I;
-	hk_definition0[77] = PANELY_V;
-	hk_definition0[76] = PANELY_V;
-	hk_definition0[75] = PANELY_I;
-	hk_definition0[74] = PANELY_I;
-	hk_definition0[73] = BATTM_V;
-	hk_definition0[72] = BATTM_V;
-	hk_definition0[71] = BATT_V;
-	hk_definition0[70] = BATT_V;
-	hk_definition0[69] = BATTIN_I;
-	hk_definition0[68] = BATTIN_I;
-	hk_definition0[67] = BATTOUT_I;
-	hk_definition0[66] = BATTOUT_I;
-	hk_definition0[65] = BATT_TEMP;
-	hk_definition0[64] = BATT_TEMP;	//
-	hk_definition0[63] = EPS_TEMP;
-	hk_definition0[62] = EPS_TEMP;	//
-	hk_definition0[61] = COMS_V;
-	hk_definition0[60] = COMS_V;
-	hk_definition0[59] = COMS_I;
-	hk_definition0[58] = COMS_I;
-	hk_definition0[57] = PAY_V;
-	hk_definition0[56] = PAY_V;
-	hk_definition0[55] = PAY_I;
-	hk_definition0[54] = PAY_I;
-	hk_definition0[53] = OBC_V;
-	hk_definition0[52] = OBC_V;
-	hk_definition0[51] = OBC_I;
-	hk_definition0[50] = OBC_I;
-	hk_definition0[49] = SHUNT_DPOT;
-	hk_definition0[48] = SHUNT_DPOT;
-	hk_definition0[47] = COMS_TEMP;	//
-	hk_definition0[46] = COMS_TEMP;
-	hk_definition0[45] = OBC_TEMP;	//
-	hk_definition0[44] = OBC_TEMP;
-	hk_definition0[43] = PAY_TEMP0;
-	hk_definition0[42] = PAY_TEMP0;
-	hk_definition0[41] = PAY_TEMP1;
-	hk_definition0[40] = PAY_TEMP1;
-	hk_definition0[39] = PAY_TEMP2;
-	hk_definition0[38] = PAY_TEMP2;
-	hk_definition0[37] = PAY_TEMP3;
-	hk_definition0[36] = PAY_TEMP3;
-	hk_definition0[35] = PAY_TEMP4;
-	hk_definition0[34] = PAY_TEMP4;
-	hk_definition0[33] = PAY_HUM;
-	hk_definition0[32] = PAY_HUM;
-	hk_definition0[31] = PAY_PRESS;
-	hk_definition0[30] = PAY_PRESS;
-	hk_definition0[29] = PAY_ACCEL;
-	hk_definition0[28] = PAY_ACCEL;
-	hk_definition0[27] = MPPTX;
-	hk_definition0[26] = MPPTX;
-	hk_definition0[25] = MPPTY;
-	hk_definition0[24] = MPPTY;
-	hk_definition0[23] = COMS_MODE;	//
-	hk_definition0[22] = COMS_MODE;
-	hk_definition0[21] = EPS_MODE;	//
-	hk_definition0[20] = EPS_MODE;
-	hk_definition0[19] = PAY_MODE;
-	hk_definition0[18] = PAY_MODE;
-	hk_definition0[17] = OBC_MODE;
-	hk_definition0[16] = OBC_MODE;
-	hk_definition0[15] = PAY_STATE;
-	hk_definition0[14] = PAY_STATE;
-	hk_definition0[13] = ABS_TIME_D;
-	hk_definition0[12] = ABS_TIME_D;
-	hk_definition0[11] = ABS_TIME_H;
-	hk_definition0[10] = ABS_TIME_H;
-	hk_definition0[9] = ABS_TIME_M;
-	hk_definition0[8] = ABS_TIME_M;
-	hk_definition0[7] = ABS_TIME_S;
-	hk_definition0[6] = ABS_TIME_S;
-	hk_definition0[5] = SPI_CHIP_1;
-	hk_definition0[4] = SPI_CHIP_1;
-	hk_definition0[3] = SPI_CHIP_2;
-	hk_definition0[2] = SPI_CHIP_2;
-	hk_definition0[1] = SPI_CHIP_3;
-	hk_definition0[0] = SPI_CHIP_3;
+	//hk_definition0[136] = 0;							// sID = 0
+	//hk_definition0[135] = collection_interval0;			// Collection interval = 30 min
+	//hk_definition0[134] = 36;							// Number of parameters (2B each)
+	//hk_definition0[81] = PANELX_V;
+	//hk_definition0[80] = PANELX_V;
+	//hk_definition0[79] = PANELX_I;
+	//hk_definition0[78] = PANELX_I;
+	//hk_definition0[77] = PANELY_V;
+	//hk_definition0[76] = PANELY_V;
+	//hk_definition0[75] = PANELY_I;
+	//hk_definition0[74] = PANELY_I;
+	//hk_definition0[73] = BATTM_V;
+	//hk_definition0[72] = BATTM_V;
+	//hk_definition0[71] = BATT_V;
+	//hk_definition0[70] = BATT_V;
+	//hk_definition0[69] = BATTIN_I;
+	//hk_definition0[68] = BATTIN_I;
+	//hk_definition0[67] = BATTOUT_I;
+	//hk_definition0[66] = BATTOUT_I;
+	//hk_definition0[65] = BATT_TEMP;
+	//hk_definition0[64] = BATT_TEMP;	//
+	//hk_definition0[63] = EPS_TEMP;
+	//hk_definition0[62] = EPS_TEMP;	//
+	//hk_definition0[61] = COMS_V;
+	//hk_definition0[60] = COMS_V;
+	//hk_definition0[59] = COMS_I;
+	//hk_definition0[58] = COMS_I;
+	//hk_definition0[57] = PAY_V;
+	//hk_definition0[56] = PAY_V;
+	//hk_definition0[55] = PAY_I;
+	//hk_definition0[54] = PAY_I;
+	//hk_definition0[53] = OBC_V;
+	//hk_definition0[52] = OBC_V;
+	//hk_definition0[51] = OBC_I;
+	//hk_definition0[50] = OBC_I;
+	//hk_definition0[49] = SHUNT_DPOT;
+	//hk_definition0[48] = SHUNT_DPOT;
+	//hk_definition0[47] = COMS_TEMP;	//
+	//hk_definition0[46] = COMS_TEMP;
+	//hk_definition0[45] = OBC_TEMP;	//
+	//hk_definition0[44] = OBC_TEMP;
+	//hk_definition0[43] = PAY_TEMP0;
+	//hk_definition0[42] = PAY_TEMP0;
+	//hk_definition0[41] = PAY_TEMP1;
+	//hk_definition0[40] = PAY_TEMP1;
+	//hk_definition0[39] = PAY_TEMP2;
+	//hk_definition0[38] = PAY_TEMP2;
+	//hk_definition0[37] = PAY_TEMP3;
+	//hk_definition0[36] = PAY_TEMP3;
+	//hk_definition0[35] = PAY_TEMP4;
+	//hk_definition0[34] = PAY_TEMP4;
+	//hk_definition0[33] = PAY_HUM;
+	//hk_definition0[32] = PAY_HUM;
+	//hk_definition0[31] = PAY_PRESS;
+	//hk_definition0[30] = PAY_PRESS;
+	//hk_definition0[29] = PAY_ACCEL;
+	//hk_definition0[28] = PAY_ACCEL;
+	//hk_definition0[27] = MPPTX;
+	//hk_definition0[26] = MPPTX;
+	//hk_definition0[25] = MPPTY;
+	//hk_definition0[24] = MPPTY;
+	//hk_definition0[23] = COMS_MODE;	//
+	//hk_definition0[22] = COMS_MODE;
+	//hk_definition0[21] = EPS_MODE;	//
+	//hk_definition0[20] = EPS_MODE;
+	//hk_definition0[19] = PAY_MODE;
+	//hk_definition0[18] = PAY_MODE;
+	//hk_definition0[17] = OBC_MODE;
+	//hk_definition0[16] = OBC_MODE;
+	//hk_definition0[15] = PAY_STATE;
+	//hk_definition0[14] = PAY_STATE;
+	//hk_definition0[13] = ABS_TIME_D;
+	//hk_definition0[12] = ABS_TIME_D;
+	//hk_definition0[11] = ABS_TIME_H;
+	//hk_definition0[10] = ABS_TIME_H;
+	//hk_definition0[9] = ABS_TIME_M;
+	//hk_definition0[8] = ABS_TIME_M;
+	//hk_definition0[7] = ABS_TIME_S;
+	//hk_definition0[6] = ABS_TIME_S;
+	//hk_definition0[5] = SPI_CHIP_1;
+	//hk_definition0[4] = SPI_CHIP_1;
+	//hk_definition0[3] = SPI_CHIP_2;
+	//hk_definition0[2] = SPI_CHIP_2;
+	//hk_definition0[1] = SPI_CHIP_3;
+	//hk_definition0[0] = SPI_CHIP_3;
+	
+	/* The definition below is meant to be used in the CSDC environmental testing */
+	
+	hk_definition0[131] = 0;							// sID = 0
+	hk_definition0[130] = collection_interval0;			// Collection interval = 30 min
+	hk_definition0[129] = 36;							// Number of parameters (2B each)
+	hk_definition0[128] = PANELX_V;
+	hk_definition0[127] = PANELX_V;
+	hk_definition0[126] = PANELX_I;
+	hk_definition0[125] = PANELX_I;
+	hk_definition0[124] = PANELY_V;
+	hk_definition0[123] = PANELY_V;
+	hk_definition0[122] = PANELY_I;
+	hk_definition0[121] = PANELY_I;
+	hk_definition0[120] = BATTM_V;
+	hk_definition0[119] = BATTM_V;
+	hk_definition0[118] = BATT_V;
+	hk_definition0[117] = BATT_V;
+	hk_definition0[116] = BATTIN_I;
+	hk_definition0[115] = BATTIN_I;
+	hk_definition0[114] = BATTOUT_I;
+	hk_definition0[113] = BATTOUT_I;
+	hk_definition0[112] = BATT_TEMP;
+	hk_definition0[111] = BATT_TEMP;	//
+	hk_definition0[110] = EPS_TEMP;
+	hk_definition0[109] = EPS_TEMP;	//
+	hk_definition0[108] = COMS_V;
+	hk_definition0[107] = COMS_V;
+	hk_definition0[106] = COMS_I;
+	hk_definition0[105] = COMS_I;
+	hk_definition0[104] = PAY_V;
+	hk_definition0[103] = PAY_V;
+	hk_definition0[102] = PAY_I;
+	hk_definition0[101] = PAY_I;
+	hk_definition0[100] = OBC_V;
+	hk_definition0[99] = OBC_V;
+	hk_definition0[98] = OBC_I;
+	hk_definition0[97] = OBC_I;
+	hk_definition0[96] = COMS_TEMP;	//
+	hk_definition0[95] = COMS_TEMP;
+	hk_definition0[94] = OBC_TEMP;	//
+	hk_definition0[93] = OBC_TEMP;
+	hk_definition0[92] = PAY_TEMP0;
+	hk_definition0[91] = PAY_TEMP0;
+	hk_definition0[90] = PAY_HUM;
+	hk_definition0[89] = PAY_HUM;
+	hk_definition0[88] = PAY_PRESS;
+	hk_definition0[87] = PAY_PRESS;
+	hk_definition0[86] = PAY_ACCEL;
+	hk_definition0[85] = PAY_ACCEL;
+	hk_definition0[84] = MPPTX;
+	hk_definition0[83] = MPPTX;
+	hk_definition0[82] = MPPTY;
+	hk_definition0[81] = MPPTY;
+	hk_definition0[80] = ABS_TIME_D;
+	hk_definition0[79] = ABS_TIME_H;
+	hk_definition0[78] = ABS_TIME_M;
 	return;
 }
+
+
 
 /************************************************************************/
 /* SENT_DEFINITION														*/
@@ -656,10 +736,7 @@ static void send_hk_as_tm(void)
 	{
 		current_command[i] = current_hk[i];
 	}
-	
-	
-	
-	xQueueSendToBackTask(HK_TASK_ID, 1, hk_to_obc_fifo, current_command, (TickType_t)1);
+	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);
 	return;
 }
 
@@ -672,13 +749,14 @@ static void send_hk_as_tm(void)
 static void send_param_report(void)
 {
 	uint8_t i;
+	param_report_requiredf = 0;
 	clear_current_command();
 	current_command[146] = HK_DEFINITON_REPORT;
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_command[i] = current_hk_definition[i];
 	}
-	xQueueSendToBackTask(HK_TASK_ID, 1, hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBack(hk_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 

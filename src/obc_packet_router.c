@@ -96,7 +96,7 @@ Author: Keenan Burnett
 #include "checksum.h"
 
 /* Priorities at which the tasks are created. */
-#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 1 )	// Shares highest priority with FDIR.
+#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 2 )	// Shares highest priority with FDIR.
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -291,9 +291,9 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//tm_down_fullf = 1;
 			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 		//}	
-		//exec_commands();
-		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		exec_commands();
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -316,12 +316,12 @@ static void exec_commands(void)
 		packet_id += (uint16_t)current_command[139];
 		psc = ((uint16_t)current_command[138]) << 8;
 		psc += (uint16_t)current_command[137];
-		if(current_command[146] == 0)
+		if(current_command[146] == HK_REPORT)
 		{
 			hk_telem_count++;
 			packetize_send_telemetry(HK_TASK_ID, HK_GROUND_ID, HK_SERVICE, HK_REPORT, hk_telem_count, 1, current_command);
 		}
-		if(current_command[146] == 1)
+		if(current_command[146] == HK_DEFINITON_REPORT)
 		{
 			hk_def_report_count++;
 			packetize_send_telemetry(HK_TASK_ID, HK_GROUND_ID, HK_SERVICE, HK_DEFINITON_REPORT, hk_def_report_count, 1, current_command);
@@ -331,108 +331,108 @@ static void exec_commands(void)
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);		// Verify execution completion.
 		}
 	}
-	if(xQueueReceive(time_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
-	{
-		packet_id = ((uint16_t)current_command[6]) << 8;
-		packet_id += (uint16_t)current_command[5];
-		psc = ((uint16_t)current_command[4]) << 8;
-		psc += (uint16_t)current_command[3];
-		if(current_command[9] == TIME_REPORT)
-		{
-			time_report_count++;
-			packetize_send_telemetry(TIME_TASK_ID, TIME_GROUND_ID, TIME_SERVICE, TIME_REPORT, time_report_count, 1, current_command);		
-		}
-		if(current_command[9] == TASK_TO_OPR_TCV)
-			send_tc_verification(packet_id, psc, current_command[8], current_command[7], 0, 2);
-	}
-	if(xQueueReceive(mem_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
-	{
-		packet_id = ((uint16_t)current_command[140]) << 8;
-		packet_id += (uint16_t)current_command[139];
-		psc = ((uint16_t)current_command[138]) << 8;
-		psc += (uint16_t)current_command[137];
-		if(current_command[146] == MEMORY_DUMP_ABS)
-		{
-			mem_dump_count++;
-			packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, MEMORY_DUMP_ABS, mem_dump_count, current_command[145], current_command);
-		}
-		if(current_command[146] == TASK_TO_OPR_TCV)
-			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
-		if(current_command[146] == MEMORY_CHECK_ABS)
-		{
-			mem_check_count++;
-			packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, MEMORY_CHECK_ABS, mem_check_count, 1, current_command);
-		}
-		if(current_command[146] == TASK_TO_OPR_EVENT)
-		{
-			send_event_packet(MEMORY_TASK_ID, current_command[145]);
-		}
-	}
-	if(xQueueReceive(sched_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
-	{
-		packet_id = ((uint16_t)current_command[140]) << 8;
-		packet_id += (uint16_t)current_command[139];
-		psc = ((uint16_t)current_command[138]) << 8;
-		psc += (uint16_t)current_command[137];
-		if(current_command[146] == SCHED_REPORT)
-		{
-			sched_report_count++;
-			packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, SCHED_REPORT, sched_report_count, current_command[145], current_command);
-		}
-		if(current_command[146] == TASK_TO_OPR_TCV)
-			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
-		if(current_command[146] == TASK_TO_OPR_EVENT)
-		{
-			send_event_packet(SCHEDULING_TASK_ID, current_command[145]);
-		}
-		if(current_command[146] == COMPLETED_SCHED_COM_REPORT)
-		{
-			sched_command_count++;
-			packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, COMPLETED_SCHED_COM_REPORT, sched_command_count, current_command[145], current_command);
-		}
-	}
-	if(xQueueReceive(event_msg_fifo, &low, (TickType_t)1) == pdTRUE)
-	{
-		xQueueReceive(event_msg_fifo, &high, (TickType_t)1);
-		send_event_packet(high, low);
-	}
-	
-	if(xQueueReceive(fdir_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
-	{
-		packet_id = ((uint16_t)current_command[140]) << 8;
-		packet_id += (uint16_t)current_command[139];
-		psc = ((uint16_t)current_command[138]) << 8;
-		psc += (uint16_t)current_command[137];
-		if(current_command[146] == TASK_TO_OPR_TCV)
-			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
-		if(current_command[146] == TASK_TO_OPR_EVENT)
-		{
-			send_event_packet(FDIR_TASK_ID, current_command[145]);
-		}
-		//diagnostics reports
-		//send diagnostics reports to the housekeeping ground service
-		if (current_command[146] == DIAG_REPORT)
-		{
-			diag_telem_count++;
-			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_REPORT, diag_telem_count, 1, current_command);
-		}
-		if (current_command[146] == DIAG_DEFINITION_REPORT)
-		{
-			diag_def_report_count++;
-			packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
-		}
-		if (current_command[146] == SINGLE_PARAMETER_REPORT)
-		{
-			packetize_send_telemetry(OBC_PACKET_ROUTER_ID, GROUND_PACKET_ROUTER_ID, K_SERVICE, SINGLE_PARAMETER_REPORT, sin_par_rep_count++, 1, current_command);
-		}
-	}
-	if(xQueueReceive(eps_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
-	{
-		if(current_command[146] == TASK_TO_OPR_EVENT)
-		{
-			send_event_packet(EPS_TASK_ID, current_command[145]);
-		}
-	}
+	//if(xQueueReceive(time_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	//{
+		//packet_id = ((uint16_t)current_command[6]) << 8;
+		//packet_id += (uint16_t)current_command[5];
+		//psc = ((uint16_t)current_command[4]) << 8;
+		//psc += (uint16_t)current_command[3];
+		//if(current_command[9] == TIME_REPORT)
+		//{
+			//time_report_count++;
+			//packetize_send_telemetry(TIME_TASK_ID, TIME_GROUND_ID, TIME_SERVICE, TIME_REPORT, time_report_count, 1, current_command);		
+		//}
+		//if(current_command[9] == TASK_TO_OPR_TCV)
+			//send_tc_verification(packet_id, psc, current_command[8], current_command[7], 0, 2);
+	//}
+	//if(xQueueReceive(mem_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	//{
+		//packet_id = ((uint16_t)current_command[140]) << 8;
+		//packet_id += (uint16_t)current_command[139];
+		//psc = ((uint16_t)current_command[138]) << 8;
+		//psc += (uint16_t)current_command[137];
+		//if(current_command[146] == MEMORY_DUMP_ABS)
+		//{
+			//mem_dump_count++;
+			//packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, MEMORY_DUMP_ABS, mem_dump_count, current_command[145], current_command);
+		//}
+		//if(current_command[146] == TASK_TO_OPR_TCV)
+			//send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
+		//if(current_command[146] == MEMORY_CHECK_ABS)
+		//{
+			//mem_check_count++;
+			//packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, MEMORY_CHECK_ABS, mem_check_count, 1, current_command);
+		//}
+		//if(current_command[146] == TASK_TO_OPR_EVENT)
+		//{
+			//send_event_packet(MEMORY_TASK_ID, current_command[145]);
+		//}
+	//}
+	//if(xQueueReceive(sched_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	//{
+		//packet_id = ((uint16_t)current_command[140]) << 8;
+		//packet_id += (uint16_t)current_command[139];
+		//psc = ((uint16_t)current_command[138]) << 8;
+		//psc += (uint16_t)current_command[137];
+		//if(current_command[146] == SCHED_REPORT)
+		//{
+			//sched_report_count++;
+			//packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, SCHED_REPORT, sched_report_count, current_command[145], current_command);
+		//}
+		//if(current_command[146] == TASK_TO_OPR_TCV)
+			//send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
+		//if(current_command[146] == TASK_TO_OPR_EVENT)
+		//{
+			//send_event_packet(SCHEDULING_TASK_ID, current_command[145]);
+		//}
+		//if(current_command[146] == COMPLETED_SCHED_COM_REPORT)
+		//{
+			//sched_command_count++;
+			//packetize_send_telemetry(SCHEDULING_TASK_ID, SCHED_GROUND_ID, K_SERVICE, COMPLETED_SCHED_COM_REPORT, sched_command_count, current_command[145], current_command);
+		//}
+	//}
+	//if(xQueueReceive(event_msg_fifo, &low, (TickType_t)1) == pdTRUE)
+	//{
+		//xQueueReceive(event_msg_fifo, &high, (TickType_t)1);
+		//send_event_packet(high, low);
+	//}
+	//
+	//if(xQueueReceive(fdir_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	//{
+		//packet_id = ((uint16_t)current_command[140]) << 8;
+		//packet_id += (uint16_t)current_command[139];
+		//psc = ((uint16_t)current_command[138]) << 8;
+		//psc += (uint16_t)current_command[137];
+		//if(current_command[146] == TASK_TO_OPR_TCV)
+			//send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);
+		//if(current_command[146] == TASK_TO_OPR_EVENT)
+		//{
+			//send_event_packet(FDIR_TASK_ID, current_command[145]);
+		//}
+		////diagnostics reports
+		////send diagnostics reports to the housekeeping ground service
+		//if (current_command[146] == DIAG_REPORT)
+		//{
+			//diag_telem_count++;
+			//packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_REPORT, diag_telem_count, 1, current_command);
+		//}
+		//if (current_command[146] == DIAG_DEFINITION_REPORT)
+		//{
+			//diag_def_report_count++;
+			//packetize_send_telemetry(FDIR_TASK_ID, HK_GROUND_ID, HK_SERVICE, DIAG_DEFINITION_REPORT, diag_def_report_count, 1, current_command);
+		//}
+		//if (current_command[146] == SINGLE_PARAMETER_REPORT)
+		//{
+			//packetize_send_telemetry(OBC_PACKET_ROUTER_ID, GROUND_PACKET_ROUTER_ID, K_SERVICE, SINGLE_PARAMETER_REPORT, sin_par_rep_count++, 1, current_command);
+		//}
+	//}
+	//if(xQueueReceive(eps_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	//{
+		//if(current_command[146] == TASK_TO_OPR_EVENT)
+		//{
+			//send_event_packet(EPS_TASK_ID, current_command[145]);
+		//}
+	//}
 	return;
 }
 
@@ -622,22 +622,22 @@ static int send_pus_packet_tm(uint8_t sender_id)
 {
 	uint32_t low, i;
 	uint32_t num_transfers = PACKET_LENGTH / 4;
-	uint8_t timeout;
+	uint16_t timeout;
 	TickType_t	xLastWakeTime;
 	const TickType_t xTimeToWait = 200;
 	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
-	timeout = 500;
+	timeout = 1000;
 	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
 	{
 		if(!timeout--)
 		{
 			return -1;
 		}
-		taskYIELD();
 		send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
+		taskYIELD();
 	}
 	start_tm_transferf = 0;
 	
@@ -653,7 +653,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 100ms (10 * 1ms)
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
-	timeout = 250;
+	timeout = 500;
 	while(!tm_transfer_completef)					// Delay for ~100 ms for the SSM to let the OBC know that
 	{												// the transfer has completed.
 		if(!timeout--)
@@ -1117,13 +1117,13 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 		if((service_sub_type != 1) && (service_sub_type != 2) && (service_sub_type != 3) && (service_sub_type != 4) && (service_sub_type != 5) && (service_sub_type != 6)
 		&& (service_sub_type != 7) && (service_sub_type != 8) && (service_sub_type != 9) && (service_sub_type != 11) && (service_sub_type != 17) && (service_sub_type != 18))
 		{
-			send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);	// TC verify acceptance report, failure, 4 == invalid service subtype.
+			//send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);	// TC verify acceptance report, failure, 4 == invalid service subtype.
 			return -1;
 		}
 		
 		if((apid != HK_TASK_ID) && (apid != FDIR_TASK_ID))
 		{
-			send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
+			//send_tc_verification(packet_id, psc, 0xFF, 0, (uint32_t)apid, 1);				// TC verify acceptance report, failure, 0 == invalid apid
 			return -1;
 		}
 	}
@@ -1226,7 +1226,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	}
 	
 	/* The telecommand packet is good to be decoded further!		*/
-	send_tc_verification(packet_id, psc, 0, 0, 0, 1);										// TC verify acceptance report, success.
+	//send_tc_verification(packet_id, psc, 0, 0, 0, 1);										// TC verify acceptance report, success.
 	return 1;
 }
 

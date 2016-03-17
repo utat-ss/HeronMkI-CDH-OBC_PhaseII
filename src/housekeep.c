@@ -188,7 +188,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	param_report_requiredf = 0;
 	collection_interval0 = 30;
 	collection_interval1 = 30;
-	xTimeToWait = 1000;
+	xTimeToWait = 10;
 
 	clear_current_hk();
 	clear_current_command();
@@ -200,12 +200,12 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		exec_commands();
-		//request_housekeeping_all();
-		//store_housekeeping();
-		//send_hk_as_tm();
-		if(param_report_requiredf)
-			send_param_report();
+		//exec_commands();
+		request_housekeeping_all();
+		store_housekeeping();
+		send_hk_as_tm();
+		//if(param_report_requiredf)
+			//send_param_report();
 		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 seconds
 		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}

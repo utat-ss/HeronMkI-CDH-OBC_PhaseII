@@ -96,7 +96,7 @@ Author: Keenan Burnett
 #include "checksum.h"
 
 /* Priorities at which the tasks are created. */
-#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 2 )	// Shares highest priority with FDIR.
+#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 1 )	// Shares highest priority with FDIR.
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -292,8 +292,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 		//}	
 		exec_commands();
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -758,7 +758,7 @@ static int store_current_tc(void)
 	//CURRENT_TC_PACKET += 152;
 	//if(CURRENT_TC_PACKET > (TC_BASE + 0x20000))
 		//CURRENT_TC_PACKET = TC_BASE + 12;
-	spimem_write(TC_BASE + 8, &CURRENT_TC_PACKET, 4);
+	//spimem_write(TC_BASE + 8, &CURRENT_TC_PACKET, 4);
 	if(xQueueSendToBack(tc_buffer, current_tc, (TickType_t)1) != pdPASS)
 	{
 		send_event_report(1, TC_BUFFER_FULL, 0, 0);		// FAILURE_RECOVERY

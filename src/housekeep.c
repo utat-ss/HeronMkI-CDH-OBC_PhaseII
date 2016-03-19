@@ -188,7 +188,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	param_report_requiredf = 0;
 	collection_interval0 = 30;
 	collection_interval1 = 30;
-	xTimeToWait = 10;
+	xTimeToWait = 1000;
 
 	clear_current_hk();
 	clear_current_command();
@@ -206,8 +206,8 @@ static void prvHouseKeepTask(void *pvParameters )
 		send_hk_as_tm();
 		//if(param_report_requiredf)
 			//send_param_report();
-		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 seconds
-		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 seconds
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -422,8 +422,8 @@ static int store_housekeeping(void)
 		if(read_can_hk(&new_hk_msg_high, &new_hk_msg_low, 1234) == 1)
 		{
 			parameter_count--;
-			parameter_name = (new_hk_msg_high & 0x00000FF) >> 8;	// Name of the parameter for housekeeping (either sensor or variable).
-			for(i = 79; i < num_parameters; i+=2)					// ALTERED FOR CSDC (i = 0 before)
+			parameter_name = (new_hk_msg_high & 0x00000FF);	// Name of the parameter for housekeeping (either sensor or variable).
+			for(i = 79; i < 79 + num_parameters * 2; i+=2)					// ALTERED FOR CSDC (i = 0 before)
 			{
 				if(current_hk_definition[i] == parameter_name)
 				{
@@ -634,7 +634,7 @@ static void setup_default_definition(void)
 	
 	hk_definition0[131] = 0;							// sID = 0
 	hk_definition0[130] = collection_interval0;			// Collection interval = 30 min
-	hk_definition0[129] = 36;							// Number of parameters (2B each)
+	hk_definition0[129] = 25;							// Number of parameters (2B each)
 	hk_definition0[128] = PANELX_V;
 	hk_definition0[127] = PANELX_V;
 	hk_definition0[126] = PANELX_I;
@@ -679,13 +679,12 @@ static void setup_default_definition(void)
 	hk_definition0[87] = PAY_PRESS;
 	hk_definition0[86] = PAY_ACCEL;
 	hk_definition0[85] = PAY_ACCEL;
-	hk_definition0[84] = MPPTX;
-	hk_definition0[83] = MPPTX;
-	hk_definition0[82] = MPPTY;
-	hk_definition0[81] = MPPTY;
-	hk_definition0[80] = ABS_TIME_D;
-	hk_definition0[79] = ABS_TIME_H;
-	hk_definition0[78] = ABS_TIME_M;
+	hk_definition0[84] = ABS_TIME_D;
+	hk_definition0[83] = ABS_TIME_D;
+	hk_definition0[82] = ABS_TIME_H;
+	hk_definition0[81] = ABS_TIME_H;
+	hk_definition0[80] = ABS_TIME_M;
+	hk_definition0[79] = ABS_TIME_M;
 	return;
 }
 

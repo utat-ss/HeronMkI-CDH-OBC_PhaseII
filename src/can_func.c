@@ -412,26 +412,32 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 			eps_data_receivedf = 1;
 			eps_data_receive[1] = uh_data_incom;
 			eps_data_receive[0] = ul_data_incom;
+			break;
 		case COMS_TASK_ID:
 			coms_data_receivedf = 1;
 			coms_data_receive[1] = uh_data_incom;
 			coms_data_receive[0] = ul_data_incom;
+			break;
 		case PAY_TASK_ID:
 			pay_data_receivedf = 1;
 			pay_data_receive[1] = uh_data_incom;
 			pay_data_receive[0] = ul_data_incom;
+			break;
 		case OBC_PACKET_ROUTER_ID:
 			opr_data_receivedf = 1;
 			opr_data_receive[1] = uh_data_incom;
 			opr_data_receive[0] = ul_data_incom;
+			break;
 		case FDIR_TASK_ID:
 			fdir_data_receivedf = 1;
 			fdir_data_receive[1] = uh_data_incom;
 			fdir_data_receive[0] = ul_data_incom;
+			break;
 		case SCHEDULING_TASK_ID:
 			sched_data_receivedf = 1;
 			sched_data_receive[1] = uh_data_incom;
 			sched_data_receive[0] = ul_data_incom;
+			break;
 		default:
 			return;	
 	}
@@ -458,9 +464,11 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 	case 0 :
 		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
 		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+		break;
 	case 1 :
 		xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
 		xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
+		break;
 	//case 2 :
 		//xQueueSendToBackFromISR(can_data_fifo, &ul_data_incom, &wake_task);		// Global CAN Data FIFO
 		//xQueueSendToBackFromISR(can_data_fifo, &uh_data_incom, &wake_task);
@@ -473,9 +481,11 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 	case 5 :
 		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
 		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
+		break;
 	case 6 :
 		xQueueSendToBackFromISR(can_hk_fifo, &ul_data_incom, &wake_task);		// Global CAN HK FIFO.
 		xQueueSendToBackFromISR(can_hk_fifo, &uh_data_incom, &wake_task);
+		break;
 	case 7 :
 		break;
 		//xQueueSendToBackFromISR(can_com_fifo, &ul_data_incom, &wake_task);		// Global CAN Command FIFO

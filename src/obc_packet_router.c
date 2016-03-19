@@ -292,8 +292,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 		//}	
 		exec_commands();
-		//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-		//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -629,7 +629,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
-	timeout = 1000;
+	timeout = 500;
 	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
 	{
 		if(!timeout--)

@@ -97,6 +97,8 @@ functionality. */
 #define DEFAULT					0
 #define ALTERNATE				1
 
+#define HK_LOOP_TIMEOUT			30000							// Specifies how many ticks to wait before running housekeeping again.
+
 /* Definitions to clarify which service subtypes represent what	*/
 /* Housekeeping							
 #define NEW_HK_DEFINITION				1
@@ -188,7 +190,8 @@ static void prvHouseKeepTask(void *pvParameters )
 	param_report_requiredf = 0;
 	collection_interval0 = 30;
 	collection_interval1 = 30;
-	xTimeToWait = 1000;
+	xTimeToWait = 10;
+	TickType_t last_tick_count = xTaskGetTickCount();
 
 	clear_current_hk();
 	clear_current_command();
@@ -200,14 +203,16 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		//exec_commands();
-		request_housekeeping_all();
-		store_housekeeping();
-		send_hk_as_tm();
-		//if(param_report_requiredf)
-			//send_param_report();
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 seconds
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		if(xTaskGetTickCount() - last_tick_count > HK_LOOP_TIMEOUT)
+		{
+			request_housekeeping_all();
+			store_housekeeping();
+			send_hk_as_tm();
+			last_tick_count = xTaskGetTickCount();		
+		}
+		exec_commands();
+		if(param_report_requiredf)
+			send_param_report();
 	}
 }
 /*-----------------------------------------------------------*/

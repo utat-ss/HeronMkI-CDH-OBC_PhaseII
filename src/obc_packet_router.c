@@ -96,7 +96,7 @@ Author: Keenan Burnett
 #include "checksum.h"
 
 /* Priorities at which the tasks are created. */
-#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 1 )	// Shares highest priority with FDIR.
+#define OBC_PACKET_ROUTER_PRIORITY		( tskIDLE_PRIORITY + 2 )	// Shares highest priority with FDIR.
 
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
@@ -919,6 +919,7 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				current_command[145] = collection_interval;
 				current_command[144] = npar1;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdTrue.
+				break;
 			case	CLEAR_HK_DEFINITION:
 				sID = current_command[136];
 				if(sID != 1)
@@ -928,15 +929,19 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				}
 				current_command[146] = CLEAR_HK_DEFINITION;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);
+				break;
 			case	ENABLE_PARAM_REPORT:
 				current_command[146] = ENABLE_PARAM_REPORT;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);
+				break;
 			case	DISABLE_PARAM_REPORT:
 				current_command[146] = DISABLE_PARAM_REPORT;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);
+				break;
 			case	REPORT_HK_DEFINITIONS:
 				current_command[146] = REPORT_HK_DEFINITIONS;
 				xQueueSendToBack(obc_to_hk_fifo, current_command, (TickType_t)1);
+				break;
 				
 			// William: Put more diagnostics stuff here. This time I want the service_type in current_command[146] and
 			// The service_sub_type placed in current_command[145]
@@ -944,26 +949,29 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 				current_command[146] = HK_SERVICE;
 				current_command[145] = NEW_DIAG_DEFINITION;
 				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+				break;
 			
 			case	CLEAR_DIAG_DEFINITION:
 				current_command[146] = HK_SERVICE;
 				current_command[145] = CLEAR_DIAG_DEFINITION;
 				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+				break;
 			
 			case	ENABLE_D_PARAM_REPORT:
 				current_command[146] = HK_SERVICE;
 				current_command[145] = ENABLE_D_PARAM_REPORT;
 				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
-			
+				break;
 			case	DISABLE_D_PARAM_REPORT:
 				current_command[146] = HK_SERVICE;
 				current_command[145] = DISABLE_D_PARAM_REPORT;
 				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
-			
+				break;
 			case	REPORT_DIAG_DEFINITIONS:
 				current_command[146] = HK_SERVICE;
 				current_command[145] = REPORT_DIAG_DEFINITIONS;
 				xQueueSendToBack(obc_to_fdir_fifo, current_command, (TickType_t)1);
+				break;
 			default:
 				return -1;
 		}

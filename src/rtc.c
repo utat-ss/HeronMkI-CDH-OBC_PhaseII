@@ -82,14 +82,15 @@ static uint8_t bcdtodec(uint8_t val)
 /************************************************************************/
 void rtc_init(uint16_t ctrl_reg_val)
 {	
-    int attempts,x;
 	rtc_set_creg(ctrl_reg_val);
 	
-	attempts = 0; x = -1;
-	while(attempts<3 && x<0){
-		x = spimem_read(TIME_BASE, absolute_time_arr, 4);	
-	}
-	if (x<0) {errorREPORT(TIME_TASK_ID, 0, RTC_SPIMEM_R_ERROR, &ctrl_reg_val);}
+	//attempts = 0; x = -1;
+	//while(attempts<3 && x<0){
+		
+	//spimem_read(TIME_BASE, absolute_time_arr, 4);	
+	
+	//}
+	//if (x<0) {errorREPORT(TIME_TASK_ID, 0, RTC_SPIMEM_R_ERROR, &ctrl_reg_val);}
 	
 	
 	
@@ -113,6 +114,7 @@ void rtc_init(uint16_t ctrl_reg_val)
 	
 	rtc_set_a2();
 	rtc_clear_a2_flag();
+	return;
 }
 
 /************************************************************************/
@@ -124,7 +126,7 @@ void rtc_set(struct timestamp t)
 {
 	uint8_t time_date[7] = { t.sec, t.minute, t.hour, t.wday, t.mday, t.mon, t.year };
     uint8_t i;
-	uint16_t message, addr, data;
+	uint16_t volatile message, addr, data;
 
     for (i = 0; i < 7; i++) 
 	{
@@ -133,8 +135,9 @@ void rtc_set(struct timestamp t)
 		data = dectobcd(time_date[i]);
 		
 		message = (addr << 8) | data;
-		spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
+		spi_master_transfer(&message, 1, 1);	// Chip-Select 3.
     }
+	return;
 }
 
 /************************************************************************/
@@ -169,7 +172,8 @@ void rtc_get(struct timestamp *t)
 	t->wday = time_date[3];
     t->mday = time_date[4];
     t->mon = time_date[5];
-    t->year = time_date[6]; 
+    t->year = time_date[6];
+	return;
 }
 
 /************************************************************************/
@@ -180,8 +184,9 @@ void rtc_get(struct timestamp *t)
 /************************************************************************/
 void rtc_set_addr(uint16_t addr, uint16_t val)
 {
-	uint16_t message = (addr << 8) | val;
+	uint16_t volatile message = (addr << 8) | val;
 	spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
+	return;
 }
 
 /************************************************************************/
@@ -192,7 +197,7 @@ void rtc_set_addr(uint16_t addr, uint16_t val)
 uint8_t rtc_get_addr(uint16_t addr)
 {
 	uint8_t val;
-	uint16_t message = (uint16_t) addr << 8;
+	uint16_t volatile message = (uint16_t) addr << 8;
 	
 	spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
 	
@@ -217,6 +222,7 @@ uint8_t rtc_get_addr(uint16_t addr)
 void rtc_set_creg(uint16_t val)
 {
     rtc_set_addr(DS3234_CREG_WRITE, val);
+	return;
 }
 
 /************************************************************************/
@@ -238,6 +244,7 @@ void rtc_set_creg(uint16_t val)
 void rtc_set_sreg(uint16_t val)
 {
     rtc_set_addr(DS3234_SREG_WRITE, val);
+	return;
 }
 
 /************************************************************************/
@@ -259,7 +266,7 @@ uint8_t rtc_get_sreg(void)
 void rtc_set_a2(void)
 {
 	uint8_t i;
-	uint16_t buffer, message;
+	uint16_t volatile buffer, message;
 	
 	for (i = 0; i <= 2; i++) 
 	{
@@ -268,6 +275,7 @@ void rtc_set_a2(void)
 		message = (buffer << 8) | 0x80;
 		spi_master_transfer(&message, 1, 1);	// Chip-Select 1.
 	}
+	return;
 }
 
 /************************************************************************/
@@ -277,7 +285,8 @@ void rtc_set_a2(void)
 void rtc_reset_a2(void)
 {
 	rtc_set_creg(DS3234_INTCN | DS3234_A2IE);
-	rtc_clear_a2_flag();	
+	rtc_clear_a2_flag();
+	return;
 }
 
 /************************************************************************/
@@ -290,6 +299,7 @@ void rtc_clear_a2_flag(void)
 	reg_val = rtc_get_sreg() & ~DS3234_A2F;
 	
 	rtc_set_sreg(reg_val);
+	return;
 }
 
 /************************************************************************/

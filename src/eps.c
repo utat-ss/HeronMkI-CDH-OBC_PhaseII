@@ -54,6 +54,8 @@ Author: Samantha Murray, Keenan Burnett
 functionality. */
 #define EPS_PARAMETER	( 0xABCD )
 
+#define EPS_LOOP_TIMEOUT		10000							// Specifies how many ticks to wait before running eps again.
+
 /* Relevant Boundaries for power system		*/
 #define MAX_NUM_TRIES			0x3
 #define DUTY_INCREMENT			0x6
@@ -158,8 +160,9 @@ TaskHandle_t eps( void )
 static void prvEpsTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == EPS_PARAMETER );
-	TickType_t xLastWakeTime;
-	const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
+	TickType_t last_tick_count = xTaskGetTickCount();
+	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
+	int* status = 0;
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 
 	/* Declare Variables Here */
@@ -178,27 +181,28 @@ static void prvEpsTask(void *pvParameters )
 	for( ;; )
 	{
 		// Write your application here.
-		xLastWakeTime = xTaskGetTickCount();
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// CDH: Systick = 1kHz, delays for >= 15 ms. If that's not okay, let us know.	
-		
-		if ((abs(CURRENT_MINUTE) - last_balance_minute) > eps_balance_interval){
-			battery_balance();
-		}
-		if ((abs(CURRENT_MINUTE) - last_heater_control_minute) > eps_heater_control_interval){
-			battery_heater();
-		}
-		if ((abs(CURRENT_SECOND) - last_mppt_second) > eps_mppt_interval){
-			mppt();
-		}
-		if ((abs(CURRENT_MINUTE) - last_battery_capacity_minute) > eps_battery_capacity_interval){
-			update_battery_capacity();
-		}
-		if ((abs(CURRENT_SECOND) - last_mode_second) > eps_modes_interval){
-			eps_mode();
-		}
-		if ((abs(CURRENT_MINUTE) - last_verify_sensor_minute) > eps_verify_sensor_interval){
-			// Decide what I want to do about this in terms of reading all the sensors or not
-			verify_eps_sensor_value(PANELX_V);
+		if(xTaskGetTickCount() - last_tick_count > EPS_LOOP_TIMEOUT)
+		{	
+			if ((abs(CURRENT_MINUTE) - last_balance_minute) > eps_balance_interval){
+				battery_balance();
+			}
+			if ((abs(CURRENT_MINUTE) - last_heater_control_minute) > eps_heater_control_interval){
+				battery_heater();
+			}
+			if ((abs(CURRENT_SECOND) - last_mppt_second) > eps_mppt_interval){
+				mppt();
+			}
+			//if ((abs(CURRENT_MINUTE) - last_battery_capacity_minute) > eps_battery_capacity_interval){
+				//update_battery_capacity();
+			//}
+			//if ((abs(CURRENT_SECOND) - last_mode_second) > eps_modes_interval){
+				//eps_mode();
+			//}
+			//if ((abs(CURRENT_MINUTE) - last_verify_sensor_minute) > eps_verify_sensor_interval){
+				//// Decide what I want to do about this in terms of reading all the sensors or not
+				//verify_eps_sensor_value(PANELX_V);
+			//}
+			last_tick_count = xTaskGetTickCount();
 		}
 	}
 
@@ -381,7 +385,7 @@ static uint32_t get_sensor_data(uint8_t sensor_id)
 	{
 		if (tries++ > MAX_NUM_TRIES)
 			{
-				errorREPORT(EPS_TASK_ID, sensor_id, EPS_SSM_GET_SENSOR_DATA_ERROR, 0);
+				//errorREPORT(EPS_TASK_ID, sensor_id, EPS_SSM_GET_SENSOR_DATA_ERROR, 0);
 				return 0xFFFFFFFF;
 			}
 										
@@ -416,7 +420,7 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 	{
 		if (tries++ > MAX_NUM_TRIES) {
 			
-			errorREPORT(EPS_TASK_ID, variable_name, EPS_SET_VARIABLE_ERROR, 0);
+			//errorREPORT(EPS_TASK_ID, variable_name, EPS_SET_VARIABLE_ERROR, 0);
 			return;
 		}								// FAILURE_RECOVERY
 		else
@@ -513,7 +517,7 @@ static void battery_heater(void){
 		set_variable_value(BATT_HEAT, 0);
 		//Report that we turned the heater off 
 		*val = 0;
-		send_event_report(1, BATTERY_HEATER_STATUS, 1, val);
+		//send_event_report(1, BATTERY_HEATER_STATUS, 1, val);
 	}
 		
 	//Check if we should turn on the heater if it is currently off
@@ -522,7 +526,7 @@ static void battery_heater(void){
 		set_variable_value(BATT_HEAT, 1);
 		//Report that we turned the heater on
 		*val = 1;
-		send_event_report(1, BATTERY_HEATER_STATUS, 1, val);
+		//send_event_report(1, BATTERY_HEATER_STATUS, 1, val);
 	}
 	
 	// Timestamp the occurrence of this function
@@ -834,25 +838,8 @@ static int send_event_report(uint8_t severity, uint8_t report_id, uint8_t num_pa
 
 // This function will kill this task.
 // If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
-void eps_kill(uint8_t killer){
-	// Free the memory that this task allocated.
-	//vPortFree(xDirection);
-	//vPortFree(yDirection);
-	//vPortFree(xDuty);
-	//vPortFree(yDuty);
-	//vPortFree(pxp_last);
-	//vPortFree(pyp_last);
-	//vPortFree(battmv);
-	//vPortFree(battv);
-	//vPortFree(battin);
-	//vPortFree(battout);
-	//vPortFree(epstemp);
-	//vPortFree(comsv);
-	//vPortFree(comsi);
-	//vPortFree(payv);
-	//vPortFree(payi);
-	//vPortFree(obcv);
-	//vPortFree(obci);
+void eps_kill(uint8_t killer)
+{
 	// Kill the task.
 	if(killer)
 		vTaskDelete(eps_HANDLE);

@@ -135,6 +135,9 @@
 	*
 	*					I am putting the functionality of high_command_generator() inside of send_can_command() so that
 	*					users have one less API to worry about.
+	*
+	*	03/23/2016		I have been making updates to TC/TM transactions and lately I have needed to update alert_can_data
+	*					to accommodate the new tasks that are running.
 	*					
 	*
 	*	DESCRIPTION:	

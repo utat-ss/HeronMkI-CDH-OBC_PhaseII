@@ -52,6 +52,8 @@ Author: Keenan Burnett
 functionality. */
 #define PAYLOAD_PARAMETER	( 0xABCD )
 
+#define PAY_LOOP_TIMEOUT		10000							// Specifies how many ticks to wait before running payload again.
+
 /* Relevant Boundaries for payload system		*/
 #define MAX_NUM_TRIES	0xA
 #define TARGET_TEMP	0x1E //30 deg C
@@ -104,56 +106,56 @@ TaskHandle_t payload( void )
 }
 
 /************************************************************************/
-/* COMS TASK */
+/* PAYLOAD TASK */
 /* This task encapsulates the high-level software functionality of the	*/
-/* communication subsystem on this satellite.							*/
+/* payload subsystem on this satellite.									*/
 /*																		*/
 /************************************************************************/
 static void prvPayloadTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == PAYLOAD_PARAMETER );
-	TickType_t xLastWakeTime;
-	const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
+	TickType_t last_tick_count = xTaskGetTickCount();
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
-
+	int* status = 0;
 	/* Declare Variables Here */
 	
 	setUpSens();
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		for(int i = 0; i < 5; i++)
+		if(xTaskGetTickCount() - last_tick_count > PAY_LOOP_TIMEOUT)
 		{
-			readTemp(i); // read temperature sensors, decide what to do to heaters
-		}
-		
-		if(count <= 0)	//once per minute, read env sensors, save data (count every 500 ms)
-		{
-			readEnv();
-			count = 60;
-		}
-		
-		if(experiment_started)
-		{
-			if(valvesclosed)
+			for(int i = 0; i < 5; i++)
 			{
-				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, OPEN_VALVES, DEF_PRIO);//(see data_collect.c)
-				valvesclosed = 0;
+				readTemp(i); // read temperature sensors, decide what to do to heaters
 			}
-			if(CURRENT_MINUTE - last_Optstime >= opts_timebetween)
-			{
-				send_can_command(0, 0, PAY_TASK_ID, PAY_ID, COLLECT_PD, DEF_PRIO);
-				last_Optstime = CURRENT_MINUTE;
-			}
-			if(pd_collectedf)
-			{
-				readOpts();
-			}	
-		}
 		
-		xLastWakeTime = xTaskGetTickCount();		
-		vTaskDelayUntil(&xLastWakeTime, 50); //wait 50 ticks = 500 ms
-		count -= 1;
+			if(count > 120)	//once per minute, read env sensors, save data (count every 500 ms)
+			{
+				readEnv();
+				count = 0;
+			}
+		
+			if(experiment_started)
+			{
+				if(valvesclosed)
+				{
+					send_can_command(0, 0, PAY_TASK_ID, PAY_ID, OPEN_VALVES, DEF_PRIO);//(see data_collect.c)
+					valvesclosed = 0;
+				}
+				if(CURRENT_MINUTE - last_Optstime >= opts_timebetween)
+				{
+					send_can_command(0, 0, PAY_TASK_ID, PAY_ID, COLLECT_PD, DEF_PRIO);
+					last_Optstime = CURRENT_MINUTE;
+				}
+				if(pd_collectedf)
+				{
+					readOpts();
+				}	
+			}
+			count++;
+			last_tick_count = xTaskGetTickCount();	
+		}
 	}
 }
 
@@ -180,11 +182,12 @@ static uint8_t readTemp(int sensorNumber)
 {
 	uint8_t tempval;
 	uint8_t temp_sensor;
-	
+	int* status = 0;
 	temp_sensor = PAY_TEMP0 + sensorNumber ;
-	tempval= request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, 0);
+	tempval= request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, status);
+	if(status < 0)
+		return 0;
 	activate_heater(tempval, sensorNumber);
-
 	return tempval;
 }
 
@@ -223,7 +226,10 @@ static void readEnv()
 static uint8_t readHum(void)
 {
 	uint8_t humval = 0;
-	humval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, 0); //status???
+	int* status;
+	humval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, status);
+	if(*status < 0)
+		return 0;
 	return humval;
 }
 
@@ -231,14 +237,20 @@ static uint8_t readHum(void)
 static uint8_t readPres(void)
 {
 	uint8_t presval = 0;
-	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, 0); 
+	int* status;
+	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, status);
+	if(*status)
+		return 0;
 	return presval;
 }
 
 static uint8_t readAccel(void)
 {
 	uint8_t accelval = 0;
-	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, 0); 
+	int* status;
+	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, status);
+	if(*status)
+		return 0; 
 	return accelval;
 }
 
@@ -254,9 +266,11 @@ static void readOpts(void)
 		FL_PD += i;
 		OD_PD += i;
 		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, FL_PD, 0);
+		taskYIELD();
 		optval[4 * i]		= (uint8_t)temp;
 		optval[4 * i + 1]	= (uint8_t)(temp >> 8);
 		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
+		taskYIELD();
 		optval[4 * i + 2]	= (uint8_t)temp;
 		optval[4 * i + 3]	= (uint8_t)(temp >> 8);
 	}
@@ -267,6 +281,7 @@ static void readOpts(void)
 	{
 		OD_PD += i;
 		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
+		taskYIELD();
 		optval[i * 2 + 48]		= (uint8_t)temp; 
 		optval[i * 2 + 48 + 1]	=  (uint8_t)(temp >> 8);
 	}
@@ -274,38 +289,37 @@ static void readOpts(void)
 	store_science(1, optval);
 }
 
-// This function will kill this task.
-// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
-void payload_kill(uint8_t killer)
-{
-	// Free the memory that this task allocated.
-	// Kill the task.
-	if(killer)
-		vTaskDelete(pay_HANDLE);
-	else
-		vTaskDelete(NULL);
-	return;
-}
-
-int store_science(uint8_t type, uint8_t* data)
+static int store_science(uint8_t type, uint8_t* data)
 {
 	uint32_t offset;
 	uint8_t size;
 	uint8_t* temp_ptr;
 	*temp_ptr = type;
-	if (task_spimem_read(PAY_TASK_ID, SCIENCE_BASE, &offset, 4) < 0)
+	if (spimem_read(SCIENCE_BASE, &offset, 4) < 0)
 		return -1;
-	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE + offset, &temp_ptr, 1);					// Data Type
-	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE + offset + 1, absolute_time_arr, 4);		// Time Stamp
+	spimem_write(SCIENCE_BASE + offset, &temp_ptr, 1);					// Data Type
+	spimem_write(SCIENCE_BASE + offset + 1, absolute_time_arr, 4);		// Time Stamp
 	if(!type)			// Temperature collection
 		size = 10;
 	if(type == 1)		// Environmental Sensor Collection
 		size = 12;
 	if(type == 2)		// Photosensor collection
 		size = 144;
-	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE + offset + 5, data, size);
+	spimem_write(SCIENCE_BASE + offset + 5, data, size);
 	offset += (5 + size);
-	task_spimem_write(PAY_TASK_ID, SCIENCE_BASE, offset, 4);
+	spimem_write(SCIENCE_BASE, offset, 4);
 	return size;
+}
+
+// This function will kill this task.
+// If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
+void payload_kill(uint8_t killer)
+{
+	// Kill the task.
+	if(killer)
+	vTaskDelete(pay_HANDLE);
+	else
+	vTaskDelete(NULL);
+	return;
 }
 

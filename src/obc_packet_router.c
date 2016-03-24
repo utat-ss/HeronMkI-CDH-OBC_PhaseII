@@ -179,7 +179,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	configASSERT( ( ( unsigned long ) pvParameters ) == OBC_PACKET_ROUTER_PARAMETER );
 
 	int status;
-	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
+	const TickType_t xTimeToWait = 5;	// Number entered here corresponds to the number of ticks we should wait.
 	TickType_t	xLastWakeTime;
 
 	/* Initialize Global variables and flags */
@@ -485,7 +485,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	current_tm[146]	= PACKET_LENGTH - 1;	// Represents the length of the data field - 1.
 	version = 1;
 	// Data Field Header
-	current_tm[145] = (version & 0x07) << 4;
+	current_tm[145] = (version & 0x07) << 4 | 0x80;
 	current_tm[144] = service_type;
 	current_tm[143] = service_sub_type;
 	current_tm[142] = packet_sub_counter;
@@ -624,7 +624,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	uint32_t num_transfers = PACKET_LENGTH / 4;
 	uint16_t timeout;
 	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 200;
+	const TickType_t xTimeToWait = 25;
 	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
@@ -1355,39 +1355,6 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 // If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
 void opr_kill(uint8_t killer)
 {
-	// Free the memory that this task allocated.
-	//vPortFree(current_command);
-	//vPortFree(version);
-	//vPortFree(type);
-	//vPortFree(data_header);
-	//vPortFree(flag);
-	//vPortFree(sequence_flags);
-	//vPortFree(sequence_count);
-	//vPortFree(packet_id);
-	//vPortFree(psc);
-	//vPortFree(tc_sequence_count);
-	//vPortFree(hk_telem_count);
-	//vPortFree(hk_def_report_count);
-	//vPortFree(diag_telem_count);
-	//vPortFree(diag_def_report_count);
-	//vPortFree(time_report_count);
-	//vPortFree(mem_dump_count);
-	//vPortFree(packet_id);
-	//vPortFree(tc_exec_success_count);
-	//vPortFree(tc_exec_fail_count);
-	//vPortFree(mem_check_count);
-	//vPortFree(new_tc_msg_high);
-	//vPortFree(new_tc_msg_low);
-	//vPortFree(tc_verify_success_count);
-	//vPortFree(tc_verify_fail_count);
-	//vPortFree(event_report_count);
-	//vPortFree(sched_report_count);
-	//vPortFree(sched_command_count);
-	//vPortFree(current_data);
-	//vPortFree(current_tc);
-	//vPortFree(current_tm);
-	//vPortFree(tc_to_decode);
-	//vPortFree(xTimeToWait);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(opr_HANDLE);

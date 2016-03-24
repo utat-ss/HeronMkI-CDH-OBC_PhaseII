@@ -219,11 +219,11 @@ int main(void)
 	//command_loop();
 	housekeeping_HANDLE = housekeep();
 	//data_test();
-	//time_manage_HANDLE = time_manage();
+	time_manage_HANDLE = time_manage();
 	//memory_manage_HANDLE = memory_manage();
-	//eps_HANDLE = eps();
-	//coms_HANDLE = coms();
-	//pay_HANDLE = payload();
+	eps_HANDLE = eps();
+	coms_HANDLE = coms();
+	pay_HANDLE = payload();
 	wdt_reset_HANDLE = wdt_reset();
 	/* Start Scheduler */
 	vTaskStartScheduler();
@@ -296,7 +296,7 @@ static void prvSetupHardware(void)
 	spi_initialize();
 	
 	/* Initialize RTC registers and set the default initial time. */
-	//rtc_init(DS3234_INTCN);
+	rtc_init(DS3234_INTCN);
 	
 	/* Initialize the SPI memory chips	*/
 	spimem_initialize();

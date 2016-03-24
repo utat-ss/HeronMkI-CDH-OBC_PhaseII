@@ -84,6 +84,7 @@ void update_absolute_time(void);
 void report_time(void);
 static void exec_commands(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+static void clear_current_command(void);
 
 /* Local Variables for Time Management */
 static struct timestamp time;
@@ -102,7 +103,7 @@ TaskHandle_t time_manage( void )
 		TaskHandle_t temp_HANDLE = 0;
 		xTaskCreate( prvTimeManageTask,					/* The function that implements the task. */
 					"ON", 								/* The text name assigned to the task - for debug only as it is not used by the kernel. */
-					configMINIMAL_STACK_SIZE, 			/* The size of the stack to allocate to the task. */
+					configMINIMAL_STACK_SIZE * 5, 			/* The size of the stack to allocate to the task. */
 					( void * ) TIME_MANAGE_PARAMETER, 			/* The parameter passed to the task - just to check the functionality. */
 					TIME_MANAGE_PRIORITY, 			/* The priority assigned to the task. */
 					&temp_HANDLE );								/* The task handle is not required, so NULL is passed. */
@@ -119,7 +120,7 @@ static void prvTimeManageTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == TIME_MANAGE_PARAMETER );
 	minute_count = 0;
-	report_timeout = 60;	// Produce a time report once every 60 minutes.
+	report_timeout = 1;	// Produce a time report once every 1 minutes.
 	
 	/* @non-terminating@ */	
 	for( ;; )
@@ -127,16 +128,14 @@ static void prvTimeManageTask( void *pvParameters )
 		if (rtc_triggered_a2())
 		{
 			rtc_get(&time);
+			update_absolute_time();
+			//broadcast_minute();			
 			minute_count++;
 			if(minute_count == report_timeout)
 				report_time();
-			
-			update_absolute_time();
-			broadcast_minute();
-
 			rtc_reset_a2();
 		}
-		exec_commands();
+		//exec_commands();
 	}
 }
 /*-----------------------------------------------------------*/
@@ -189,7 +188,7 @@ void report_time(void)
 	current_command[1] = absolute_time_arr[1];
 	current_command[0] = absolute_time_arr[0];
 	
-	xQueueSendToBackTask(TIME_TASK_ID, 1, time_to_obc_fifo, current_command, (TickType_t)1);
+	xQueueSendToBack(time_to_obc_fifo, current_command, (TickType_t)1);
 	minute_count = 0;
 	return;
 }
@@ -198,19 +197,19 @@ void report_time(void)
 static void exec_commands(void)
 {
 	uint16_t packet_id, psc;
-	if(xQueueReceiveTask(TIME_TASK_ID, 0, obc_to_time_fifo, current_command, (TickType_t)10) == pdTRUE)
+	if(xQueueReceive(obc_to_time_fifo, current_command, (TickType_t)10) == pdTRUE)
 	{
 		packet_id = ((uint16_t)current_command[8]) << 8;
 		packet_id += (uint16_t)current_command[7];
 		psc = ((uint16_t)current_command[6]) << 8;
 		psc += (uint16_t)current_command[5];
 		report_timeout = current_command[0];			
-		send_tc_execution_verify(1, packet_id, psc);
+		//send_tc_execution_verify(1, packet_id, psc);
 	}
 	if(xQueueReceive(sched_to_time_fifo, current_command, (TickType_t)1))
 	{
 		report_timeout = current_command[0];
-		send_tc_execution_verify(1, 0, 0);
+		//send_tc_execution_verify(1, 0, 0);
 	}
 	return;
 }
@@ -233,14 +232,24 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 // If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
 void time_manage_kill(uint8_t killer)
 {
-	// Free the memory that this task allocated.
-	//vPortFree(current_command);
-	//vPortFree(minute_count);
-	//vPortFree(report_timeout);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(time_manage_HANDLE);
 	else
 		vTaskDelete(NULL);
+	return;
+}
+
+/************************************************************************/
+/* CLEAR_CURRENT_COMMAND												*/
+/* @Purpose: clears the array current_command[]							*/
+/************************************************************************/
+static void clear_current_command(void)
+{
+	uint8_t i;
+	for(i = 0; i < (DATA_LENGTH + 10); i++)
+	{
+		current_command[i] = 0;
+	}
 	return;
 }

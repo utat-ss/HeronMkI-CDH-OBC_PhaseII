@@ -790,28 +790,6 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 // If it is being called by the hk task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
 void housekeep_kill(uint8_t killer)
 {
-	// Free the memory that this task allocated.
-	//vPortFree(current_hk);
-	//vPortFree(current_command);
-	//vPortFree(hk_definition0);
-	//vPortFree(hk_definition1);
-	//vPortFree(hk_updated);
-	//vPortFree(current_hk_definition);
-	//vPortFree(current_hk_definitionf);
-	//vPortFree(current_eps_hk);
-	//vPortFree(current_coms_hk);
-	//vPortFree(current_pay_hk);
-	//vPortFree(current_obc_hk);
-	//vPortFree(new_hk_msg_high);
-	//vPortFree(new_hk_msg_low);
-	//vPortFree(current_hk_fullf);
-	//vPortFree(param_report_requiredf);
-	//vPortFree(collection_interval0);
-	//vPortFree(collection_interval1);
-	//vPortFree(xTimeToWait);
-	//vPortFree(current_hk_mem_offset);
-	//vPortFree(xLastWakeTime);
-	//vPortFree(req_data_result);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(housekeeping_HANDLE);

@@ -52,6 +52,8 @@ Author: Keenan Burnett
 /* Values passed to the two tasks just to check the task parameter
 functionality. */
 #define COMS_PARAMETER	( 0xABCD )
+
+#define COMS_LOOP_TIMEOUT		10000							// Specifies how many ticks to wait before running coms again.
 /*-----------------------------------------------------------*/
 
 /* Function Prototypes										 */
@@ -96,17 +98,18 @@ TaskHandle_t coms( void )
 static void prvComsTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == COMS_PARAMETER );
-	TickType_t xLastWakeTime;
-	const TickType_t xTimeToWait = 15; // Number entered here corresponds to the number of ticks we should wait.
+	TickType_t last_tick_count = xTaskGetTickCount();
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
-	
+	int* status = 0;
+	uint32_t data = 0;
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		// Write your application here.
-		
-		xLastWakeTime = xTaskGetTickCount();
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);		// This is what delays your task if you need to yield. Consult CDH before editing.
+		if(xTaskGetTickCount() - last_tick_count > COMS_LOOP_TIMEOUT)
+		{
+			data = request_sensor_data(COMS_TASK_ID, COMS_ID, COMS_TEMP, status);
+			last_tick_count = xTaskGetTickCount();	
+		}	
 	}
 }
 
@@ -116,7 +119,6 @@ static void prvComsTask(void *pvParameters )
 // If it is being called by this task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
 void coms_kill(uint8_t killer)
 {
-	// Free the memory that this task allocated.
 	// Kill the task.
 	if(killer)
 		vTaskDelete(coms_HANDLE);

@@ -214,16 +214,17 @@ int main(void)
 		
 	/* Create Tasks */
 	//fdir_HANDLE = fdir();
+	housekeeping_HANDLE = housekeep();
 	opr_HANDLE = obc_packet_router();
 	//scheduling_HANDLE = scheduling();
 	//command_loop();
-	housekeeping_HANDLE = housekeep();
+
 	//data_test();
 	time_manage_HANDLE = time_manage();
 	//memory_manage_HANDLE = memory_manage();
-	eps_HANDLE = eps();
-	coms_HANDLE = coms();
-	pay_HANDLE = payload();
+	//eps_HANDLE = eps();
+	//coms_HANDLE = coms();
+	//pay_HANDLE = payload();
 	wdt_reset_HANDLE = wdt_reset();
 	/* Start Scheduler */
 	vTaskStartScheduler();

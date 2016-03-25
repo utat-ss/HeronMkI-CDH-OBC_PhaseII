@@ -635,7 +635,7 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 
 int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
-	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	uint32_t timeout = 8400;		// ~ 100 us timeout.//
 	uint32_t id, ret_val, high;
 	
 	if(ssm_id == COMS_ID)

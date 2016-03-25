@@ -97,7 +97,7 @@ functionality. */
 #define DEFAULT					0
 #define ALTERNATE				1
 
-#define HK_LOOP_TIMEOUT			30000							// Specifies how many ticks to wait before running housekeeping again.
+#define HK_LOOP_TIMEOUT			15000							// Specifies how many ticks to wait before running housekeeping again.
 
 /* Definitions to clarify which service subtypes represent what	*/
 /* Housekeeping							
@@ -475,7 +475,7 @@ static int store_housekeeping(void)
 //Returns the proper ssm_id for a given sensor/variable
 uint8_t get_ssm_id(uint8_t sensor_name)
 {
-	//for sensors:
+	//for sensors://
 	if ((sensor_name>=0x01 && sensor_name <=0x11)||(sensor_name == 0xFF) || (sensor_name == 0xFC) || (sensor_name == 0xFE))
 		return EPS_ID;
 	if ((sensor_name == 0x12) || (sensor_name == 0xFD))

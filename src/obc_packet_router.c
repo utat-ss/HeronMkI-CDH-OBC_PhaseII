@@ -263,37 +263,40 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//spimem_write(TC_BASE + 4, &NEXT_TC_PACKET, 4);	// Update the position of the next packet		
 			//decode_telecommand();
 		//}
-		if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
-			decode_telecommand();
+		if(!receiving_tcf)
+		{
+			if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
+				decode_telecommand();
 
-		if (tm_down_fullf)
-		{
-			send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
-		}
-		else if(xQueueReceive(tm_buffer, tm_to_downlink, (TickType_t)1) == pdTRUE)
-		{
-			tm_down_fullf = 1;
-			send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
-		}
+			if (tm_down_fullf)
+			{
+				send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
+			}
+			else if(xQueueReceive(tm_buffer, tm_to_downlink, (TickType_t)1) == pdTRUE)
+			{
+				tm_down_fullf = 1;
+				send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
+			}
 		
-		//if (tm_down_fullf)
-		//{
-			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
-		//}
-		//else if(TM_PACKET_COUNT && (task_spimem_read(OBC_PACKET_ROUTER_ID, NEXT_TM_PACKET, tm_to_downlink, 152) > 0))
-		//{
-			//TM_PACKET_COUNT--;	// Update packet count.
-			//task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
-			//NEXT_TM_PACKET += 152;
-			//if (NEXT_TM_PACKET > (TM_BASE + 0x20000))
-				//NEXT_TM_PACKET = TM_BASE + 12;
-			//task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);	// Update the position of the next packet 
-			//tm_down_fullf = 1;
-			//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
-		//}	
-		exec_commands();
-		xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+			//if (tm_down_fullf)
+			//{
+				//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
+			//}
+			//else if(TM_PACKET_COUNT && (task_spimem_read(OBC_PACKET_ROUTER_ID, NEXT_TM_PACKET, tm_to_downlink, 152) > 0))
+			//{
+				//TM_PACKET_COUNT--;	// Update packet count.
+				//task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);		// FAILURE_RECOVERY
+				//NEXT_TM_PACKET += 152;
+				//if (NEXT_TM_PACKET > (TM_BASE + 0x20000))
+					//NEXT_TM_PACKET = TM_BASE + 12;
+				//task_spimem_write(OBC_PACKET_ROUTER_ID, TM_BASE + 4, &NEXT_TM_PACKET, 4);	// Update the position of the next packet 
+				//tm_down_fullf = 1;
+				//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
+			//}	
+			exec_commands();
+			xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+		}
 	}
 }
 /*-----------------------------------------------------------*/

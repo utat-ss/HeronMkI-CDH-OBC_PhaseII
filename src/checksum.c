@@ -104,7 +104,7 @@ uint64_t fletcher64_on_spimem(uint32_t address, int count, uint8_t* status)
 }
 
 /************************************************************************/
-/* FLETCHERd32				                                            */
+/* FLETCHER32				                                            */
 /* @Purpose: This function runs Fletcher's checksum algorithm on memory	*/
 /* @param: *data: pointer to the point in memory that you would to start*/
 /* hashing.																*/

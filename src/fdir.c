@@ -60,7 +60,9 @@ Author: Keenan Burnett, Bill Bateman
 *					exec_commands() and enter_SAFE_MODE(). I tried to label all places an error could occur with FAILURE_RECOVERY.
 *
 * 1/20/2016			Bill: When errors occur in diagnostics, now calls send_event_report(). Defined some errors in global_var.h.
-					Also fixed some wrong variables (still had hk names). 
+*					Also fixed some wrong variables (still had hk names).
+*
+* 03/27/2016		K: Added function headers which were missing.
 *
 * DESCRIPTION:
 *
@@ -306,7 +308,12 @@ static void prvFDIRTask( void *pvParameters )
 
 // Static functions defined below.
 
-// This function shall be used to check if there is any required action for the FDIR task to deal with.
+/************************************************************************/
+/* FLETCHER16				                                            */
+/* @Purpose: This function shall be used to check if there is any		*/
+/* required action for the FDIR task to deal with by reading both the	*/
+/* high_sev fifo and the low_sev fifo.									*/
+/************************************************************************/
 static void check_error(void)
 {
 	uint32_t error = 0;
@@ -343,7 +350,17 @@ static void check_error(void)
 	return;
 }
 
-// Both high and low severity errors can be sent to decode_error().
+/************************************************************************/
+/* FLETCHER16				                                            */
+/* @Purpose: Depending on (error), the function will run different		*/
+/* resolution sequences which are denoted by different functions.		*/
+/* @param: error: (code from error_handling.h)							*/
+/* @param: task: ID of the task which experienced the error ex:			*/
+/* @param: code: Extra information required for resolution				*/
+/* (see implementation)													*/
+/* HK_TASK_ID															*/
+/* @Note: Both high and low severity errors can be sent to decode_error	*/
+/************************************************************************/
 static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t code)
 {
 	// This is where the resolution sequences are going to go.
@@ -471,6 +488,12 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 	return;
 }
 
+/************************************************************************/
+/* RESOLUTION SEQUENCES		                                            */
+/* @Purpose: Each of the following function corresponds to the resolutio*/
+/* of a particular error. See FDIR.docx for more information.			*/
+/* @Note: If an error is resolved, the FDIR signal shall be cleared		*/
+/************************************************************************/
 static void resolution_sequence1(uint8_t code, uint8_t task)
 {
 	if(code == 0xFF)				// All SPI Memory chips are dead.
@@ -1021,6 +1044,12 @@ static void resolution_sequence31(void)
 	return;
 }
 
+/************************************************************************/
+/* FLETCHER16				                                            */
+/* @Purpose: Clears the fdir signal corresponding to (task)				*/
+/* @param: task: ID of the task which you would like to clear the FDIR	*/
+/* signal for.															*/
+/************************************************************************/
 static void clear_fdir_signal(uint8_t task)
 {
 	switch(task)
@@ -1049,6 +1078,12 @@ static void clear_fdir_signal(uint8_t task)
 	return;
 }
 
+/************************************************************************/
+/* FLETCHER16				                                            */
+/* @Purpose: Returns the state of the fdir signal corresonding to (task)*/
+/* @param: task: ex: HK_TASK_ID											*/
+/* @return: The state of the signal (0 or 1)							*/
+/************************************************************************/
 static uint8_t get_fdir_signal(uint8_t task)
 {
 	switch(task)
@@ -1077,7 +1112,11 @@ static uint8_t get_fdir_signal(uint8_t task)
 	return 0xFF;
 }
 
-// exec_commands for FDIR is special in that commands are coming from two different service types (Housekeeping and FDIR).
+/************************************************************************/
+/* EXEC_COMMANDS		                                                */
+/* @Purpose: This function checks whether housekeeping or FDIR have sent*/
+/* any commands that the FDIR task needs to act upon.					*/
+/************************************************************************/
 static void exec_commands(void)
 {
 	uint8_t i, command, service_type, memid, status, j, ssmID;
@@ -1325,6 +1364,11 @@ static void exec_commands(void)
 		return;
 }
 
+/************************************************************************/
+/* REQUEST_ENTER_LOW_POWER_MODE	                                        */
+/* @Purpose: Sends a CAN command to the EPS SSM to request that we		*/
+/* enter into LOW POWER MODE.											*/
+/************************************************************************/
 static int request_enter_low_power_mode(void)
 {
 	uint32_t timeout = 100;
@@ -1339,6 +1383,11 @@ static int request_enter_low_power_mode(void)
 	return -1;
 }
 
+/************************************************************************/
+/* REQUEST_EXIT_LOW_POWER_MODE	                                        */
+/* @Purpose: Sends a CAN command to the EPS SSM to request that we		*/
+/* exit LOW POWER MODE.													*/
+/************************************************************************/
 static int request_exit_low_power_mode(void)
 {
 	uint32_t timeout = 100;
@@ -1353,6 +1402,11 @@ static int request_exit_low_power_mode(void)
 	return -1;
 }
 
+/************************************************************************/
+/* REQUEST_ENTER_COMS_TAKEOVER	                                        */
+/* @Purpose: Sends a CAN command to the COMS SSM to request that we		*/
+/* enter into COMS TAKEOVER MODE.										*/
+/************************************************************************/
 static int request_enter_coms_takeover(void)
 {
 	uint32_t timeout = 100;
@@ -1367,6 +1421,11 @@ static int request_enter_coms_takeover(void)
 	return -1;
 }
 
+/************************************************************************/
+/* REQUEST_EXIT_COMS_TAKEOVER	                                        */
+/* @Purpose: Sends a CAN command to the COMS SSM to request that we		*/
+/* exit COMS TAKEOVER MODE.												*/
+/************************************************************************/
 static int request_exit_coms_takeover(void)
 {
 	uint32_t timeout = 100;
@@ -1381,6 +1440,12 @@ static int request_exit_coms_takeover(void)
 	return -1;
 }
 
+/************************************************************************/
+/* REQUEST_PAUSE_OPERATIONS		                                        */
+/* @Purpose: Sends a CAN command to the SSM to request that we			*/
+/* pause operations.													*/
+/* @param: ssmID: ID of the SSM (0|1|2)									*/	
+/************************************************************************/
 static int request_pause_operations(uint8_t ssmID)
 {
 	uint32_t timeout = 100;
@@ -1416,6 +1481,12 @@ static int request_pause_operations(uint8_t ssmID)
 	return -1;
 }
 
+/************************************************************************/
+/* REQUEST_RESUME_OPERATIONS		                                    */
+/* @Purpose: Sends a CAN command to the SSM to request that we			*/
+/* resume operations.													*/
+/* @param: ssmID: ID of the SSM (0|1|2)									*/
+/************************************************************************/
 static int request_resume_operations(uint8_t ssmID)
 {
 	uint32_t timeout = 100;
@@ -1465,6 +1536,15 @@ static void clear_current_command(void)
 	return;
 }
 
+/************************************************************************/
+/* RESTART_TASK					                                        */
+/* @Purpose: Deletes the specified task and then recreates it thereby	*/
+/* restarting it.														*/
+/* @param: task_id: ex: HK_TASK_ID.										*/
+/* @param: task_HANDLE: In main.c, we store the task_HANDLE of each task*/
+/* in a global variable that can be accessed here. (housekeeping_HANDLE)*/
+/* @return: 1 = success, -1 = failure.									*/
+/************************************************************************/
 int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE)
 {
 	// Delete the given task and then recreate it.
@@ -1528,6 +1608,12 @@ int restart_task(uint8_t task_id, TaskHandle_t task_HANDLE)
 	return 1;
 }
 
+/************************************************************************/
+/* DELETE_TASK					                                        */
+/* @Purpose: Deletes the specified task.								*/
+/* @param: task_id: ex: HK_TASK_ID.										*/
+/* @return: 1 = success, -1 = failure.									*/
+/************************************************************************/
 int delete_task(uint8_t task_id)
 {
 	// Delete the given task.
@@ -1557,8 +1643,16 @@ int delete_task(uint8_t task_id)
 	}
 	return 1;	
 }
-// A return of 1 indicates that the action was completed successfully.
-// A return of -1 of course means that this function failed.
+
+/************************************************************************/
+/* RECREATE_FIFO				                                        */
+/* @Purpose: Deletes the specified fifo and then recreates				*/
+/* @param: task_id: ex: HK_TASK_ID.										*/
+/* @param: direction: 1 = TO OPR, 0 = FROM OPR.							*/
+/* @Note: This function can only be used on fifos that are used for		*/
+/* communication between OPR and other PUS tasks.						*/
+/* @return: 1 = success, -1 = failure.									*/
+/************************************************************************/
 int recreate_fifo(uint8_t task_id, uint8_t direction)
 {
 	clear_fifo_buffer();
@@ -1621,6 +1715,12 @@ int recreate_fifo_h(QueueHandle_t *queue_to_recreate)
 	return 1;
 }
 
+/************************************************************************/
+/* RESTART_TASK					                                        */
+/* @Purpose: Hard-resets the specified SSM.								*/
+/* @param: ssm_id: (0|1|2) = (COMS|EPS|PAY)								*/
+/* @return: 1 = success, -1 = failure.									*/
+/************************************************************************/
 int reset_SSM(uint8_t ssm_id)
 {
 	// Set the pin for the SSM low, then back to high again.
@@ -1645,7 +1745,11 @@ int reset_SSM(uint8_t ssm_id)
 	return 1;
 }
 
-// *Makes use of test_array1
+/************************************************************************/
+/* CLEAR_FIFO_BUFFER					                                */
+/* @Purpose: Clears the fifo buffer by reading from it.					*/
+/* @Note: Makes use of test_array1										*/
+/************************************************************************/
 void clear_fifo_buffer(void)
 {
 	xQueueReceive(fdir_fifo_buffer, test_array1, (TickType_t)1);
@@ -1683,6 +1787,13 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	return;
 }
 
+/************************************************************************/
+/* ENTER_SAFE_MODE				                                        */
+/* @Purpose: Puts the OBC into SAFE_MODE. Here a reduced version of all	*/
+/* subsidiary tasks is contained.										*/
+/* @param: reason: indicates why the system is entering SAFE_MODE. This */
+/* is an error code from error_handling.h								*/
+/************************************************************************/
 static void enter_SAFE_MODE(uint8_t reason)
 {
 	minute_count = 0;
@@ -1762,7 +1873,11 @@ static void enter_SAFE_MODE(uint8_t reason)
 	return;
 }
 
-// Does the part of what time_manage does that is related to updating absolute time and CURRENT_MINUTE within the SSMs.
+/************************************************************************/
+/* TIME_UPDATE															*/
+/* @Purpose: Does the part of what time_manage does that is relared to	*/
+/* updating absolute time and CURRENT_TIME within the SSMs.				*/
+/************************************************************************/
 static void time_update(void)
 {
 	uint32_t report_timeout = 60;	// Produce a time report once every 60 minutes.
@@ -1779,6 +1894,10 @@ static void time_update(void)
 	return;
 }
 
+/************************************************************************/
+/* RESTART_TASK					                                        */
+/* @Purpose: Clears test_array1,2										*/
+/************************************************************************/
 static void clear_test_arrays(void)
 {
 	uint16_t i;
@@ -1790,6 +1909,11 @@ static void clear_test_arrays(void)
 	return;
 }
 
+/************************************************************************/
+/* ENTER_INTERNAL_MEMORY_FALLBACK					                    */
+/* @Purpose: Puts the OBC into INTERNAL_MEMORY_FALLBACK mode in which	*/
+/* internal memory is used instead of SPI memory.						*/
+/************************************************************************/
 void enter_INTERNAL_MEMORY_FALLBACK(void)
 {
 	INTERNAL_MEMORY_FALLBACK_MODE = 1;
@@ -1806,6 +1930,10 @@ void enter_INTERNAL_MEMORY_FALLBACK(void)
 	return;
 }
 
+/************************************************************************/
+/* EXIT_INTERNAL_MEMORY_FALLBACK					                    */
+/* @Purpose: Takes the OBC out of INTERNAL_MEMORY_FALLBACK mode			*/
+/************************************************************************/
 void exit_INTERNAL_MEMORY_FALLBACK(void)
 {
 	INTERNAL_MEMORY_FALLBACK_MODE = 0;

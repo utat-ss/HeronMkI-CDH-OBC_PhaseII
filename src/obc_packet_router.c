@@ -334,20 +334,20 @@ static void exec_commands(void)
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);		// Verify execution completion.
 		}
 	}
-	//if(xQueueReceive(time_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
-	//{
-		//packet_id = ((uint16_t)current_command[6]) << 8;
-		//packet_id += (uint16_t)current_command[5];
-		//psc = ((uint16_t)current_command[4]) << 8;
-		//psc += (uint16_t)current_command[3];
-		//if(current_command[9] == TIME_REPORT)
-		//{
-			//time_report_count++;
-			//packetize_send_telemetry(TIME_TASK_ID, TIME_GROUND_ID, TIME_SERVICE, TIME_REPORT, time_report_count, 1, current_command);		
-		//}
-		//if(current_command[9] == TASK_TO_OPR_TCV)
-			//send_tc_verification(packet_id, psc, current_command[8], current_command[7], 0, 2);
-	//}
+	if(xQueueReceive(time_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	{
+		packet_id = ((uint16_t)current_command[6]) << 8;
+		packet_id += (uint16_t)current_command[5];
+		psc = ((uint16_t)current_command[4]) << 8;
+		psc += (uint16_t)current_command[3];
+		if(current_command[9] == TIME_REPORT)
+		{
+			time_report_count++;
+			packetize_send_telemetry(TIME_TASK_ID, TIME_GROUND_ID, TIME_SERVICE, TIME_REPORT, time_report_count, 1, current_command);
+		}
+		if(current_command[9] == TASK_TO_OPR_TCV)
+		send_tc_verification(packet_id, psc, current_command[8], current_command[7], 0, 2);
+	}
 	//if(xQueueReceive(mem_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
 	//{
 		//packet_id = ((uint16_t)current_command[140]) << 8;

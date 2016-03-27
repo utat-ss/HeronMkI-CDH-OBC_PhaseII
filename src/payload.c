@@ -161,13 +161,11 @@ static void prvPayloadTask(void *pvParameters )
 
 // Declare Static Functions here.
 
-/****************************************************************************************/
-/* SET UP SENS			
-									
-/* @Purpose: This function initializes all of the global variables used in running
-			the sensors									
-																						*/
-/****************************************************************************************/
+/************************************************************************/
+/* SETUPSENS				                                            */
+/* @Purpose: This function initializes all of the global variables used */
+/* in running the sensors												*/
+/************************************************************************/
 static void setUpSens(void)
 {
 	//time between in ms in hexadecimal
@@ -177,20 +175,32 @@ static void setUpSens(void)
 	valvesclosed = 1;
 }
 
-
+/************************************************************************/
+/* READTEMP					                                            */
+/* @Purpose: Requests temperature data from the payload SSM.			*/
+/* @param: sensorNumber: temp_sensor = PAY_TEMP0 + sensorNumber			*/
+/* @return: The value of the temperature sensor which was read.			*/
+/************************************************************************/
 static uint8_t readTemp(int sensorNumber)
 {
 	uint8_t tempval;
 	uint8_t temp_sensor;
 	int* status = 0;
 	temp_sensor = PAY_TEMP0 + sensorNumber ;
-	tempval= request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, status);
+	tempval = request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, status);
 	if(status < 0)
 		return 0;
 	activate_heater(tempval, sensorNumber);
 	return tempval;
 }
 
+/************************************************************************/
+/* ACTIVATE_HEATER			                                            */
+/* @Purpose: Activates the heaters in the payload depending on what		*/
+/* the temperature is.													*/
+/* @param: tempval: raw temperature value read from the PAY SSM.		*/
+/* @param: sensor_index: ??												*/
+/************************************************************************/
 static void activate_heater(uint32_t tempval, int sensor_index)
 {
 	if(tempval > TARGET_TEMP){
@@ -207,6 +217,12 @@ static void activate_heater(uint32_t tempval, int sensor_index)
 	}
 }
 
+/************************************************************************/
+/* READENV					                                            */
+/* @Purpose: Reads the environmental sensors of the payload by sending	*/
+/* and receiving CAN messages.											*/
+/* @Note: The data is stored in SPI memory after retrieval is complete.	*/
+/************************************************************************/
 static void readEnv()
 {
 	uint8_t env[8];
@@ -223,6 +239,11 @@ static void readEnv()
 	store_science(0, env);
 }
 
+/************************************************************************/
+/* READHUM					                                            */
+/* @Purpose: Requests humidity data from the payload SSM.				*/
+/* @return: The value of the humidity sensor which was read.			*/
+/************************************************************************/
 static uint8_t readHum(void)
 {
 	uint8_t humval = 0;
@@ -233,7 +254,11 @@ static uint8_t readHum(void)
 	return humval;
 }
 
-
+/************************************************************************/
+/* READPRESS					                                        */
+/* @Purpose: Requests pressure data from the payload SSM.				*/
+/* @return: The value of the pressure sensor which was read.			*/
+/************************************************************************/
 static uint8_t readPres(void)
 {
 	uint8_t presval = 0;
@@ -244,6 +269,11 @@ static uint8_t readPres(void)
 	return presval;
 }
 
+/************************************************************************/
+/* READACCEL				                                            */
+/* @Purpose: Requests acceleration data from the payload SSM.			*/
+/* @return: The value of the acceleration sensor which was read.		*/
+/************************************************************************/
 static uint8_t readAccel(void)
 {
 	uint8_t accelval = 0;
@@ -254,6 +284,11 @@ static uint8_t readAccel(void)
 	return accelval;
 }
 
+/************************************************************************/
+/* READOPTS					                                            */
+/* @Purpose: Requests optical data from the payload SSM.				*/
+/* It also stores the received photodiode values into SPI memory		*/
+/************************************************************************/
 static void readOpts(void)
 {
 	uint8_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
@@ -289,6 +324,12 @@ static void readOpts(void)
 	store_science(1, optval);
 }
 
+/************************************************************************/
+/* STORE_SCIENCE				                                        */
+/* @Purpose: Depending on (type), this function stores different amount */
+/* of data into SPI memory along with a time stamp from the RTC.		*/
+/* @return: The amount of data (bytes) which were written to memory.	*/
+/************************************************************************/
 static int store_science(uint8_t type, uint8_t* data)
 {
 	uint32_t offset;
@@ -322,4 +363,3 @@ void payload_kill(uint8_t killer)
 	vTaskDelete(NULL);
 	return;
 }
-

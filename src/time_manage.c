@@ -140,6 +140,11 @@ static void prvTimeManageTask( void *pvParameters )
 }
 /*-----------------------------------------------------------*/
 
+/************************************************************************/
+/* BROADCAST_MINUTE						                                */
+/* @Purpose: Sends a CAN message to each SSM containing the current		*/
+/* minute so that they may sync up.										*/
+/************************************************************************/
 void broadcast_minute(void)
 {
 	uint32_t high;
@@ -152,8 +157,11 @@ void broadcast_minute(void)
 	return;
 }
 
-// Updates the global variables which store absolute time and stores it in SPI memory every minute.
-// This function updates absolute time, and stores it in SPI memory for safe keeping.
+/************************************************************************/
+/* UPDATE_ABSOLUTE_TIME													*/
+/* @Purpose: Updates the global variables which store absolute time and	*/
+/* stores it in SPI memory every minute.								*/
+/************************************************************************/
 void update_absolute_time(void)
 {
 	CURRENT_MINUTE = time.minute;
@@ -179,6 +187,11 @@ void update_absolute_time(void)
 	return;
 }
 
+/************************************************************************/
+/* REPORT_TIME							                                */
+/* @Purpose: Creates a telemetry packet reporting the current absolute	*/
+/* time on the spacecraft.												*/
+/************************************************************************/
 void report_time(void)
 {
 	clear_current_command();
@@ -193,7 +206,10 @@ void report_time(void)
 	return;
 }
 
-// Execute commands that are sent from the obc_packet_router
+/************************************************************************/
+/* EXEC_COMMANDS						                                */
+/* @Purpose: Execute commands that are sent from the obc_packet_router	*/
+/************************************************************************/
 static void exec_commands(void)
 {
 	uint16_t packet_id, psc;
@@ -214,7 +230,12 @@ static void exec_commands(void)
 	return;
 }
 
-// status = 0x01 for success, 0xFF for failure.
+/************************************************************************/
+/* SEND_TC_EXECUTION_VERIFY				                                */
+/* @Purpose: Sends a telemetry packet indicating either the success	or	*/
+/* failure of the command execution										*/
+/* @param: 0x01 = success, 0xFF = failure.								*/
+/************************************************************************/
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc)
 {
 	clear_current_command();

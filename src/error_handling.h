@@ -16,6 +16,8 @@ Author: Keenan Burnett
 *
 * NOTES:
 *
+* For more information on error handling, FDIR, resolution sequences, see: FDIR.docx in the Space Systems repo.
+*
 * REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
 *
 * DEVELOPMENT HISTORY:

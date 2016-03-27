@@ -205,10 +205,12 @@ static void prvHouseKeepTask(void *pvParameters )
 	{
 		if(xTaskGetTickCount() - last_tick_count > HK_LOOP_TIMEOUT)
 		{
-			request_housekeeping_all();
-			store_housekeeping();
-			send_hk_as_tm();
-			last_tick_count = xTaskGetTickCount();		
+			if(request_housekeeping_all())
+			{
+				store_housekeeping();
+				send_hk_as_tm();
+				last_tick_count = xTaskGetTickCount();
+			}
 		}
 		exec_commands();
 		if(param_report_requiredf)
@@ -219,18 +221,14 @@ static void prvHouseKeepTask(void *pvParameters )
 /* static helper functions below */
 
 /************************************************************************/
-/* EXEC_COMMANDS													*/
+/* EXEC_COMMANDS														*/
 /* @Purpose: Attempts to receive from obc_to_hk_fifo, executes			*/
-/* different commands depending on what was received. Otherwise, it		*/
-/* waits for a maximum of <collection_interval> minutes.				*/
+/* different commands depending on what was received.					*/
 /************************************************************************/
-
-
 static void exec_commands(void){
 	int attempts = 1;
-	uint8_t exec_com_success;
-	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
-	exec_com_success = (uint8_t)exec_commands_H();
+	uint8_t exec_com_success = (uint8_t)exec_commands_H(); 	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
+	/* Error Handling */
 	//while (attempts<3 && exec_com_success != 1){
 		//exec_com_success = (uint8_t)exec_commands_H();
 		//attempts++;
@@ -238,6 +236,7 @@ static void exec_commands(void){
 	//if (exec_com_success != 1) {
 		//errorREPORT(HK_TASK_ID,0,HK_FIFO_RW_ERROR, &exec_com_success);
 	//}
+	/******************/
 	return;
 }
 
@@ -375,9 +374,6 @@ static int request_housekeeping_all(void)
 		return -1;
 	if(request_housekeeping(PAY_ID) > 1)							// Request housekeeping from PAY.
 		return -1;
-													// Give the SSMs >100ms to transmit their housekeeping
-	//xLastWakeTime = xTaskGetTickCount();
-	//vTaskDelayUntil(&xLastWakeTime, (TickType_t)100);
 	return 1;
 }
 

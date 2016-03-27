@@ -34,6 +34,8 @@
 	*
 	*						spi_transfer_master has been modified so that it can send an array of bytes while keeping
 	*						CS low. This has no impact on code up to this point which used 16-bit SPI and a length of 1.
+	*
+	*	03/27/2016			Fixing the function headers for this file.
 	*						
 	*	DESCRIPTION:
 	*
@@ -54,25 +56,11 @@ extern "C" {
 /**INDENT-ON**/
 /// @endcond
 
-
-/**
- * \brief Set SPI slave transfer.
- *
- * \param p_buf Pointer to buffer to transfer.
- * \param size Size of the buffer.
- */
-//static void spi_slave_transfer(void *p_buf, uint32_t size)
-//{
-	//gs_puc_transfer_buffer = p_buf;
-	//gs_ul_transfer_length = size;
-	//gs_ul_transfer_index = 0;
-	//spi_write(SPI_SLAVE_BASE, gs_puc_transfer_buffer[gs_ul_transfer_index], 0,
-			//0);
-//}
-
-/**
- * \brief Interrupt handler for the SPI slave.
- */
+/************************************************************************/
+/* SPI_HANDLER				                                            */
+/* @Purpose: This interrupt handler is to be used when the OBC is set up*/
+/* to be a slave on the SPI bus.										*/
+/************************************************************************/
 void SPI_Handler(void)
 {
 	static uint16_t data;
@@ -81,23 +69,19 @@ void SPI_Handler(void)
 
 	if (spi_read_status(SPI_SLAVE_BASE) & SPI_SR_RDRF) 
 	{
-		spi_read(SPI_SLAVE_BASE, &data, &uc_pcs);	// SPI message is put into the 16-bit data variable.
-		
-		//gs_ul_transfer_index++;
-		//gs_ul_transfer_length--;
-		
+		spi_read(SPI_SLAVE_BASE, &data, &uc_pcs);	// SPI message is put into the 16-bit data variable.		
 		*reg_ptr |= 0x00BB;		// transfer 0xFF back to the SSM.
 	}
 }
 
-/**
- * \brief Initialize SPI as slave.
- */
-//static void spi_slave_initialize(void)
-//{
+/************************************************************************/
+/* SPI_SLAVE_INITIALIZE				                                    */
+/* @Purpose: Initializes the OBC as a SPI slave.						*/
+/************************************************************************/
+static void spi_slave_initialize(void)
+{
 	//uint32_t i;
-//
-	///* Reset status */
+	/* Reset status */
 	//gs_spi_status.ul_total_block_number = 0;
 	//gs_spi_status.ul_total_command_number = 0;
 	//for (i = 0; i < NB_STATUS_CMD; i++) {
@@ -106,27 +90,28 @@ void SPI_Handler(void)
 	//
 	//gs_ul_spi_state = SLAVE_STATE_DATA;
 	//gs_ul_spi_cmd = RC_SYN;
-//
-	///* Configure an SPI peripheral. */
-	//spi_enable_clock(SPI_SLAVE_BASE);
-	//spi_disable(SPI_SLAVE_BASE);
-	//spi_reset(SPI_SLAVE_BASE);
-	//spi_set_slave_mode(SPI_SLAVE_BASE);
-	//spi_disable_mode_fault_detect(SPI_SLAVE_BASE);
-	//spi_set_peripheral_chip_select_value(SPI_SLAVE_BASE, SPI_CHIP_PCS);
-	//spi_set_clock_polarity(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_POLARITY);
-	//spi_set_clock_phase(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_PHASE);
-	//spi_set_bits_per_transfer(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CSR_BITS_8_BIT);
-	//spi_enable_interrupt(SPI_SLAVE_BASE, SPI_IER_RDRF);
-	//spi_enable(SPI_SLAVE_BASE);
-//
-	///* Start waiting command. */
-	//spi_slave_transfer(&gs_ul_spi_cmd, sizeof(gs_ul_spi_cmd));
-//}
 
-/**
- * \brief Initialize SPI as master.
- */
+	/* Configure an SPI peripheral. */
+	spi_enable_clock(SPI_SLAVE_BASE);
+	spi_disable(SPI_SLAVE_BASE);
+	spi_reset(SPI_SLAVE_BASE);
+	spi_set_slave_mode(SPI_SLAVE_BASE);
+	spi_disable_mode_fault_detect(SPI_SLAVE_BASE);
+	spi_set_peripheral_chip_select_value(SPI_SLAVE_BASE, SPI_CHIP_PCS);
+	spi_set_clock_polarity(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_POLARITY);
+	spi_set_clock_phase(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CLK_PHASE);
+	spi_set_bits_per_transfer(SPI_SLAVE_BASE, SPI_CHIP_SEL, SPI_CSR_BITS_8_BIT);
+	spi_enable_interrupt(SPI_SLAVE_BASE, SPI_IER_RDRF);
+	spi_enable(SPI_SLAVE_BASE);
+
+	/* Start waiting command. */
+	//spi_slave_transfer(&gs_ul_spi_cmd, sizeof(gs_ul_spi_cmd));
+}
+
+/************************************************************************/
+/* SPI_MASTER_INITIALIZE				                                */
+/* @Purpose: Initializes the OBC as a SPI master.						*/
+/************************************************************************/
 static void spi_master_initialize(void)
 {
 	/* Configure an SPI peripheral. */
@@ -185,23 +170,22 @@ static void spi_master_initialize(void)
 	spi_enable(SPI_MASTER_BASE);
 }
 
-/**
- * \brief Set the specified SPI clock configuration.
- *
- * \param configuration  Index of the configuration to set.
- */
-//static void spi_set_clock_configuration(uint8_t configuration)
-//{
-	//gs_ul_spi_clock = gs_ul_clock_configurations[configuration];
-	//spi_master_initialize();
-//}
-
-/**
- * \brief Perform SPI master transfer.
- *
- * \param pbuf Pointer to buffer to transfer.
- * \param size Size of the buffer.
- */
+/************************************************************************/
+/* SPI_MASTER_TRANSFER				                                    */
+/* @Purpose: Sends the contents of *p_buf as well as reads the incoming	*/
+/* bytes into *p_buf.													*/
+/* @param: *p_buf: Pointer to the data to be written to SPI memory, data*/
+/* read from the SPI bus will also be placed into this buffer.			*/
+/*	(Just make this uint16_t* to be safe)								*/
+/* @NOTE: Each byte within *p_buf should be spaced with a zero to the	*/
+/* left of it. EX: uint16_t* buf. buf[0] = 0x00AB.						*/
+/* The reason this is done is so that you can easily switch to 16bit	*/
+/* transfers in which case all 16 bits are used.						*/
+/* @param: size: Number of bytes in p_buf								*/
+/* @param: chip_sel: (0|1|2|3) determines which hardware chipselect is	*/
+/* being used. Each CS has it's own SPI settings.						*/
+/* @NOTE: CS will be kept low for the duration of these transfers.		*/
+/************************************************************************/
 void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 {
 	uint32_t i = 0;
@@ -244,6 +228,10 @@ void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel)
 	return;
 }
 
+/************************************************************************/
+/* SPI_MASTER_TRANSFER_KEEP_CS_LOW		                                */
+/* @Purpose: Same as above, except that at the end CS is not driven high*/
+/************************************************************************/
 void spi_master_transfer_keepcslow(void *p_buf, uint32_t size, uint8_t chip_sel)
 {
 	uint32_t i = 0;
@@ -267,6 +255,11 @@ void spi_master_transfer_keepcslow(void *p_buf, uint32_t size, uint8_t chip_sel)
 	return;
 }
 
+/************************************************************************/
+/* SPI_MASTER_READ						                                */
+/* @Purpose: Sometimes it is desirable to simply read the incoming bytes*/
+/* on the SPI bus when 0 is transferred to the slave.					*/
+/************************************************************************/
 void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel)
 {
 	uint32_t i;
@@ -286,15 +279,13 @@ void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel)
 	}
 }
 
-/**
- * \brief Initialize the ATSAM3X8E SPI driver in Master mode.
- *
- * \return Unused (ANSI-C compatibility).
- */
+/************************************************************************/
+/* SPI_INITIALIZE						                                */
+/* @Purpose: Initializes SPI registers for the OBC.						*/
+/************************************************************************/
 void spi_initialize(void)
 {
 	//uint32_t* reg_ptr = 0x4000800C;		// SPI_TDR (SPI0)
-		
 	//*reg_ptr |= 0x00BB;
 	//spi_slave_initialize();
 	spi_master_initialize();

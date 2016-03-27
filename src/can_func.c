@@ -633,6 +633,12 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 		return -1;												// CAN0 is currently busy, or something has gone wrong.
 }
 
+
+/************************************************************************/
+/* SEND_TC_CAN_COMMAND 		                                            */
+/* @NOTE: To be used only for sending TC COMMANDS, directs the outgoing */
+/* message to SUB0_ID3 in the COMS SSM.									*/
+/************************************************************************/
 int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
 	uint32_t timeout = 8400;		// ~ 100 us timeout.//
@@ -659,6 +665,10 @@ int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint
 		return -1;												// CAN0 is currently busy, or something has gone wrong.
 }
 
+/************************************************************************/
+/* SEND_CAN_COMMAND_FROM_INT                                            */
+/* @NOTE: To be used only from the CAN1 interrupt handler.				*/
+/************************************************************************/
 int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
 	uint32_t timeout = 8400;		// ~ 100 us timeout.
@@ -689,6 +699,12 @@ int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id
 		return -1;												// CAN0 is currently busy, or something has gone wrong.
 }
 
+/************************************************************************/
+/* SEND_TC_CAN_COMMAND_FROM_INT                                         */
+/* @NOTE: To be used only for sending TC COMMANDS, directs the outgoing */
+/* message to SUB0_ID3 in the COMS SSM.									*/
+/* @NOTE: To be used only from the CAN1 interrupt handler.				*/
+/************************************************************************/
 int send_tc_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
 	uint32_t timeout = 8400;		// ~ 100 us timeout.

@@ -80,9 +80,6 @@ void command_loop(void);
 /************************************************************************/
 /*			TEST FUNCTION FOR COMMANDS TO THE STK600                    */
 /************************************************************************/
-/**
- * \brief Tests the housekeeping task.
- */
 void command_loop( void )
 {
 		/* Start the two tasks as described in the comments at the top of this
@@ -102,10 +99,6 @@ void command_loop( void )
 /*	The sole purpose of this task is to send a single CAN message over	*/
 /*	and over in order to test the STK600's CAN reception.				*/
 /************************************************************************/
-/**
- * \brief Performs the housekeeping task.
- * @param *pvParameters:
- */
 static void prvCommandTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == COMMAND_PARAMETER );

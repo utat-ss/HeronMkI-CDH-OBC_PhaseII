@@ -81,10 +81,11 @@ static uint8_t command_array[10];		// This array will hold the characters which 
 
 static uint8_t array_pos = 0;			// This integer is needed to remember the position in the array we are writing to in between interrupts.
 
-/**
- * \brief Interrupt handler for USART. Echo the bytes received and start the
- * next receive.
- */
+/************************************************************************/
+/* USART_HANDLER						                                */
+/* @Purpose: Interrupt handler for USART. Echo the bytes received and	*/
+/* start the next receive.												*/
+/************************************************************************/
 void USART_Handler(void)
 {
 	uint32_t ul_status;
@@ -148,7 +149,6 @@ void USART_Handler(void)
 /*		which was sent via a computer terminal and determine what		*/
 /*		action to take.													*/
 /************************************************************************/
-
 void check_command(void)
 {	
 	uint32_t character = 0;
@@ -431,12 +431,10 @@ uint8_t convert_to_bcd(uint8_t temp)
 		return temp;
 }
 
-
-
-
-/**
- * \brief Reset the TX & RX, and clear the PDC counter.
- */
+/************************************************************************/
+/* USART_CLEAR							                                */
+/* @Purpose: Reset the TX & RX, and clear the PDC counter.				*/
+/************************************************************************/
 void usart_clear(void)
 {
 	/* Reset and disable receiver & transmitter. */
@@ -448,17 +446,12 @@ void usart_clear(void)
 	usart_enable_rx(BOARD_USART);
 }
 
-/**
- * \brief Application entry point for usart_serial example.
- *
- * \return Unused (ANSI-C compatibility).
- */
-
-/**
- * \brief Configure USART in normal (serial rs232) mode, asynchronous,
- * 8 bits, 1 stop bit, no parity, 115200 bauds and enable its transmitter
- * and receiver.
- */
+/************************************************************************/
+/* USART_INITIALIZE						                                */
+/* @Purpose: Configure USART in normal (serial rs232) mode, asynchronous*/
+/* 8 bitsd, 1 stop bit, no parity, 115200 bauds and enable its transmit	*/
+/* & receive.															*/
+/************************************************************************/
 void usart_initialize(void)
 {
 	const sam_usart_opt_t usart_console_settings = {
@@ -488,6 +481,4 @@ void usart_initialize(void)
 
 	/* Configure and enable interrupt of USART. */
 	// NVIC_EnableIRQ(USART_IRQn);
-	
 }
-

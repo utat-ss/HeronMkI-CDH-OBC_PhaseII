@@ -21,10 +21,14 @@ Author: Keenan Burnett
 * GSSW = Groundstation Software
 * FDIR = Failure Detection, Isolation & Recovery
 *
+* For more information on error handling, FDIR, resolution sequences, see: FDIR.docx in the Space Systems repo.
+*
 * REQUIREMENTS/ FUNCTIONAL SPECIFICATION REFERENCES:
 *
 * DEVELOPMENT HISTORY:
 * 11/26/2015		Created.
+*
+* 03/27/2016		Added function headers which were missing.
 *
 * DESCRIPTION:
 * When tasks come across issues that either need to be resolved immediately, or
@@ -39,13 +43,26 @@ Author: Keenan Burnett
 
 // I'm going to need "from-isr" versions of these functions.
 
-// For high-severity errors only.
-// Note: This function shall halt the regular operation of this task for a maximum of 5 minutes.
-// Should the error not be resolved after this time, -1 shall be returned and the respective task
-// should know what to do about that.
-// 1 is returned if the error was corrected
-// If the task currently holds a mutex, this function will handle releasing it / reacquiring it. (-1 if it couldn't reacquire)
-// *data should point to an array holding 147 bytes.
+/************************************************************************/
+/*	ERRORASSERT				                                            */
+/* @Purpose: Stops currently running program until the error has been	*/
+/* resolved be the FDIR task.											*/
+/* @param: task: ID of the task using this function. ex: HK_TASK_ID		*/
+/* @param: code: Extra piece of information which may be provided to	*/
+/* FDIR depending on the issue. See the implementation in fdir.c to see	*/
+/* what it is using code for.											*/
+/* @param: error: The error code (error_handling.h)						*/
+/* @param: *data: pointer to data that fdir.c needs for resolution.		*/
+/*	Again, check the implementation in FDIR.c							*/
+/* @param: mutex: If the currently running task currently holds the		*/
+/* mutex to a specific resource, it should specify it here so that this */
+/* function will release it and then reacquire it before returning.		*/
+/* @return: -1 = The error was not resolved, 1 = all good.				*/
+/* @Note: This is for high-severity errors only.						*/
+/* @Note: This function shall halt the regular operation of this task	*/
+/* for a maximum of 5 minutes.											*/
+/* @Note: *data should point to an array of at least 147 bytes.			*/
+/************************************************************************/
 int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, SemaphoreHandle_t mutex)
 {
 	uint8_t i;
@@ -75,75 +92,84 @@ int errorASSERT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data, Semap
 	switch(task)
 	{
 		case HK_TASK_ID:
-		hk_fdir_signal = 1;
-		while(hk_fdir_signal & timeout--){taskYIELD();}	// Wait until the problem is solved for a maximum of 5 minutes.
-		ret_val = -1;
-		if(!hk_fdir_signal)
-		ret_val =  1;
+			hk_fdir_signal = 1;
+			while(hk_fdir_signal & timeout--){taskYIELD();}	// Wait until the problem is solved for a maximum of 5 minutes.
+			ret_val = -1;
+			if(!hk_fdir_signal)
+				ret_val =  1;
 		case TIME_TASK_ID:
-		time_fdir_signal = 1;
-		while(time_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!time_fdir_signal)
-		ret_val = 1;
+			time_fdir_signal = 1;
+			while(time_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!time_fdir_signal)
+				ret_val = 1;
 		case COMS_TASK_ID:
-		coms_fdir_signal = 1;
-		while(coms_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!coms_fdir_signal)
-		ret_val =  1;
+			coms_fdir_signal = 1;
+			while(coms_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!coms_fdir_signal)
+				ret_val =  1;
 		case EPS_TASK_ID:
-		eps_fdir_signal = 1;
-		while(eps_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!eps_fdir_signal)
-		ret_val = 1;
+			eps_fdir_signal = 1;
+			while(eps_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!eps_fdir_signal)
+				ret_val = 1;
 		case PAY_TASK_ID:
-		pay_fdir_signal = 1;
-		while(pay_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!pay_fdir_signal)
-		ret_val = 1;
+			pay_fdir_signal = 1;
+			while(pay_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!pay_fdir_signal)
+				ret_val = 1;
 		case OBC_PACKET_ROUTER_ID:
-		opr_fdir_signal = 1;
-		while(opr_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!opr_fdir_signal)
-		ret_val = 1;
+			opr_fdir_signal = 1;
+			while(opr_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!opr_fdir_signal)
+				ret_val = 1;
 		case SCHEDULING_TASK_ID:
-		sched_fdir_signal = 1;
-		while(sched_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!sched_fdir_signal)
-		ret_val = 1;
+			sched_fdir_signal = 1;
+			while(sched_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!sched_fdir_signal)
+				ret_val = 1;
 		case WD_RESET_TASK_ID:
-		wdt_fdir_signal = 1;
-		while(wdt_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!wdt_fdir_signal)
-		ret_val = 1;
+			wdt_fdir_signal = 1;
+			while(wdt_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!wdt_fdir_signal)
+				ret_val = 1;
 		case MEMORY_TASK_ID:
-		mem_fdir_signal = 1;
-		while(mem_fdir_signal & timeout--){taskYIELD();}
-		ret_val = -1;
-		if(!mem_fdir_signal)
-		ret_val = 1;
+			mem_fdir_signal = 1;
+			while(mem_fdir_signal & timeout--){taskYIELD();}
+			ret_val = -1;
+			if(!mem_fdir_signal)
+				ret_val = 1;
 		default:
-		ret_val = -1;
+			ret_val = -1;
 	}
 	if(mutex)
-	xSemaphoreTake(mutex, wait_time);
+		xSemaphoreTake(mutex, wait_time);
 	return ret_val;
 }
 
-// For low-severity errors only.
-// Note: This function does not halt regular operation, nor is the error fixed at this time.
-// The only reason this function would return -1 is if sending a message to the FDIR task failed.
-// 1 should really be returned.
-// The error should be placed in data[151-148]
-// The task ID should be placed in data[147]
-// Additional error code (if applicable) should be placed in data[146]
-// Any other desired may be placed in the lower bytes (not currently implemented)
+/************************************************************************/
+/*	ERRORREPORT				                                            */
+/* @Purpose: Stops currently running program until the error has been	*/
+/* resolved be the FDIR task.											*/
+/* @param: task: ID of the task using this function. ex: HK_TASK_ID		*/
+/* @param: code: Extra piece of information which may be provided to	*/
+/* FDIR depending on the issue. See the implementation in fdir.c to see	*/
+/* what it is using code for.											*/
+/* @param: error: The error code (error_handling.h)						*/
+/* @param: *data: pointer to data that fdir.c needs for resolution.		*/
+/*	Again, check the implementation in FDIR.c							*/
+/* @return: -1 = FDIR messaging failed									*/
+/* @Note: This is for low-severity errors only.							*/
+/* @Note: This function does not halt regular operation, nor is the		*/
+/* error fixed at this time.											*/
+/* @Note: *data should point to an array of at least 147 bytes.			*/
+/************************************************************************/
 int errorREPORT(uint8_t task, uint8_t code, uint32_t error, uint8_t* data)
 {
 	uint8_t i;

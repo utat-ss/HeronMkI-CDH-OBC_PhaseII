@@ -222,9 +222,9 @@ int main(void)
 	//data_test();
 	time_manage_HANDLE = time_manage();
 	//memory_manage_HANDLE = memory_manage();
-	//eps_HANDLE = eps();
-	//coms_HANDLE = coms();
-	//pay_HANDLE = payload();
+	eps_HANDLE = eps();
+	coms_HANDLE = coms();
+	pay_HANDLE = payload();
 	wdt_reset_HANDLE = wdt_reset();
 	/* Start Scheduler */
 	vTaskStartScheduler();
@@ -249,7 +249,7 @@ static void safe_mode(void)
 	extern void SystemCoreClockUpdate(void);
 	uint32_t timeout = 80000000, low=0;
 	uint32_t* MEM_LOCATION;
-	MEM_LOCATION = 0x00080000;
+	MEM_LOCATION = (uint32_t*)0x00080000;
 	size_t SIZE = 10;
 	/* ASF function to setup clocking. */
 	sysclk_init();

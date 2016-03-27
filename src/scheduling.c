@@ -490,7 +490,14 @@ static int check_schedule(void){
 	return 1;
 }
 
-// The new command is assumed to be located in command_arra[].
+// The new command is assumed to be located in command_array[].
+/************************************************************************/
+/* EXEC_K_COMMANDS														*/
+/* @Purpose: If a K-Service command is received, this function performs	*/
+/* the actions required by it.											*/
+/* @NOTE: The new command is assumed to be located in command_array[]	*/
+/* @return: -1 = something went wrong, 1 = action succeeded.			*/
+/************************************************************************/
 static int exec_k_commands(void)
 {
 	uint8_t service_type = command_array[10] >> 4, i, ssmID;
@@ -526,6 +533,7 @@ static int exec_k_commands(void)
 			{
 				experiment_armed = 1;
 				send_tc_verification(0, 0, 0, SCHEDULING_TASK_ID, 0, 2);	// Successful command execution report.
+				return 1;
 			}
 			if(service_sub_type == START_EXPERIMENT_FIRE)
 			{
@@ -535,7 +543,10 @@ static int exec_k_commands(void)
 					send_tc_verification(0, 0, 0, SCHEDULING_TASK_ID, 0, 2);	// Successful command execution report.
 				}
 				else
+				{
 					send_tc_verification(0, 0, 0xFF, 5, 0, 2);				// Failed telecommand execution report (usage error due to experiment_armed = 0)
+					return -1;
+				}
 			}
 			if(service_sub_type == SET_VARIABLE)
 			{
@@ -549,12 +560,19 @@ static int exec_k_commands(void)
 				else
 					set_obc_variable(current_command[136], val);
 				send_tc_verification(0, 0, 0, OBC_PACKET_ROUTER_ID, 0, 2);
+				return 1;
 			}
 		default:
 			return -1;
 	}
 }
 
+/************************************************************************/
+/* GENERATE_COMMAND_REPORT												*/
+/* @Purpose: Generates a command report to be downlinked to ground.		*/
+/* @param: cID: Command ID Unique for each command instance				*/
+/* @param: status: 1 = success, 0 = failure								*/
+/************************************************************************/
 static int generate_command_report(uint16_t cID, uint8_t status)
 {
 	clear_current_command();
@@ -562,8 +580,9 @@ static int generate_command_report(uint16_t cID, uint8_t status)
 	current_command[2] = (uint8_t)((cID & 0xFF00) >> 8);
 	current_command[1] = (uint8_t)(cID & 0x00FF);
 	current_command[0] = status;
-	xQueueSendToBackTask(SCHEDULING_TASK_ID, 1, sched_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
-	return;
+	if(xQueueSendToBack(sched_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)	// FAILURE_RECOVERY
+		return 1;
+	return -1;
 }
 
 /************************************************************************/
@@ -693,15 +712,6 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 // If it is being called by the sched task 0 is passed, otherwise it is probably the FDIR task and 1 should be passed.
 void scheduling_kill(uint8_t killer)
 {
-	// Free the memory that this task allocated.
-	//vPortFree(current_command);
-	//vPortFree(num_commands);
-	//vPortFree(next_command_time);
-	//vPortFree(furthest_command_time);
-	//vPortFree(scheduling_on);
-	//vPortFree(sched_buff0);
-	//vPortFree(sched_buff1);
-	//vPortFree(x);
 	// Kill the task.
 	if(killer)
 		vTaskDelete(scheduling_HANDLE);

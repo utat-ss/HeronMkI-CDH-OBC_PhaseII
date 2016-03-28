@@ -120,6 +120,11 @@ static uint32_t battmv, battv, battin, battout;
 static uint32_t epstemp, pxv, pyv, pxi, pyi;
 static uint32_t comsv, comsi, payv, payi, obcv, obci;
 
+// Variables Used for Computation
+static uint32_t balance_l, balance_h, top_battery, bottom_battery;		//These are 8 bit values, but they are 32 here b/c that is what the set_sensor_data function returns
+static uint32_t batt_SOC, voltage_offset;
+static uint32_t base_voltage_offset, battery_slope, temp_multiplier, current_multiplier, SOCv_multiplier, SOCc_multiplier;
+
 // For the sensor boundaries 
 static uint16_t pxv_high, pxv_low, pxi_high, pxi_low, pyv_high, pyv_low, pyi_high, pyi_low;
 static uint16_t battmv_high, battmv_low, battv_high, battv_low, battin_high, battin_low;
@@ -290,8 +295,7 @@ static void eps_mode(void){
 
 static void mppt(void)
 {
-	uint32_t pxv, pxi, pxp_new;
-	uint32_t pyv, pyi, pyp_new;
+	uint32_t pxp_new, pyp_new;
 
 	// Get X Direction
 	pxv = get_sensor_data(PANELX_V);
@@ -440,8 +444,6 @@ static void set_variable_value(uint8_t variable_name, uint8_t new_var_value)
 /* operation to complete.												*/
 /************************************************************************/
 static void battery_balance(void){
-	//Declare variables
-	uint32_t balance_l, balance_h, top_battery, bottom_battery;		//These are 8 bit values, but they are 32 here b/c that is what the set_sensor_data function returns
 
 	//Update all the values we need to make decisions for battery balancing 
 	balance_h = get_sensor_data(BALANCE_H);
@@ -544,11 +546,6 @@ static void battery_heater(void){
 /*			and 100 that is an estimation of the current battery charge.*/
 /************************************************************************/
 static uint32_t battery_SOC(void){
-	
-	//Declare variables
-	uint32_t batt_SOC, voltage_offset;
-	uint32_t base_voltage_offset, battery_slope, temp_multiplier, current_multiplier, SOCv_multiplier, SOCc_multiplier;
-	
 	//Need to experimentally determine these
 	base_voltage_offset = 0x55;
 	battery_slope = 0x01;

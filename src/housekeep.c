@@ -148,7 +148,10 @@ static uint8_t collection_interval0, collection_interval1;		// How to wait for t
 static TickType_t xTimeToWait;				// Number entered here corresponds to the number of ticks we should wait.
 static uint8_t current_hk_mem_offset[4];
 static TickType_t	xLastWakeTime;
-int req_data_result;
+static int req_data_result;
+static uint8_t i;
+static uint16_t packet_id, psc;
+static uint8_t num_parameters, parameter_name;
 
 /************************************************************************/
 /* HOUSEKEEPING (Function) 												*/
@@ -255,8 +258,7 @@ static int exec_commands_H(void)
 
 static int exec_commands_H2(void)
 {
-	uint8_t i, command;
-	uint16_t packet_id, psc;
+	uint8_t command;
 	packet_id = ((uint16_t)current_command[140]) << 8;
 	packet_id += (uint16_t)current_command[139];
 	psc = ((uint16_t)current_command[138]) << 8;
@@ -304,7 +306,6 @@ static int exec_commands_H2(void)
 /************************************************************************/
 static void clear_current_hk(void)
 {
-	uint8_t i;
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		current_hk[i] = 0;
@@ -339,7 +340,6 @@ static void set_hk_mem_offset(void)
 /************************************************************************/
 static void clear_current_command(void)
 {
-	uint8_t i;
 	for(i = 0; i < (DATA_LENGTH + 10); i++)
 	{
 		current_command[i] = 0;
@@ -353,7 +353,6 @@ static void clear_current_command(void)
 /************************************************************************/
 static void clear_alternate_hk_definition(void)
 {
-	uint8_t i;
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		hk_definition1[i] = 0;
@@ -388,8 +387,8 @@ static int request_housekeeping_all(void)
 static int store_housekeeping(void)
 {
 	uint8_t sender = 0xFF;
-	uint8_t num_parameters = current_hk_definition[129];	// ALTERED FOR CSDC 134 --> 129
-	uint8_t parameter_name = 0, i;
+	num_parameters = current_hk_definition[129];	// ALTERED FOR CSDC 134 --> 129
+	parameter_name = 0;
 	//int attempts = 1;
 	int* status = 0; // this might be wrong
 	req_data_result = 0;
@@ -538,8 +537,6 @@ static int store_hk_in_spimem(void)
 /************************************************************************/
 static void setup_default_definition(void)
 {
-	uint8_t i;
-	
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
 		hk_definition0[i] = 0;
@@ -699,7 +696,6 @@ static void setup_default_definition(void)
 /************************************************************************/
 static void set_definition(uint8_t sID)
 {
-	uint8_t i;
 	if(!sID)								// DEFAULT
 	{
 		for(i = 0; i < DATA_LENGTH; i++)
@@ -729,7 +725,6 @@ static void set_definition(uint8_t sID)
 /************************************************************************/
 static void send_hk_as_tm(void)
 {
-	uint8_t i;
 	clear_current_command();
 	current_command[146] = HK_REPORT;
 	for(i = 0; i < DATA_LENGTH; i++)
@@ -748,7 +743,6 @@ static void send_hk_as_tm(void)
 /************************************************************************/
 static void send_param_report(void)
 {
-	uint8_t i;
 	param_report_requiredf = 0;
 	clear_current_command();
 	current_command[146] = HK_DEFINITON_REPORT;

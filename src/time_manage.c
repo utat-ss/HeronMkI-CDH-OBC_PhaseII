@@ -91,6 +91,8 @@ static struct timestamp time;
 static uint32_t minute_count;
 static uint32_t report_timeout;
 static uint8_t current_command[10];
+static uint16_t packet_id, psc;
+static uint32_t high;
 
 /************************************************************************/
 /* time_manage (Function)												*/
@@ -147,7 +149,6 @@ static void prvTimeManageTask( void *pvParameters )
 /************************************************************************/
 void broadcast_minute(void)
 {
-	uint32_t high;
 	high = high_command_generator(TIME_TASK_ID, EPS_ID, MT_TC, SET_TIME);
 	send_can_command_h((uint32_t)CURRENT_MINUTE, high, SUB1_ID0, DEF_PRIO);
 	high = high_command_generator(TIME_TASK_ID, COMS_ID, MT_TC, SET_TIME);
@@ -212,7 +213,6 @@ void report_time(void)
 /************************************************************************/
 static void exec_commands(void)
 {
-	uint16_t packet_id, psc;
 	if(xQueueReceive(obc_to_time_fifo, current_command, (TickType_t)10) == pdTRUE)
 	{
 		packet_id = ((uint16_t)current_command[8]) << 8;

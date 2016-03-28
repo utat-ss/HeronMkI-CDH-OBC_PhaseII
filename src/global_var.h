@@ -296,6 +296,7 @@ uint32_t erase_sector_timeout;
 uint32_t chip_erase_timeout;
 uint32_t obc_ok_go_timeout;
 uint32_t obc_consec_trans_timeout;
+uint8_t ssm_consec_trans_timeout;
 
 /* SPI MEMORY BASE ADDRESSES	*/
 uint32_t	COMS_BASE;			// COMS = 16kB: 0x00000 - 0x03FFF

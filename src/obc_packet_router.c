@@ -131,7 +131,7 @@ extern uint8_t get_ssm_id(uint8_t sensor_name);
 /* Global variables											 */
 static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
-uint16_t packet_id, psc;
+static uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
 static uint8_t diag_telem_count, diag_def_report_count, sin_par_rep_count;
 static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
@@ -139,6 +139,22 @@ static uint32_t new_tc_msg_high, new_tc_msg_low;
 static uint8_t tc_verify_success_count, tc_verify_fail_count, event_report_count, sched_report_count, sched_command_count;
 static uint8_t current_data[DATA_LENGTH];
 static uint8_t current_command[DATA_LENGTH + 10];
+static uint32_t high, low;
+static uint16_t abs_time, pec, packet_error_control = 0;
+static uint32_t num_transfers;
+static uint16_t timeout;
+static TickType_t xLastWakeTime;
+static TickType_t xTimeToWait;
+static uint8_t data_field_headerf, apid, packet_length;
+static uint16_t pec1, pec0;
+static uint8_t ack, service_type, service_sub_type, source_id;
+static uint8_t version1, type1, sequence_flags1, sequence_count1;
+static uint8_t ccsds_flag, packet_version;
+static uint8_t sID, ssmID;
+static uint8_t collection_interval;
+static uint8_t npar;
+static uint32_t address, length;
+static uint32_t new_time, last_time;
 /* Latest TC packet received, next TM packet to send	*/
 static uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];	// Arrays are 144B for ease of implementation.
 static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH];
@@ -179,9 +195,6 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	configASSERT( ( ( unsigned long ) pvParameters ) == OBC_PACKET_ROUTER_PARAMETER );
 
 	int status;
-	const TickType_t xTimeToWait = 5;	// Number entered here corresponds to the number of ticks we should wait.
-	TickType_t	xLastWakeTime;
-
 	/* Initialize Global variables and flags */
 	current_tc_fullf = 0;
 	tc_sequence_count = 0;
@@ -294,6 +307,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 				//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 			//}	
 			exec_commands();
+			xTimeToWait = 5; // Sleep task for 5 ticks.
 			xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
 			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 		}
@@ -311,7 +325,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 /************************************************************************/
 static void exec_commands(void)
 {
-	uint32_t high = 0, low = 0;
+	high = 0;
+	low = 0;
 	clear_current_command();
 	if(xQueueReceive(hk_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)	// Check to see if there is a command from HK and execute it.
 	{
@@ -461,11 +476,10 @@ static void exec_commands(void)
 /************************************************************************/
 static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data)
 {
-	uint16_t i, j, abs_time;
-	uint16_t pec;
+	uint16_t i, j;
 	type = 0;			// Distinguishes TC and TM packets, TM = 0
 	sequence_count = 0;
-	uint16_t packet_error_control = 0;
+	packet_error_control = 0;
 	abs_time = ((uint16_t)absolute_time_arr[0]) << 12;	// DAY
 	abs_time = ((uint16_t)absolute_time_arr[1]) << 8;	// HOUR
 	abs_time = ((uint16_t)absolute_time_arr[2]) << 4;	// MINUTE
@@ -623,11 +637,10 @@ static int receive_tc_msg(void)
 /************************************************************************/
 static int send_pus_packet_tm(uint8_t sender_id)
 {
-	uint32_t low, i;
+	uint32_t i;
 	uint32_t num_transfers = PACKET_LENGTH / 4;
 	uint16_t timeout;
-	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 25;
+	xTimeToWait = 25;
 	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
@@ -813,13 +826,8 @@ static int store_current_tm(void)
 /************************************************************************/
 static int decode_telecommand(void)
 {
-	uint8_t data_field_headerf, apid, test = 0, i;
+	uint8_t test = 0, i;
 	int x, attempts;
-	uint8_t packet_length;
-	uint16_t pec1, pec0;
-	uint8_t ack, service_type, service_sub_type, source_id;
-	uint8_t version1, type1, sequence_flags1, sequence_count1;
-	uint8_t ccsds_flag, packet_version;
 	
 	packet_id = (uint16_t)(tc_to_decode[151]);
 	packet_id = packet_id << 8;
@@ -882,9 +890,9 @@ static int decode_telecommand(void)
 /************************************************************************/
 static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 {	
-	uint8_t sID = 0xFF, ssmID;
-	uint8_t collection_interval = 0;
-	uint8_t npar1 = 0;
+	uint8_t sID = 0xFF;
+	collection_interval = 0;
+	npar1 = 0;
 	uint8_t i; //severity=0;
 	uint32_t val = 0;
 	uint32_t time = 0;
@@ -1102,9 +1110,11 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 /************************************************************************/
 static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0, uint16_t pec1, uint8_t service_type, uint8_t service_sub_type, uint8_t version, uint8_t ccsds_flag, uint8_t packet_version)
 {
-	uint32_t address = 0, length = 0;
+	address = 0;
+	length = 0;
 	uint8_t i;
-	uint32_t new_time = 0, last_time = 0;
+	new_time = 0;
+	last_time = 0;
 	if(packet_length != PACKET_LENGTH)
 	{
 		send_tc_verification(packet_id, psc, 0xFF, 1, (uint32_t)packet_length, 1);		// TC verify acceptance report, failure, 1 == invalid packet length

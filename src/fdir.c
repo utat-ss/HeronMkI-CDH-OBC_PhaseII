@@ -260,6 +260,17 @@ static uint8_t coms_fifo_from_OPR_fumble_count;
 static uint8_t pay_fifo_to_OPR_fumble_count;
 static uint8_t pay_fifo_from_OPR_fumble_count;
 
+/* Variables used for Error Handling */
+static uint32_t error;
+static uint8_t code, task0;
+static uint32_t timeout;
+static uint32_t offset;
+
+/* Variables used for decoding telecommands */
+static uint8_t command, service_type, memid, ssmID;
+static uint16_t packet_id, psc;
+static uint32_t address, length, num_transfers = 0;
+
 /* Reason for entering SAFE_MODE */
 static uint8_t SMERROR;
 
@@ -316,8 +327,9 @@ static void prvFDIRTask( void *pvParameters )
 /************************************************************************/
 static void check_error(void)
 {
-	uint32_t error = 0;
-	uint8_t code = 0, task = 0;
+	error = 0;
+	code = 0;
+	task = 0;
 	// Check if there is a high-severity error to deal with.
 	if (xSemaphoreTake(Highsev_Mutex, (TickType_t)1) == pdTRUE)
 	{
@@ -1009,7 +1021,7 @@ static void resolution_sequence25(uint8_t task, uint8_t parameter)
 
 static void resolution_sequence29(uint8_t ssmID)
 {
-	uint8_t ssm_consec_trans_timeout = 0;
+	ssm_consec_trans_timeout = 0;
 	int status = 0;
 	ssm_consec_trans_timeout = request_sensor_data(FDIR_TASK_ID, COMS_ID, SSM_CTT, &status);
 	ssm_consec_trans_timeout += 10;		// Increase the timeout by 1ms.
@@ -1036,11 +1048,10 @@ static void resolution_sequence29(uint8_t ssmID)
 static void resolution_sequence31(void)
 {
 	obc_consec_trans_timeout += 10;		// Increase the timeout by 10ms.
-	
 	if(obc_consec_trans_timeout > 240)
 		enter_SAFE_MODE(OBC_CTT_TOO_LONG);
-	
-	opr_fdir_signal = 0;
+	else
+		opr_fdir_signal = 0;
 	return;
 }
 
@@ -1119,9 +1130,9 @@ static uint8_t get_fdir_signal(uint8_t task)
 /************************************************************************/
 static void exec_commands(void)
 {
-	uint8_t i, command, service_type, memid, status, j, ssmID;
-	uint16_t packet_id, psc;
-	uint32_t address, length, num_transfers = 0, val;
+	uint8_t i, status, j;
+	num_transfers = 0;
+	uint32_t val;
 	uint8_t* mem_ptr = 0;
 	clear_current_command();
 	if(xQueueReceive(obc_to_fdir_fifo, current_command, (TickType_t)100) == pdTRUE)
@@ -1371,7 +1382,7 @@ static void exec_commands(void)
 /************************************************************************/
 static int request_enter_low_power_mode(void)
 {
-	uint32_t timeout = 100;
+	timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, EPS_ID, ENTER_LOW_POWER_COM, DEF_PRIO) < 0)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	while(!LOW_POWER_MODE && timeout--)
@@ -1390,7 +1401,7 @@ static int request_enter_low_power_mode(void)
 /************************************************************************/
 static int request_exit_low_power_mode(void)
 {
-	uint32_t timeout = 100;
+	timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, EPS_ID, EXIT_LOW_POWER_COM, DEF_PRIO) < 0)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	while(LOW_POWER_MODE && timeout--)
@@ -1409,7 +1420,7 @@ static int request_exit_low_power_mode(void)
 /************************************************************************/
 static int request_enter_coms_takeover(void)
 {
-	uint32_t timeout = 100;
+	timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, COMS_ID, ENTER_COMS_TAKEOVER_COM, DEF_PRIO) < 0)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	while(!COMS_TAKEOVER_MODE && timeout--)
@@ -1428,7 +1439,7 @@ static int request_enter_coms_takeover(void)
 /************************************************************************/
 static int request_exit_coms_takeover(void)
 {
-	uint32_t timeout = 100;
+	timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, COMS_ID, EXIT_COMS_TAKEOVER_COM, DEF_PRIO) < 0)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	while(COMS_TAKEOVER_MODE && timeout--)
@@ -1448,7 +1459,7 @@ static int request_exit_coms_takeover(void)
 /************************************************************************/
 static int request_pause_operations(uint8_t ssmID)
 {
-	uint32_t timeout = 100;
+	timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, ssmID, PAUSE_OPERATIONS, DEF_PRIO) < 0)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	if(!ssmID)
@@ -1489,7 +1500,7 @@ static int request_pause_operations(uint8_t ssmID)
 /************************************************************************/
 static int request_resume_operations(uint8_t ssmID)
 {
-	uint32_t timeout = 100;
+	timeout = 100;
 	if(send_can_command(0, 0, FDIR_TASK_ID, ssmID, RESUME_OPERATIONS, DEF_PRIO) < 0)
 		enter_SAFE_MODE(CAN_ERROR_WITHIN_FDIR);
 	if(!ssmID)
@@ -2163,7 +2174,6 @@ static int store_diagnostics(void)
 /************************************************************************/
 static void set_diag_mem_offset(void)
 {
-	uint32_t offset;
 	spimem_read(DIAG_BASE, current_diag_mem_offset, 4);	// Get the current diagnostics memory offset.
 	offset = (uint32_t)(current_diag_mem_offset[0] << 24);
 	offset += (uint32_t)(current_diag_mem_offset[1] << 16);
@@ -2186,7 +2196,6 @@ static void set_diag_mem_offset(void)
 /************************************************************************/
 static int store_diag_in_spimem(void)
 {
-	uint32_t offset;
 	int x;
 	offset = (uint32_t)(current_diag_mem_offset[0] << 24);
 	offset += (uint32_t)(current_diag_mem_offset[1] << 16);

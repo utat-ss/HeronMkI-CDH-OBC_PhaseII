@@ -83,6 +83,20 @@ static uint8_t opts_timebetween;
 static uint8_t last_Optstime;
 static uint8_t count;
 static uint8_t valvesclosed;
+static int* status;
+static uint8_t tempval;
+static uint8_t temp_sensor;
+static uint8_t env[8];
+static uint8_t tempval[5];
+static uint8_t humval;
+static uint8_t presval;
+static uint8_t accelval;
+static uint8_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
+static uint32_t temp;
+static uint8_t OD_PD, FL_PD;
+static uint32_t offset;
+static uint8_t size;
+static uint8_t* temp_ptr;
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -116,7 +130,7 @@ static void prvPayloadTask(void *pvParameters )
 	configASSERT( ( ( unsigned long ) pvParameters ) == PAYLOAD_PARAMETER );
 	TickType_t last_tick_count = xTaskGetTickCount();
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
-	int* status = 0;
+	*status = 0;
 	/* Declare Variables Here */
 	
 	setUpSens();
@@ -183,9 +197,7 @@ static void setUpSens(void)
 /************************************************************************/
 static uint8_t readTemp(int sensorNumber)
 {
-	uint8_t tempval;
-	uint8_t temp_sensor;
-	int* status = 0;
+	*status = 0;
 	temp_sensor = PAY_TEMP0 + sensorNumber ;
 	tempval = request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, status);
 	if(status < 0)
@@ -225,9 +237,6 @@ static void activate_heater(uint32_t tempval, int sensor_index)
 /************************************************************************/
 static void readEnv()
 {
-	uint8_t env[8];
-	uint8_t tempval[5];
-
 	env[0] = readHum();
 	env[1] = readPres();
 	env[2] = readAccel();
@@ -246,8 +255,8 @@ static void readEnv()
 /************************************************************************/
 static uint8_t readHum(void)
 {
-	uint8_t humval = 0;
-	int* status;
+	humval = 0;
+	*status = 0;
 	humval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, status);
 	if(*status < 0)
 		return 0;
@@ -261,8 +270,8 @@ static uint8_t readHum(void)
 /************************************************************************/
 static uint8_t readPres(void)
 {
-	uint8_t presval = 0;
-	int* status;
+	presval = 0;
+	*status = 0;
 	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, status);
 	if(*status)
 		return 0;
@@ -276,8 +285,8 @@ static uint8_t readPres(void)
 /************************************************************************/
 static uint8_t readAccel(void)
 {
-	uint8_t accelval = 0;
-	int* status;
+	accelval = 0;
+	*status = 0;
 	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, status);
 	if(*status)
 		return 0; 
@@ -291,10 +300,8 @@ static uint8_t readAccel(void)
 /************************************************************************/
 static void readOpts(void)
 {
-	uint8_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
-	uint32_t temp;
-	uint8_t OD_PD = PAY_FL_OD_PD0;
-	uint8_t FL_PD = PAY_FL_PD0;
+	OD_PD = PAY_FL_OD_PD0;
+	FL_PD = PAY_FL_PD0;
 	
 	for(int i = 0; i < 12; i++)
 	{
@@ -332,9 +339,6 @@ static void readOpts(void)
 /************************************************************************/
 static int store_science(uint8_t type, uint8_t* data)
 {
-	uint32_t offset;
-	uint8_t size;
-	uint8_t* temp_ptr;
 	*temp_ptr = type;
 	if (spimem_read(SCIENCE_BASE, &offset, 4) < 0)
 		return -1;
@@ -358,8 +362,8 @@ void payload_kill(uint8_t killer)
 {
 	// Kill the task.
 	if(killer)
-	vTaskDelete(pay_HANDLE);
+		vTaskDelete(pay_HANDLE);
 	else
-	vTaskDelete(NULL);
+		vTaskDelete(NULL);
 	return;
 }

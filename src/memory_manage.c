@@ -101,9 +101,13 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
 
 /* Local variables for memory management */
-static uint8_t minute_count;
+static uint8_t second_count;
 static uint8_t current_command[DATA_LENGTH + 10];
 static const TickType_t xTimeToWait = 60000;	// Number entered here corresponds to the number of ticks we should wait (1 minute)
+static int x, y, z, check, attempts;
+static uint8_t spi_chip, write_required, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
+static uint8_t check_val;
+static uint32_t page, addr, byte;
 
 /************************************************************************/
 /* MEMORY_WASH (Function)												*/
@@ -138,7 +142,9 @@ TaskHandle_t memory_manage( void )
 static void prvMemoryManageTask(void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == MM_PARAMETER );
-	minute_count = 0;
+	second_count = 0;
+	TickType_t	xLastWakeTime;
+	const TickType_t xTimeToWait = configTICK_RATE_HZ;	// Corresponds to 1 second.
 	clear_current_command();
 	SPI_HEALTH1 = 1;
 	SPI_HEALTH2 = 1;
@@ -147,10 +153,12 @@ static void prvMemoryManageTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		minute_count++;
-		if(minute_count == 90)		// Maximum wait time for a wash would be 90 minutes.
+		second_count++;
+		if(second_count == 90*60)		// Maximum wait time for a wash would be 90 minutes.
 			memory_wash();
 		exec_commands();
+		xLastWakeTime = xTaskGetTickCount();						// Sleep task for 1 second
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
 }
 /*-----------------------------------------------------------*/
@@ -167,22 +175,19 @@ static void prvMemoryManageTask(void *pvParameters )
 /************************************************************************/
 static void memory_wash(void)
 {
-	int x, y, z, check, attempts;
-	uint8_t spi_chip, write_required = 0, correct_val;	// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
-	uint8_t check_val = 0;
-	uint32_t page, addr, byte;
+	write_required = 0;				// write_required can be either 1, 2, or 3 to indicate which chip needs a write.
+	check_val = 0;
 	
 	if(INTERNAL_MEMORY_FALLBACK)	// No washing while in internal memory fallback mode.
 		return;
 	
 	//adding this to check for MEM_SPIMEM_CHIPS_ERROR
 	if(!SPI_HEALTH1 && !SPI_HEALTH2 && !SPI_HEALTH3){
-		errorASSERT(MEMORY_TASK_ID, 0, MEM_SPIMEM_CHIPS_ERROR, 0, 0);
+		//errorASSERT(MEMORY_TASK_ID, 0, MEM_SPIMEM_CHIPS_ERROR, 0, 0);
 		//3 dead spimem chips is highsev?
 		//no mutex
 		return;
 	}
-	
 	
 	if(!SPI_HEALTH1 || !SPI_HEALTH2 || !SPI_HEALTH3)
 	{
@@ -194,27 +199,25 @@ static void memory_wash(void)
 	{
 		addr = page << 8;
 		
-		
 		//TODO: make this less ugly
 		for(spi_chip = 1; spi_chip < 4; spi_chip++)
 		{
 			x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
 			y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
 			z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
-				
-			if((x < 0) || (y < 0) || (z < 0)){
-				x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
-				y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
-				z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
-				
-				if((x < 0) || (y < 0) || (z < 0)){
-					x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
-					y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
-					z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
-					if((x < 0) || (y < 0) || (z < 0)){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
-					}
-			}
-												
+			/* Error Handling */	
+			//if((x < 0) || (y < 0) || (z < 0)){
+				//x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
+				//y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
+				//z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
+				//
+				//if((x < 0) || (y < 0) || (z < 0)){
+					//x = spimem_read_alt(spi_chip, addr, page_buff1, 256);
+					//y = spimem_read_alt(spi_chip, addr, page_buff2, 256);
+					//z = spimem_read_alt(spi_chip, addr, page_buff3, 256);
+					//if((x < 0) || (y < 0) || (z < 0)){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
+					//}
+				//}							
 		}
 			
 		for(byte = 0; byte < 256; byte++)
@@ -244,21 +247,20 @@ static void memory_wash(void)
 			if(write_required)
 			{
 				attempts = 0; check = -1;
-				while (attempts<3 && check<0){
+				//while (attempts<3 && check<0){
 					check = spimem_write_h(write_required,(addr+byte), &correct_val, 1);
-					attempts++;
-				}
-				if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
+					//attempts++;
+				//}
+				//if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
 				send_event_report(1, BIT_FLIP_DETECTED, 0, 0);		
 			}
 			
 			attempts = 0; check = -1;
-			
-			while (attempts<3 && check<0){
+			//while (attempts<3 && check<0){
 				check = spimem_read_alt(write_required, (addr+byte), &check_val, 1);
-				attempts++;
-			}
-			if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
+				//attempts++;
+			//}
+			//if (check<0){errorREPORT(MEMORY_TASK_ID, 0, MEM_SPIMEM_MEM_WASH_ERROR, 0);}
 		
 			if(check_val != correct_val)
 			{
@@ -288,7 +290,7 @@ static void memory_wash(void)
 static void exec_commands(void)
 {
 	clear_current_command();
-	if(xQueueReceiveTask(MEMORY_TASK_ID, 0, obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
+	if(xQueueReceive(obc_to_mem_fifo, current_command, xTimeToWait) == pdTRUE)	// Check for a command from the OBC packet router.
 		exec_commands_H();
 	else if(xQueueReceive(sched_to_memory_fifo, current_command, (TickType_t)1))
 		exec_commands_H();
@@ -332,16 +334,18 @@ static void exec_commands_H(void)
 			}
 			else
 			{
-				attempts = 0; check = -1;
-					
-				while (attempts<3 && check<0){
+				attempts = 0; check = -1;	
+				//while (attempts<3 && check<0){
 					check = spimem_write(address, current_command, length);
-					attempts++;
-				}
+					//attempts++;
+				//}
 					
-				if (check <0){
-					errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR, NULL); //didn't have enough parameters - just putting NULL for now
-					send_tc_execution_verify(0xFF, packet_id, psc);}
+				if (check <0)
+				{
+					//errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR, NULL); //didn't have enough parameters - just putting NULL for now
+					send_tc_execution_verify(0xFF, packet_id, psc);
+					return;
+				}
 			}
 			send_tc_execution_verify(1, packet_id, psc);
 		case	DUMP_REQUEST_ABS:
@@ -363,20 +367,22 @@ static void exec_commands_H(void)
 				else
 				{
 					check = -1; attempts = 0;
-					while (attempts<3 && check<0){
+					//while (attempts<3 && check<0){
 						check = spimem_read(address, current_command, length);
-						attempts++;
-					}
+						//attempts++;
+					//}
 						
-					if (check<0){
-						errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR,NULL); //didn't have enough parameters - just putting NULL for now
+					if (check<0)
+					{
+						//errorREPORT(MEMORY_TASK_ID, 0, MEM_OTHER_SPIMEM_ERROR,NULL); //didn't have enough parameters - just putting NULL for now
 						send_tc_execution_verify(0xFF, packet_id, psc);
+						return;
 					}
 						
 				}
 				current_command[146] = MEMORY_DUMP_ABS;
 				current_command[145] = num_transfers - j;
-				xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
+				xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);	// FAILURE_RECOVERY if this doesn't return pdTrue
 				taskYIELD();	// Give the packet router a chance to downlink the dump packet.				
 			}
 			send_tc_execution_verify(1, packet_id, psc);
@@ -406,7 +412,7 @@ static void exec_commands_H(void)
 			current_command[2] = (uint8_t)((check & 0xFF00000000FF0000) >> 26);
 			current_command[1] = (uint8_t)((check & 0xFF0000000000FF00) >> 8);
 			current_command[0] = (uint8_t)(check & 0x00000000000000FF);
-			xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);
+			xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);
 		default:
 			return;
 	}
@@ -445,7 +451,7 @@ static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_
 	current_command[139] = (uint8_t)packet_id;
 	current_command[138] = ((uint8_t)psc) >> 8;
 	current_command[137] = (uint8_t)psc;
-	xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
+	xQueueSendToBack( mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY if this doesn't return pdPASS
 	return;
 }
 
@@ -473,7 +479,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[129] = 0x00;
 	current_command[128] = 0x00;
 	current_command[127] = param1;
-	xQueueSendToBackTask(MEMORY_TASK_ID, 1, mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	xQueueSendToBackTask(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }
 

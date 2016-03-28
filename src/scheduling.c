@@ -115,7 +115,16 @@ static uint8_t current_command[DATA_LENGTH + 10];
 static uint8_t sched_buff0[256], sched_buff1[256];
 static int x;
 static uint8_t command_array[16];
-
+static TickType_t xLastWakeTime;
+static TickType_t xTimeToWait;
+static uint16_t packet_id, psc;
+static uint32_t new_time;
+static uint32_t stored_time;
+static uint8_t time_arr[4];
+static int ret_val;
+static uint16_t cID;
+static uint8_t service_type, ssmID, service_sub_type;
+static uint32_t val;
 /************************************************************************/
 /* SCHEDULING (Function)												*/
 /* @Purpose: This function is used to create the scheduling task.		*/
@@ -145,8 +154,7 @@ TaskHandle_t scheduling( void )
 static void prvSchedulingTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == SCHEDULING_PARAMETER );
-	TickType_t	xLastWakeTime;
-	const TickType_t xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
+	xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
 	x = -1;
 	task_spimem_read(SCHEDULING_TASK_ID, SCHEDULE_BASE, temp_arr, 4);			// FDIR implemented for spimem_read
 	num_commands = ((uint32_t)temp_arr[3]) << 24;
@@ -185,7 +193,6 @@ static void prvSchedulingTask( void *pvParameters )
 /************************************************************************/
 static void exec_pus_commands(void)
 {
-	uint16_t packet_id, psc;
 	uint8_t status, kicked_count;
 	if(xQueueReceiveTask(SCHEDULING_TASK_ID, 0, obc_to_sched_fifo, current_command, (TickType_t)1000) == pdTRUE)	// Only block for a single second.
 	{
@@ -193,8 +200,6 @@ static void exec_pus_commands(void)
 		packet_id += (uint16_t)current_command[139];
 		psc = ((uint16_t)current_command[138]) << 8;
 		psc += (uint16_t)current_command[137];
-		
-		
 		
 		switch(current_command[146])
 		{
@@ -232,8 +237,6 @@ static void exec_pus_commands(void)
 		}
 	}
 	
-	
-	
 	return;
 }
 
@@ -250,7 +253,6 @@ static int modify_schedule(uint8_t* status, uint8_t* kicked_count)
 {
 	uint8_t num_new_commands = current_command[136];
 	uint8_t i;
-	uint32_t new_time;
 	*kicked_count = 0;
 		
 	for(i = 0; i < num_new_commands; i++)			// out of the schedule.
@@ -319,8 +321,7 @@ static void add_command_to_beginning(uint32_t new_time, uint8_t position)
 static void add_command_to_middle(uint32_t new_time, uint8_t position)
 {
 	uint16_t i;
-	uint32_t stored_time = 0;
-	uint8_t time_arr[4];
+	stored_time = 0;
 	for(i = 0; i < num_commands; i++)
 	{
 		if(task_spimem_read(SCHEDULING_TASK_ID, (SCHEDULE_BASE + 4 + num_commands * 16), time_arr, 4) < 0)						// FAILURE_RECOVERY
@@ -439,9 +440,8 @@ static void load_buff1_to_buff0(void)
 static int check_schedule(void){
 
 	uint8_t status = 0x01;	//Right now, status doesn't change (!?)
-	int ret_val;	
-							// This variable is going to contain the status returned
-	uint16_t cID, i;
+	uint16_t i;
+	uint8_t tries = 0;
 
 	if(!scheduling_on)
 	{
@@ -458,7 +458,6 @@ static int check_schedule(void){
 		cID += (uint16_t)command_array[8];
 		ret_val = exec_k_commands();
 		
-		uint8_t tries = 0;
 		while (tries<2 && ret_val == -1){
 			exec_k_commands();
 			tries++;
@@ -500,9 +499,10 @@ static int check_schedule(void){
 /************************************************************************/
 static int exec_k_commands(void)
 {
-	uint8_t service_type = command_array[10] >> 4, i, ssmID;
-	uint32_t val = 0;
-	uint8_t service_sub_type = command_array[10] & 0x0F;
+	service_type = command_array[10] >> 4;
+	uint8_t i;
+	val = 0;
+	service_sub_type = command_array[10] & 0x0F;
 	clear_current_command();
 	current_command[146] = service_type;
 	switch(service_type)

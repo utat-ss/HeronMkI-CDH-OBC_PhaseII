@@ -1,5 +1,5 @@
 /*
-Author: Keenan Burnett
+Author: Keenan Burnett, Karen Morenz
 ***********************************************************************
 * FILE NAME: payload.c
 *
@@ -66,16 +66,15 @@ static void prvPayloadTask( void *pvParameters );
 TaskHandle_t payload(void);
 void payload_kill(uint8_t killer);
 
-static uint8_t readTemp(int);
-static void readEnv(void);
-static uint8_t readHum(void);
-static uint8_t readPres(void);
-static uint8_t readAccel(void);
-static void readOpts(void);
-static void activate_heater(uint32_t tempval, int sensor_index);
-static void setUpSens(void);
+static uint16_t read_temp_h(int sensorNumber)
+static void read_env(void);
+static uint16_t read_hum(void);
+static uint16_t read_pres(void);
+static uint16_t read_accel(void);
+static void read_opts(void);
+static void manage_heaters(uint16_t temperature, int sensor_index)
+static void set_up_sens(void);
 static int store_science(uint8_t type, uint8_t* data);
-
 /*-----------------------------------------------------------*/
 
 /* Global Variables Prototypes								*/
@@ -84,19 +83,19 @@ static uint8_t last_Optstime;
 static uint8_t count;
 static uint8_t valvesclosed;
 static int* status;
-static uint8_t tempval;
 static uint8_t temp_sensor;
-static uint8_t env[8];
-static uint8_t tempval[5];
-static uint8_t humval;
-static uint8_t presval;
-static uint8_t accelval;
-static uint8_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
-static uint32_t temp;
+static uint8_t env[16];
+static uint16_t tempval[5];
+static uint16_t humval;
+static uint16_t presval;
+static uint16_t accelval;
+static uint16_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
+static uint16_t temp;
 static uint8_t OD_PD, FL_PD;
 static uint32_t offset;
 static uint8_t size;
 static uint8_t* temp_ptr;
+static TickType_t xLastWakeTime;
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -133,20 +132,18 @@ static void prvPayloadTask(void *pvParameters )
 	*status = 0;
 	/* Declare Variables Here */
 	
-	setUpSens();
+	set_up_sens();
 	/* @non-terminating@ */	
 	for( ;; )
 	{
 		if(xTaskGetTickCount() - last_tick_count > PAY_LOOP_TIMEOUT)
 		{
-			for(int i = 0; i < 5; i++)
-			{
-				readTemp(i); // read temperature sensors, decide what to do to heaters
-			}
+			read_temps();
+			manage_heaters();
 		
-			if(count > 120)	//once per minute, read env sensors, save data (count every 500 ms)
+			if(count > 6)	//once per minute, read env sensors, save data (count every 500 ms)
 			{
-				readEnv();
+				read_env();
 				count = 0;
 			}
 		
@@ -154,7 +151,7 @@ static void prvPayloadTask(void *pvParameters )
 			{
 				if(valvesclosed)
 				{
-					send_can_command(0, 0, PAY_TASK_ID, PAY_ID, OPEN_VALVES, DEF_PRIO);//(see data_collect.c)
+					send_can_command(0, 0, PAY_TASK_ID, PAY_ID, OPEN_VALVES, DEF_PRIO);	//(see data_collect.c)
 					valvesclosed = 0;
 				}
 				if(CURRENT_MINUTE - last_Optstime >= opts_timebetween)
@@ -164,7 +161,7 @@ static void prvPayloadTask(void *pvParameters )
 				}
 				if(pd_collectedf)
 				{
-					readOpts();
+					read_opts();
 				}	
 			}
 			count++;
@@ -180,7 +177,7 @@ static void prvPayloadTask(void *pvParameters )
 /* @Purpose: This function initializes all of the global variables used */
 /* in running the sensors												*/
 /************************************************************************/
-static void setUpSens(void)
+static void set_up_sens(void)
 {
 	//time between in ms in hexadecimal
 	opts_timebetween = 0x1E; 
@@ -193,40 +190,57 @@ static void setUpSens(void)
 /* READTEMP					                                            */
 /* @Purpose: Requests temperature data from the payload SSM.			*/
 /* @param: sensorNumber: temp_sensor = PAY_TEMP0 + sensorNumber			*/
+/* @param: *s: 1 = success, -1 = failure.								*/
 /* @return: The value of the temperature sensor which was read.			*/
 /************************************************************************/
-static uint8_t readTemp(int sensorNumber)
+static uint16_t read_temp_h(int sensorNumber, int* s)
 {
 	*status = 0;
 	temp_sensor = PAY_TEMP0 + sensorNumber ;
-	tempval = request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, status);
-	if(status < 0)
+	tempval[temp_sensor] = request_sensor_data(PAY_TASK_ID, PAY_ID, temp_sensor, status);
+	*s = *status;
+	if(*status < 0)
 		return 0;
-	activate_heater(tempval, sensorNumber);
-	return tempval;
+
+	return tempval[temp_sensor];
+}
+
+static uint8_t read_temps(int* s)
+{
+	for(uint8_t i = 0; i < 5; i++)
+	{
+		read_temp_h(i, status);
+		*s = *status;
+		if(*status < 0)
+			return 0;
+	}
+	return 1;
 }
 
 /************************************************************************/
-/* ACTIVATE_HEATER			                                            */
+/* MANAGE_HEATERS			                                            */
 /* @Purpose: Activates the heaters in the payload depending on what		*/
 /* the temperature is.													*/
-/* @param: tempval: raw temperature value read from the PAY SSM.		*/
-/* @param: sensor_index: ??												*/
 /************************************************************************/
-static void activate_heater(uint32_t tempval, int sensor_index)
+static void manage_heaters(void)
 {
-	if(tempval > TARGET_TEMP){
-		//heater off (acc. sensor_index)
-		if(tempval > TARGET_TEMP + TEMP_RANGE){
-			// freak out? Send notification???
+	uint8_t i;
+	for(i = 0; i < 5; i++)
+	{
+		if(tempval[i] > TARGET_TEMP){
+			//heater off (acc. sensor_index)
+			if(tempval[i] > TARGET_TEMP + TEMP_RANGE){
+				// freak out? Send notification???
+			}
 		}
+		else if(tempval[i] < TARGET_TEMP){
+			//heater on (acc. sensor_index)
+			if(tempval[i] < TARGET_TEMP - TEMP_RANGE){
+				// turn the heaters on EXTRA. freak out and send notification???
+			}
+		}	
 	}
-	else if(tempval < TARGET_TEMP){
-		//heater on (acc. sensor_index)
-		if(tempval < TARGET_TEMP - TEMP_RANGE){
-			// turn the heaters on EXTRA. freak out and send notification???
-		}
-	}
+	return;
 }
 
 /************************************************************************/
@@ -235,16 +249,36 @@ static void activate_heater(uint32_t tempval, int sensor_index)
 /* and receiving CAN messages.											*/
 /* @Note: The data is stored in SPI memory after retrieval is complete.	*/
 /************************************************************************/
-static void readEnv()
+static void read_env(int* s)
 {
-	env[0] = readHum();
-	env[1] = readPres();
-	env[2] = readAccel();
+	uint16_t sens_val;
+	sens_val = read_hum(status);
+	env[0] = (uint8_t)sens_val;
+	env[1] = (uint8_t)(sens_val >> 8);
+	*s = *status;
+	if(*status < 0)
+		return;
+	sens_val = read_pres(status);
+	env[2] = (uint8_t)sens_val;
+	env[3] = (uint8_t)(sens_val >> 8);
+	*s = *status;
+	if(*status < 0)
+		return;
+	sens_val = read_accel(status);
+	env[4] = (uint8_t)sens_val;
+	env[5] = (uint8_t)(sens_val >> 8);
+	*s = *status;
+	if(*status < 0)
+		return;
+	read_temps(status);
+	*s = *status;
+	if(*status < 0)
+		return;
 	for(int i = 0; i < 5; i++)
 	{
-		env[i+3] = readTemp(i);
+		env[2 * i + 6] = (uint8_t)tempval[i];
+		env[2 * i + 7] = (uint8_t)(tempval[i] >> 8);		
 	}
-
 	store_science(0, env);
 }
 
@@ -253,11 +287,12 @@ static void readEnv()
 /* @Purpose: Requests humidity data from the payload SSM.				*/
 /* @return: The value of the humidity sensor which was read.			*/
 /************************************************************************/
-static uint8_t readHum(void)
+static uint16_t read_hum(int* s)
 {
 	humval = 0;
 	*status = 0;
-	humval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, status);
+	humval = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_HUM, status);
+	*s = *status;
 	if(*status < 0)
 		return 0;
 	return humval;
@@ -268,12 +303,13 @@ static uint8_t readHum(void)
 /* @Purpose: Requests pressure data from the payload SSM.				*/
 /* @return: The value of the pressure sensor which was read.			*/
 /************************************************************************/
-static uint8_t readPres(void)
+static uint16_t read_pres(int* s)
 {
 	presval = 0;
 	*status = 0;
-	presval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, status);
-	if(*status)
+	presval = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_PRESS, status);
+	*s = *status;
+	if(*status < 0)
 		return 0;
 	return presval;
 }
@@ -283,13 +319,14 @@ static uint8_t readPres(void)
 /* @Purpose: Requests acceleration data from the payload SSM.			*/
 /* @return: The value of the acceleration sensor which was read.		*/
 /************************************************************************/
-static uint8_t readAccel(void)
+static uint16_t read_accel(int* s)
 {
 	accelval = 0;
 	*status = 0;
-	accelval = request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, status);
-	if(*status)
-		return 0; 
+	accelval = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, status);
+	*s = *status;
+	if(*status < 0)
+		return 0;
 	return accelval;
 }
 
@@ -298,21 +335,30 @@ static uint8_t readAccel(void)
 /* @Purpose: Requests optical data from the payload SSM.				*/
 /* It also stores the received photodiode values into SPI memory		*/
 /************************************************************************/
-static void readOpts(void)
+static void read_opts(int* s)
 {
 	OD_PD = PAY_FL_OD_PD0;
 	FL_PD = PAY_FL_PD0;
-	
+	*status = 0;
 	for(int i = 0; i < 12; i++)
 	{
 		FL_PD += i;
 		OD_PD += i;
-		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, FL_PD, 0);
-		taskYIELD();
+		temp = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, FL_PD, status);
+		*s = *status;
+		if(*status < 0)
+			return;
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, (TickType_t)50);			// Sleep task for 50 ticks. 
+		vTaskDelayUntil()
 		optval[4 * i]		= (uint8_t)temp;
 		optval[4 * i + 1]	= (uint8_t)(temp >> 8);
-		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
-		taskYIELD();
+		temp = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, status);
+		*s = *status;
+		if(*status < 0)
+			return;
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, (TickType_t)50);			// Sleep task for 50 ticks.
 		optval[4 * i + 2]	= (uint8_t)temp;
 		optval[4 * i + 3]	= (uint8_t)(temp >> 8);
 	}
@@ -322,13 +368,17 @@ static void readOpts(void)
 	for(int i = 0; i < 48; i++)
 	{
 		OD_PD += i;
-		temp = request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, 0);
-		taskYIELD();
+		temp = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, status);
+		*s = *status;
+		if(*status < 0)
+			return;
+		xLastWakeTime = xTaskGetTickCount();
+		vTaskDelayUntil(&xLastWakeTime, (TickType_t)50);			// Sleep task for 50 ticks.
 		optval[i * 2 + 48]		= (uint8_t)temp; 
 		optval[i * 2 + 48 + 1]	=  (uint8_t)(temp >> 8);
 	}
 	
-	store_science(1, optval);
+	store_science(2, optval);
 }
 
 /************************************************************************/

@@ -262,7 +262,7 @@ static uint8_t pay_fifo_from_OPR_fumble_count;
 
 /* Variables used for Error Handling */
 static uint32_t error;
-static uint8_t code, task0;
+static uint8_t code, task0, task;
 static uint32_t timeout;
 static uint32_t offset;
 

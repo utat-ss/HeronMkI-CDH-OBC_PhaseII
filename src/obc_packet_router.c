@@ -152,7 +152,7 @@ static uint8_t version1, type1, sequence_flags1, sequence_count1;
 static uint8_t ccsds_flag, packet_version;
 static uint8_t sID, ssmID;
 static uint8_t collection_interval;
-static uint8_t npar;
+static uint8_t npar, npar1;
 static uint32_t address, length;
 static uint32_t new_time, last_time;
 /* Latest TC packet received, next TM packet to send	*/

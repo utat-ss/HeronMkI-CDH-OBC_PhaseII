@@ -66,13 +66,14 @@ static void prvPayloadTask( void *pvParameters );
 TaskHandle_t payload(void);
 void payload_kill(uint8_t killer);
 
-static uint16_t read_temp_h(int sensorNumber)
-static void read_env(void);
-static uint16_t read_hum(void);
-static uint16_t read_pres(void);
-static uint16_t read_accel(void);
-static void read_opts(void);
-static void manage_heaters(uint16_t temperature, int sensor_index)
+static uint16_t read_temp_h(int sensorNumber, int* s);
+static uint8_t read_temps(int* s);
+static void read_env(int* s);
+static uint16_t read_hum(int* s);
+static uint16_t read_pres(int* s);
+static uint16_t read_accel(int* s);
+static void read_opts(int* s);
+static void manage_heaters(void);
 static void set_up_sens(void);
 static int store_science(uint8_t type, uint8_t* data);
 /*-----------------------------------------------------------*/
@@ -138,12 +139,13 @@ static void prvPayloadTask(void *pvParameters )
 	{
 		if(xTaskGetTickCount() - last_tick_count > PAY_LOOP_TIMEOUT)
 		{
-			read_temps();
-			manage_heaters();
+			read_temps(status);
+			if(*status > 0)
+				manage_heaters();
 		
 			if(count > 6)	//once per minute, read env sensors, save data (count every 500 ms)
 			{
-				read_env();
+				read_env(status);
 				count = 0;
 			}
 		
@@ -161,7 +163,7 @@ static void prvPayloadTask(void *pvParameters )
 				}
 				if(pd_collectedf)
 				{
-					read_opts();
+					read_opts(status);
 				}	
 			}
 			count++;
@@ -350,7 +352,6 @@ static void read_opts(int* s)
 			return;
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, (TickType_t)50);			// Sleep task for 50 ticks. 
-		vTaskDelayUntil()
 		optval[4 * i]		= (uint8_t)temp;
 		optval[4 * i + 1]	= (uint8_t)(temp >> 8);
 		temp = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, OD_PD, status);

@@ -277,7 +277,7 @@ static void memory_wash(void)
 		}
 		send_event_report(1, MEMORY_WASH_FINISHED, 0, 0);
 	}
-	minute_count = 0;
+	second_count = 0;
 	return;
 }
 
@@ -479,7 +479,7 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[129] = 0x00;
 	current_command[128] = 0x00;
 	current_command[127] = param1;
-	xQueueSendToBackTask(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
 	return;
 }
 

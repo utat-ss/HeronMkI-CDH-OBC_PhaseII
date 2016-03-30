@@ -46,6 +46,8 @@ Author: Keenan Burnett, Karen Morenz
 #include "can_func.h"
 
 #include "error_handling.h"
+
+#include "spimem.h"
 /* Priorities at which the tasks are created. */
 #define Payload_PRIORITY	( tskIDLE_PRIORITY + 1 ) // Lower the # means lower the priority
 /* Values passed to the two tasks just to check the task parameter
@@ -90,7 +92,7 @@ static uint16_t tempval[5];
 static uint16_t humval;
 static uint16_t presval;
 static uint16_t accelval;
-static uint16_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
+static uint8_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
 static uint16_t temp;
 static uint8_t OD_PD, FL_PD;
 static uint32_t offset;
@@ -336,7 +338,7 @@ static uint16_t read_accel(int* s)
 /* READOPTS					                                            */
 /* @Purpose: Requests optical data from the payload SSM.				*/
 /* It also stores the received photodiode values into SPI memory		*/
-/************************************************************************/
+/************************************************************************///
 static void read_opts(int* s)
 {
 	OD_PD = PAY_FL_OD_PD0;
@@ -391,9 +393,14 @@ static void read_opts(int* s)
 static int store_science(uint8_t type, uint8_t* data)
 {
 	*temp_ptr = type;
-	if (spimem_read(SCIENCE_BASE, &offset, 4) < 0)
+	uint8_t read_buff[4];
+	read_buff[0] = (uint8_t)offset;
+	read_buff[1] = (uint8_t)(offset >> 8);
+	read_buff[2] = (uint8_t)(offset >> 16);
+	read_buff[3] = (uint8_t)(offset >> 24);
+	if(spimem_read(SCIENCE_BASE, read_buff, 4) < 0)
 		return -1;
-	spimem_write(SCIENCE_BASE + offset, &temp_ptr, 1);					// Data Type
+	spimem_write(SCIENCE_BASE + offset, temp_ptr, 1);					// Data Type
 	spimem_write(SCIENCE_BASE + offset + 1, absolute_time_arr, 4);		// Time Stamp
 	if(!type)			// Temperature collection
 		size = 10;
@@ -403,7 +410,11 @@ static int store_science(uint8_t type, uint8_t* data)
 		size = 144;
 	spimem_write(SCIENCE_BASE + offset + 5, data, size);
 	offset += (5 + size);
-	spimem_write(SCIENCE_BASE, offset, 4);
+	read_buff[0] = (uint8_t)offset;
+	read_buff[1] = (uint8_t)(offset >> 8);
+	read_buff[2] = (uint8_t)(offset >> 16);
+	read_buff[3] = (uint8_t)(offset >> 24);
+	spimem_write(SCIENCE_BASE, read_buff, 4);
 	return size;
 }
 

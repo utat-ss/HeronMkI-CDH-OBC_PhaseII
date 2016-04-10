@@ -99,6 +99,7 @@ static void exec_commands_H(void);
 static void clear_current_command(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
 static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param1, uint8_t param0);
+static void downlink_science(void);
 
 /* Local variables for memory management */
 static uint8_t second_count;
@@ -149,14 +150,16 @@ static void prvMemoryManageTask(void *pvParameters )
 	SPI_HEALTH1 = 1;
 	SPI_HEALTH2 = 1;
 	SPI_HEALTH3 = 1;
+	downlinked_science_offset = 0;
 	memory_wash();					// This will cause the SPI health variables to be updated immediately.
 	/* @non-terminating@ */	
 	for( ;; )
 	{
 		second_count++;
-		if(second_count == 90*60)		// Maximum wait time for a wash would be 90 minutes.
-			memory_wash();
+		//if(second_count == 90*60)		// Maximum wait time for a wash would be 90 minutes.
+		//	memory_wash();
 		exec_commands();
+		downlink_science();
 		xLastWakeTime = xTaskGetTickCount();						// Sleep task for 1 second
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 	}
@@ -480,6 +483,21 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 	current_command[128] = 0x00;
 	current_command[127] = param1;
 	xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);		// FAILURE_RECOVERY
+	return;
+}
+
+void downlink_science(void)		// TO BE USED FOR CSDC PURPOSES
+{
+	uint32_t length = 0;
+	uint8_t i;
+	clear_current_command();
+	if((science_offset - downlinked_science_offset) >= 53)	// We can downlink a packet.
+	{
+		downlinked_science_offset = science_offset;
+		spimem_read(SCIENCE_BASE + science_offset, current_command + 76, 128);
+		current_command[146] = DOWNLINKING_SCIENCE;
+		xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);
+	}
 	return;
 }
 

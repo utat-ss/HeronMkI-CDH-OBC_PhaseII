@@ -95,7 +95,6 @@ static uint16_t accelval;
 static uint8_t optval[144];//FL experiment first, FL reading then OD reading for each well, and then MIC OD after
 static uint16_t temp;
 static uint8_t OD_PD, FL_PD;
-static uint32_t offset;
 static uint8_t size;
 static uint8_t* temp_ptr;
 static TickType_t xLastWakeTime;
@@ -283,7 +282,7 @@ static void read_env(int* s)
 		env[2 * i + 6] = (uint8_t)tempval[i];
 		env[2 * i + 7] = (uint8_t)(tempval[i] >> 8);		
 	}
-	store_science(0, env);
+	store_science(1, env);
 }
 
 /************************************************************************/
@@ -392,28 +391,33 @@ static void read_opts(int* s)
 /************************************************************************/
 static int store_science(uint8_t type, uint8_t* data)
 {
-	*temp_ptr = type;
+	if(!type)
+		*temp_ptr = 0xCC;
+	if(type == 1)
+		*temp_ptr = 0xDD;
+	if(type == 2)
+		*temp_ptr = 0xEE;
 	uint8_t read_buff[4];
-	read_buff[0] = (uint8_t)offset;
-	read_buff[1] = (uint8_t)(offset >> 8);
-	read_buff[2] = (uint8_t)(offset >> 16);
-	read_buff[3] = (uint8_t)(offset >> 24);
+	read_buff[0] = (uint8_t)science_offset;
+	read_buff[1] = (uint8_t)(science_offset >> 8);
+	read_buff[2] = (uint8_t)(science_offset >> 16);
+	read_buff[3] = (uint8_t)(science_offset >> 24);
 	if(spimem_read(SCIENCE_BASE, read_buff, 4) < 0)
 		return -1;
-	spimem_write(SCIENCE_BASE + offset, temp_ptr, 1);					// Data Type
-	spimem_write(SCIENCE_BASE + offset + 1, absolute_time_arr, 4);		// Time Stamp
+	spimem_write(SCIENCE_BASE + science_offset, temp_ptr, 1);					// Data Type
+	spimem_write(SCIENCE_BASE + science_offset + 1, absolute_time_arr, 4);		// Time Stamp
 	if(!type)			// Temperature collection
 		size = 10;
 	if(type == 1)		// Environmental Sensor Collection
-		size = 12;
+		size = 16;
 	if(type == 2)		// Photosensor collection
 		size = 144;
-	spimem_write(SCIENCE_BASE + offset + 5, data, size);
-	offset += (5 + size);
-	read_buff[0] = (uint8_t)offset;
-	read_buff[1] = (uint8_t)(offset >> 8);
-	read_buff[2] = (uint8_t)(offset >> 16);
-	read_buff[3] = (uint8_t)(offset >> 24);
+	spimem_write(SCIENCE_BASE + science_offset + 5, data, size);
+	science_offset += (5 + size);
+	read_buff[0] = (uint8_t)science_offset;
+	read_buff[1] = (uint8_t)(science_offset >> 8);
+	read_buff[2] = (uint8_t)(science_offset >> 16);
+	read_buff[3] = (uint8_t)(science_offset >> 24);
 	spimem_write(SCIENCE_BASE, read_buff, 4);
 	return size;
 }

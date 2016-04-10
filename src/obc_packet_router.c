@@ -133,6 +133,7 @@ static uint8_t version;															// The version of PUS we are using.
 static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 static uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
+static uint8_t science_packet_count;
 static uint8_t diag_telem_count, diag_def_report_count, sin_par_rep_count;
 static uint8_t tc_exec_success_count, tc_exec_fail_count, mem_check_count;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
@@ -215,6 +216,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	sched_command_count = 0;
 	mem_check_count = 0;
 	sin_par_rep_count = 0;
+	science_packet_count = 0;
 	clear_current_data();
 	clear_current_command();
 	//task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);	// FAILURE_HANDLING
@@ -363,12 +365,12 @@ static void exec_commands(void)
 		if(current_command[9] == TASK_TO_OPR_TCV)
 		send_tc_verification(packet_id, psc, current_command[8], current_command[7], 0, 2);
 	}
-	//if(xQueueReceive(mem_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
-	//{
-		//packet_id = ((uint16_t)current_command[140]) << 8;
-		//packet_id += (uint16_t)current_command[139];
-		//psc = ((uint16_t)current_command[138]) << 8;
-		//psc += (uint16_t)current_command[137];
+	if(xQueueReceive(mem_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
+	{
+		packet_id = ((uint16_t)current_command[140]) << 8;
+		packet_id += (uint16_t)current_command[139];
+		psc = ((uint16_t)current_command[138]) << 8;
+		psc += (uint16_t)current_command[137];
 		//if(current_command[146] == MEMORY_DUMP_ABS)
 		//{
 			//mem_dump_count++;
@@ -385,7 +387,12 @@ static void exec_commands(void)
 		//{
 			//send_event_packet(MEMORY_TASK_ID, current_command[145]);
 		//}
-	//}
+		if(current_command[146] == DOWNLINKING_SCIENCE)
+		{
+			science_packet_count++;
+			packetize_send_telemetry(MEMORY_TASK_ID, MEM_GROUND_ID, MEMORY_SERVICE, DOWNLINKING_SCIENCE, science_packet_count, 1, current_command);
+		}
+	}
 	//if(xQueueReceive(sched_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
 	//{
 		//packet_id = ((uint16_t)current_command[140]) << 8;

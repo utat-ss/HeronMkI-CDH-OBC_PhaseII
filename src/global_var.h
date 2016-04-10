@@ -126,6 +126,7 @@
 /* Action Requests to the OBC_PACKET_ROUTER */
 #define TASK_TO_OPR_TCV					0xDD
 #define TASK_TO_OPR_EVENT				0xEE
+#define DOWNLINKING_SCIENCE				0xCC
 
 /* EVENT REPORT ID						*/
 #define KICK_COM_FROM_SCHEDULE			0x01			// A command was kicked from the schedule.
@@ -318,6 +319,8 @@ uint32_t	LENGTH_OF_HK;
 
 /* Payload Global Variables */
 uint8_t		pd_collectedf;
+uint32_t	science_offset;
+uint32_t	downlinked_science_offset;
 
 /* EPS Global Variables */
 uint32_t eps_balance_interval, eps_heater_interval;

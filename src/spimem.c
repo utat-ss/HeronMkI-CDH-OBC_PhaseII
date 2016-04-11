@@ -93,10 +93,7 @@ void spimem_initialize(void)
 	if(INTERNAL_MEMORY_FALLBACK_MODE)
 		return;
 	
-	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off.
-	gpio_set_pin_low(SPI0_MEM1_WP);	// Turn write protection off.
-	gpio_set_pin_high(SPI0_MEM2_HOLD);	// Turn "holding" off.
-	gpio_set_pin_high(SPI0_MEM2_WP);	// Turn write protection off.
+	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off for SPIMEM1
 	
 	if (ready_for_command_h(2) != 1)
 		errorASSERT(SPIMEM_SENDER_ID, 0, SPIMEM_BUSY_CHIP_ERROR, spi_mem_buff, 0);

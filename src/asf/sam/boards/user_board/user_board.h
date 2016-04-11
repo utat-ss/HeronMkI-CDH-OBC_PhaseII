@@ -5,10 +5,9 @@ Copyright (C) 2012 Atmel Corporation. All rights reserved.
 
 Edited by: Keenan Burnett
 ***********************************************************************
-*	FILE NAME:		sam3x_ek.h
+*	FILE NAME:		user_board.h
 *
-*	PURPOSE:
-*	Brief SAM3X-EK Board Definition.
+*	PURPOSE:		UTAT SS OBC board definition
 *
 *	FILE REFERENCES:	compiler.h, system_sam3x.h, exceptions.h
 *
@@ -39,8 +38,8 @@ Edited by: Keenan Burnett
 *
 */
 
-#ifndef _SAM3X_EK_H_
-#define _SAM3X_EK_H_
+#ifndef _USER_BOARD_H_
+#define _USER_BOARD_H_
 
 #include "compiler.h"
 #include "system_sam3x.h"		//Initially at .h
@@ -84,9 +83,9 @@ Edited by: Keenan Burnett
  */
 
 /*! Name of the board */
-#define BOARD_NAME "SAM3X-EK"
+#define BOARD_NAME "USER-BOARD"
 /*! Board definition */
-#define sam3xek
+#define user_board
 /*! Family definition (already defined) */
 #define sam3x
 /*! Core definition */
@@ -554,5 +553,5 @@ Edited by: Keenan Burnett
 
 /* ------------------------------------------------------------------------ */
 
-#endif  /* _SAM3X_EK_H_ */
+#endif  /* _USER_BOARD_H_ */
 

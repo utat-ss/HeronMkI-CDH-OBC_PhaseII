@@ -109,7 +109,7 @@ extern "C" {
 #define USER_EXT_BOARD              99  //!< User-reserved extension board (if any).
 //! @}
 
-//# define BOARD 43
+# define BOARD 99
 
 #if BOARD == EVK1100
 #  include "evk1100/evk1100.h"
@@ -205,7 +205,8 @@ extern "C" {
 #  include "avr_simulator_uc3/avr_simulator_uc3.h"
 #elif BOARD == USER_BOARD
   // User-reserved area: #include the header file of your board here (if any).
-#  include "user_board.h"
+#  include "user_board/user_board.h"
+#  include "system_sam3x.h"
 #elif BOARD == DUMMY_BOARD
 #  include "dummy/dummy_board.h"
 #else

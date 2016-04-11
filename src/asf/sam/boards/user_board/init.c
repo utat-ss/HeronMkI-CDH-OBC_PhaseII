@@ -8,7 +8,7 @@ Edited by: Keenan Burnett
 *	FILE NAME:		init.c
 *
 *	PURPOSE:
-*	SAM3X-EK board initialization.
+*	UTAT SS OBC board initialization.
 *
 *	FILE REFERENCES:	compiler.h, board.h, conf_board.h, gpio.h
 *

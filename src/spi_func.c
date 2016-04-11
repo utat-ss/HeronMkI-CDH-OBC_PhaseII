@@ -279,6 +279,27 @@ void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel)
 	}
 }
 
+uint16_t spi_retrieve_temp(void)
+{
+	uint16_t* msg_ptr;
+	uint16_t ret_val;
+	*msg_ptr = 0;
+	gpio_set_pin_high(SPI0_MEM1_HOLD);		// Hold SPIMEM1
+	gpio_set_pin_low(TEMP_SS);
+	spi_master_transfer_keepcslow(msg_ptr, 1, 1);
+	delay_us(128);
+	*msg_ptr = 0;
+	spi_master_transfer_keepcslow(msg_ptr, 1, 1);
+	ret_val = (*msg_ptr) << 8;
+	delay_us(128);
+	*msg_ptr = 0;
+	spi_master_transfer_keepcslow(msg_ptr, 1, 1);
+	gpio_set_pin_high(TEMP_SS);
+	gpio_set_pin_low(SPI0_MEM1_HOLD);		// Hold-off SPIMEM1
+	ret_val += msg_ptr;
+	return ret_val;
+}
+
 /************************************************************************/
 /* SPI_INITIALIZE						                                */
 /* @Purpose: Initializes SPI registers for the OBC.						*/

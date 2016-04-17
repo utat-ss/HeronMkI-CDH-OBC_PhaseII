@@ -139,8 +139,9 @@ src/housekeep.d src/housekeep.o: ../src/housekeep.c \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h \
  ../src/config/conf_board.h \
  ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/global_var.h \
- ../src/spimem.h ../src/spi_func.h ../src/asf/sam/drivers/spi/conf_spi.h \
- ../src/time.h ../src/atomic.h
+ ../src/time.h ../src/spimem.h ../src/spi_func.h \
+ ../src/asf/sam/drivers/spi/conf_spi.h ../src/atomic.h \
+ ../src/error_handling.h
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h:
 
@@ -440,12 +441,14 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 
 ../src/global_var.h:
 
+../src/time.h:
+
 ../src/spimem.h:
 
 ../src/spi_func.h:
 
 ../src/asf/sam/drivers/spi/conf_spi.h:
 
-../src/time.h:
-
 ../src/atomic.h:
+
+../src/error_handling.h:

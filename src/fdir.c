@@ -98,6 +98,8 @@ Author: Keenan Burnett, Bill Bateman
 #include "atomic.h"
 /* Includes related to SSM reprogramming	*/
 #include "ssm_programming.h"
+/* Checksum related includes			*/
+#include "checksum.h"
 
 /* Priorities at which the tasks are created. */
 #define FDIR_PRIORITY		( tskIDLE_PRIORITY + 5 )
@@ -216,7 +218,7 @@ static uint8_t diag_definition1[DATA_LENGTH];		 //stores alternate diagnostic de
 static uint8_t diag_updated[DATA_LENGTH];
 static uint8_t current_diag_definition[DATA_LENGTH]; //stores current diagnostic definition
 static uint8_t current_diag_definitionf;
-static uint8_t current_eps_diag[DATA_LENGTH / 4], current_coms_diag[DATA_LENGTH / 4], current_pay_diag[DATA_LENGTH / 4];
+//static uint8_t current_eps_diag[DATA_LENGTH / 4], current_coms_diag[DATA_LENGTH / 4], current_pay_diag[DATA_LENGTH / 4];
 static uint32_t new_diag_msg_high, new_diag_msg_low;
 static uint8_t current_diag_fullf, diag_param_report_requiredf;
 static uint8_t collection_interval0, collection_interval1;
@@ -262,7 +264,7 @@ static uint8_t pay_fifo_from_OPR_fumble_count;
 
 /* Variables used for Error Handling */
 static uint32_t error;
-static uint8_t code, task0, task;
+static uint8_t code, task;
 static uint32_t timeout;
 static uint32_t offset;
 
@@ -1145,7 +1147,7 @@ static void exec_commands(void)
 		command = current_command[145];
 		memid = current_command[136];
 		uint32_t temp_address;
-		int check = 0; int attempts = 0;
+		int check = 0;
 		address =  ((uint32_t)current_command[135]) << 24;
 		address += ((uint32_t)current_command[134]) << 16;
 		address += ((uint32_t)current_command[133]) << 8;
@@ -1259,7 +1261,7 @@ static void exec_commands(void)
 						set_variable(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], (uint16_t)val);
 					else
 						set_obc_variable(current_command[136], val);
-					send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);			
+					send_tc_execution_verify(1, packet_id, psc);			
 				case	14:
 					ssmID = get_ssm_id(current_command[136]);
 					val = (uint32_t)current_command[132];
@@ -1270,7 +1272,7 @@ static void exec_commands(void)
 						val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status);
 					else
 						val = get_obc_variable(current_command[136]);
-					send_tc_verification(OBC_PACKET_ROUTER_ID, packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);
+					send_tc_execution_verify(1, packet_id, psc);
 					i = current_command[136];
 					clear_current_command();
 					current_command[146] = SINGLE_PARAMETER_REPORT;

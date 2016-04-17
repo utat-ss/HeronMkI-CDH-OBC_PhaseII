@@ -68,6 +68,7 @@
 #include "queue.h"
 
 #include "global_var.h"		// Contains convenient global variables.
+#include "time.h"
 
 
 typedef struct {

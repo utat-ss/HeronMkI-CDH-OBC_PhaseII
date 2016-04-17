@@ -126,9 +126,14 @@ void board_init(void)
 	gpio_configure_pin(LED2_GPIO, LED2_FLAGS);
 	
 	/* Configure SSM Reset pins */
-	gpio_configure_pin(EPS_RST_GPIO, EPS_RST_FLAGS);
-	gpio_configure_pin(COMS_RST_GPIO, COMS_RST_FLAGS);
-	gpio_configure_pin(PAY_RST_GPIO, PAY_RST_FLAGS);	
+	gpio_configure_pin(EPS_RST_GPIO, EPS_RST_FLAGS_OFF);
+	gpio_configure_pin(COMS_RST_GPIO, COMS_RST_FLAGS_OFF);
+	gpio_configure_pin(PAY_RST_GPIO, PAY_RST_FLAGS_OFF);	
+	
+	/* Configure SSM Reprogramming pins */
+	gpio_configure_pin(MISO_A_GPIO, MISO_A_FLAGS_OFF);
+	gpio_configure_pin(MOSI_A_GPIO, MOSI_A_FLAGS_OFF);
+	gpio_configure_pin(SCK_A_GPIO, SCK_A_FLAGS_OFF);
 	
 #ifdef CONF_BOARD_UART_CONSOLE
 	/* Configure UART pins */
@@ -200,14 +205,12 @@ void board_init(void)
 #       endif
 #   endif
 
-#	ifdef CONF_SPI_MEM2
-		gpio_configure_pin(SPI0_MEM2_HOLD, SPI0_MEM2_HOLD_FLAGS);
-		gpio_configure_pin(SPI0_MEM2_WP, SPI0_MEM2_WP_FLAGS);
-#	endif
-
 #	ifdef CONF_SPI_MEM1
 		gpio_configure_pin(SPI0_MEM1_HOLD, SPI0_MEM1_HOLD_FLAGS);
-		gpio_configure_pin(SPI0_MEM1_WP, SPI0_MEM1_WP_FLAGS);
+#	endif
+
+#	ifdef TEMP_SENSOR
+		gpio_configure_pin(TEMP_SS, TEMP_SS_FLAGS);
 #	endif
 
 

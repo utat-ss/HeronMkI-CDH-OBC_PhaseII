@@ -132,7 +132,8 @@ src/wdt_reset.d src/wdt_reset.o: ../src/wdt_reset.c \
  ../src/asf/sam/drivers/pio/pio_handler.h \
  ../src/asf/sam/drivers/rtt/rtt.h ../src/asf/sam/drivers/tc/tc.h \
  ../src/asf/sam/drivers/spi/spi.h \
- ../src/Common-Demo-Source/include/partest.h
+ ../src/Common-Demo-Source/include/partest.h ../src/global_var.h \
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h:
 
@@ -415,3 +416,7 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/sam/drivers/spi/spi.h:
 
 ../src/Common-Demo-Source/include/partest.h:
+
+../src/global_var.h:
+
+../src/asf/thirdparty/FreeRTOS/include/queue.h:

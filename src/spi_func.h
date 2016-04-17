@@ -143,5 +143,6 @@ void SPI_Handler(void);
 void spi_master_transfer(void *p_buf, uint32_t size, uint8_t chip_sel);
 void spi_master_transfer_keepcslow(void *p_buf, uint32_t size, uint8_t chip_sel);
 void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel);
+uint16_t spi_retrieve_temp(void);
 
 #endif

@@ -133,7 +133,12 @@ src/spimem.d src/spimem.o: ../src/spimem.c ../src/spimem.h \
  ../src/asf/thirdparty/FreeRTOS/include/semphr.h \
  ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/atomic.h \
  ../src/asf/thirdparty/FreeRTOS/include/task.h \
- ../src/asf/thirdparty/FreeRTOS/include/list.h
+ ../src/asf/thirdparty/FreeRTOS/include/list.h ../src/global_var.h \
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/error_handling.h \
+ ../src/can_func.h ../src/asf/sam/drivers/can/can.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h
 
 ../src/spimem.h:
 
@@ -426,3 +431,19 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/thirdparty/FreeRTOS/include/task.h:
 
 ../src/asf/thirdparty/FreeRTOS/include/list.h:
+
+../src/global_var.h:
+
+../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
+../src/error_handling.h:
+
+../src/can_func.h:
+
+../src/asf/sam/drivers/can/can.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h:

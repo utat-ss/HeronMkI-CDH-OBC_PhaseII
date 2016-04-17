@@ -167,7 +167,6 @@ static void prvEpsTask(void *pvParameters )
 	configASSERT( ( ( unsigned long ) pvParameters ) == EPS_PARAMETER );
 	TickType_t last_tick_count = xTaskGetTickCount();
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
-	int* status = 0;
 
 	/* Declare Variables Here */
 

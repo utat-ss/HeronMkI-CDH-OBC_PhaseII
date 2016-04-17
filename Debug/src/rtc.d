@@ -123,7 +123,7 @@ src/rtc.d src/rtc.o: ../src/rtc.c ../src/rtc.h ../src/spi_func.h \
  ../src/asf/sam/drivers/pio/pio_handler.h \
  ../src/asf/sam/drivers/rtt/rtt.h ../src/asf/sam/drivers/tc/tc.h \
  ../src/asf/sam/drivers/spi/spi.h ../src/config/conf_board.h \
- ../src/asf/sam/drivers/spi/conf_spi.h ../src/spimem.h ../src/time.h \
+ ../src/asf/sam/drivers/spi/conf_spi.h ../src/time.h ../src/spimem.h \
  ../src/asf/thirdparty/FreeRTOS/include/FreeRTOS.h \
  ../src/FreeRTOSConfig.h \
  ../src/asf/thirdparty/FreeRTOS/include/projdefs.h \
@@ -134,7 +134,11 @@ src/rtc.d src/rtc.o: ../src/rtc.c ../src/rtc.h ../src/spi_func.h \
  ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/atomic.h \
  ../src/asf/thirdparty/FreeRTOS/include/task.h \
  ../src/asf/thirdparty/FreeRTOS/include/list.h ../src/global_var.h \
- ../src/asf/thirdparty/FreeRTOS/include/queue.h
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/error_handling.h \
+ ../src/can_func.h ../src/asf/sam/drivers/can/can.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h
 
 ../src/rtc.h:
 
@@ -404,9 +408,9 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 
 ../src/asf/sam/drivers/spi/conf_spi.h:
 
-../src/spimem.h:
-
 ../src/time.h:
+
+../src/spimem.h:
 
 ../src/asf/thirdparty/FreeRTOS/include/FreeRTOS.h:
 
@@ -433,3 +437,15 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/global_var.h:
 
 ../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
+../src/error_handling.h:
+
+../src/can_func.h:
+
+../src/asf/sam/drivers/can/can.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h:

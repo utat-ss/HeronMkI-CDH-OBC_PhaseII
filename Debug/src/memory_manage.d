@@ -135,7 +135,13 @@ src/memory_manage.d src/memory_manage.o: ../src/memory_manage.c \
  ../src/Common-Demo-Source/include/partest.h ../src/spimem.h \
  ../src/spi_func.h ../src/config/conf_board.h \
  ../src/asf/sam/drivers/spi/conf_spi.h ../src/time.h ../src/atomic.h \
- ../src/global_var.h ../src/asf/thirdparty/FreeRTOS/include/queue.h
+ ../src/global_var.h ../src/asf/thirdparty/FreeRTOS/include/queue.h \
+ ../src/error_handling.h ../src/can_func.h \
+ ../src/asf/sam/drivers/can/can.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h \
+ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h \
+ ../src/checksum.h
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h:
 
@@ -434,3 +440,17 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/global_var.h:
 
 ../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
+../src/error_handling.h:
+
+../src/can_func.h:
+
+../src/asf/sam/drivers/can/can.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\string.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h:
+
+c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h:
+
+../src/checksum.h:

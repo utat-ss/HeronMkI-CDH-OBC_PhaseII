@@ -89,7 +89,7 @@ static uint8_t array_pos = 0;			// This integer is needed to remember the positi
 void USART_Handler(void)
 {
 	uint32_t ul_status;
-	uint32_t new_char = 0, new_char2 = 0;	// For ease of reading, I have created this variable.
+	uint32_t new_char = 0;	// For ease of reading, I have created this variable.
 	uint8_t command_completed = 0;
 	uint8_t i = 0;
 
@@ -157,8 +157,7 @@ void check_command(void)
 	char* message_array;
 	
 	char* check_array;
-	
-	uint8_t i = 0;
+
 	uint8_t hk = 1;
 	uint8_t sad = 1;
 	uint8_t msg = 1;
@@ -377,7 +376,7 @@ uint8_t check_string(char* str_to_check)
 /************************************************************************/
 uint32_t convert_to_temp(uint32_t* temp)
 {
-	uint32_t temperature, remainder;
+	uint32_t temperature;
 	float t = 0.0;
 	
 	temperature = *temp;

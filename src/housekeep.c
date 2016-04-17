@@ -109,7 +109,11 @@ functionality. */
 #define HK_REPORT						25
 -----------------------------------------------------------*/
 
+/* External functions used for diagnostics */
+extern uint8_t get_ssm_id(uint8_t sensor_name);
+
 /* Function Prototypes */
+
 static void prvHouseKeepTask( void *pvParameters );
 TaskHandle_t housekeep(void);
 void housekeep_kill(uint8_t killer);
@@ -141,13 +145,12 @@ static uint8_t hk_definition1[DATA_LENGTH];			// Used to store an alternate hous
 static uint8_t hk_updated[DATA_LENGTH];
 static uint8_t current_hk_definition[DATA_LENGTH];
 static uint8_t current_hk_definitionf;					// Unique identifier for the housekeeping format definition.
-static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
+//static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
 static uint32_t new_hk_msg_high, new_hk_msg_low;
 static uint8_t current_hk_fullf, param_report_requiredf;
 static uint8_t collection_interval0, collection_interval1;		// How to wait for the next collection (in minutes)
 static TickType_t xTimeToWait;				// Number entered here corresponds to the number of ticks we should wait.
 static uint8_t current_hk_mem_offset[4];
-static TickType_t	xLastWakeTime;
 static int req_data_result;
 static uint8_t i;
 static uint16_t packet_id, psc;
@@ -228,9 +231,10 @@ static void prvHouseKeepTask(void *pvParameters )
 /* @Purpose: Attempts to receive from obc_to_hk_fifo, executes			*/
 /* different commands depending on what was received.					*/
 /************************************************************************/
-static void exec_commands(void){
-	int attempts = 1;
-	uint8_t exec_com_success = (uint8_t)exec_commands_H(); 	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
+static void exec_commands(void)
+{
+	//uint8_t exec_com_success = (uint8_t)
+	exec_commands_H(); 	//exec_com_success is 1 if successful, current_commands if there is a FIFO error
 	/* Error Handling */
 	//while (attempts<3 && exec_com_success != 1){
 		//exec_com_success = (uint8_t)exec_commands_H();
@@ -386,7 +390,6 @@ static int request_housekeeping_all(void)
 /************************************************************************/
 static int store_housekeeping(void)
 {
-	uint8_t sender = 0xFF;
 	num_parameters = current_hk_definition[129];	// ALTERED FOR CSDC 134 --> 129
 	parameter_name = 0;
 	//int attempts = 1;
@@ -507,7 +510,7 @@ uint8_t get_ssm_id(uint8_t sensor_name)
 static int store_hk_in_spimem(void)
 {
 	uint32_t offset;
-	int x;
+	int x = 0;
 	offset = (uint32_t)(current_hk_mem_offset[0] << 24);
 	offset += (uint32_t)(current_hk_mem_offset[1] << 16);
 	offset += (uint32_t)(current_hk_mem_offset[2] << 8);

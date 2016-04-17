@@ -93,10 +93,7 @@ void spimem_initialize(void)
 	if(INTERNAL_MEMORY_FALLBACK_MODE)
 		return;
 	
-	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off.
-	gpio_set_pin_low(SPI0_MEM1_WP);	// Turn write protection off.
-	gpio_set_pin_high(SPI0_MEM2_HOLD);	// Turn "holding" off.
-	gpio_set_pin_high(SPI0_MEM2_WP);	// Turn write protection off.
+	gpio_set_pin_low(SPI0_MEM1_HOLD);	// Turn "holding" off for SPIMEM1
 	
 	if (ready_for_command_h(2) != 1)
 		errorASSERT(SPIMEM_SENDER_ID, 0, SPIMEM_BUSY_CHIP_ERROR, spi_mem_buff, 0);
@@ -203,12 +200,12 @@ int spimem_write(uint32_t addr, uint8_t* data_buff, uint32_t size)
 /************************************************************************/
 int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t size)
 {
-	uint32_t size1, size2, low, dirty = 0, page, sect_num, check;
+	uint32_t size1, size2, low, dirty = 0, page, sect_num;
 	
 	if (size > 256)				// Invalid size to write.
-	return -1;
+		return -1;
 	if (addr > 0xFFFFF)			// Invalid address to write to.
-	return -1;
+		return -1;
 	
 	low = addr & 0x000000FF;
 	if ((size + low) > 256)		// Requested write flows into a second page.
@@ -243,10 +240,10 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 		if(dirty)
 		{
 			sect_num = get_sector(addr);
-			check = load_sector_into_spibuffer(spi_chip, sect_num);			// if check != 4096, FAILURE_RECOVERY.
-			check = update_spibuffer_with_new_page(addr, data_buff, size1);	// if check != size1, FAILURE_RECOVERY.
-			check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
-			check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
+			load_sector_into_spibuffer(spi_chip, sect_num);			// if check != 4096, FAILURE_RECOVERY.
+			update_spibuffer_with_new_page(addr, data_buff, size1);	// if check != size1, FAILURE_RECOVERY.
+			erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
+			write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
 		}
 		else
 		{
@@ -271,10 +268,10 @@ int spimem_write_h(uint8_t spi_chip, uint32_t addr, uint8_t* data_buff, uint32_t
 			if(dirty)
 			{
 				sect_num = get_sector(addr + size1);
-				check = load_sector_into_spibuffer(spi_chip, sect_num);						// if check != 4096, FAILURE_RECOVERY.
-				check = update_spibuffer_with_new_page(addr + size1, (data_buff + size1), size2);	// if check != size1, FAILURE_RECOVERY.
-				check = erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
-				check = write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
+				load_sector_into_spibuffer(spi_chip, sect_num);						// if check != 4096, FAILURE_RECOVERY.
+				update_spibuffer_with_new_page(addr + size1, (data_buff + size1), size2);	// if check != size1, FAILURE_RECOVERY.
+				erase_sector_on_chip(spi_chip, sect_num);				// FAILURE_RECOVERY
+				write_sector_back_to_spimem(spi_chip);					// FAILURE_RECOVERY
 
 			}
 			else

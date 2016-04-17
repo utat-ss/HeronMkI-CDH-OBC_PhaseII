@@ -138,7 +138,9 @@ src/payload.d src/payload.o: ../src/payload.c \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\lib\gcc\arm-none-eabi\4.8.4\include-fixed\sys\cdefs.h \
  c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\sys\string.h \
  ../src/config/conf_board.h \
- ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/global_var.h
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/global_var.h \
+ ../src/time.h ../src/error_handling.h ../src/spimem.h ../src/spi_func.h \
+ ../src/asf/sam/drivers/spi/conf_spi.h ../src/atomic.h
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h:
 
@@ -437,3 +439,15 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/thirdparty/FreeRTOS/include/queue.h:
 
 ../src/global_var.h:
+
+../src/time.h:
+
+../src/error_handling.h:
+
+../src/spimem.h:
+
+../src/spi_func.h:
+
+../src/asf/sam/drivers/spi/conf_spi.h:
+
+../src/atomic.h:

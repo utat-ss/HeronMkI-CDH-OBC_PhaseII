@@ -130,7 +130,7 @@ extern uint8_t get_ssm_id(uint8_t sensor_name);
 
 /* Global variables											 */
 static uint8_t version;															// The version of PUS we are using.
-static uint8_t type, data_header, flag, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
+static uint8_t type, data_header, sequence_flags, sequence_count;		// Sequence count keeps track of which packet (of several) is currently being sent.
 static uint16_t packet_id, psc;
 static uint8_t tc_sequence_count, hk_telem_count, hk_def_report_count, time_report_count, mem_dump_count;
 static uint8_t science_packet_count;
@@ -153,7 +153,7 @@ static uint8_t version1, type1, sequence_flags1, sequence_count1;
 static uint8_t ccsds_flag, packet_version;
 static uint8_t sID, ssmID;
 static uint8_t collection_interval;
-static uint8_t npar, npar1;
+static uint8_t npar1;
 static uint32_t address, length;
 static uint32_t new_time, last_time;
 /* Latest TC packet received, next TM packet to send	*/
@@ -645,14 +645,13 @@ static int receive_tc_msg(void)
 static int send_pus_packet_tm(uint8_t sender_id)
 {
 	uint32_t i;
-	uint32_t num_transfers = PACKET_LENGTH / 4;
-	uint16_t timeout;
+	num_transfers = PACKET_LENGTH / 4;
+	timeout = 500;
 	xTimeToWait = 25;
 	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
 	send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
-	timeout = 500;
 	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
 	{
 		if(!timeout--)
@@ -762,7 +761,7 @@ static void clear_current_command(void)
 /************************************************************************/
 static int store_current_tc(void)
 {
-	uint8_t i, test = 0;
+	//uint8_t i, test = 0;
 	//if(TC_PACKET_COUNT == MAX_TM_PACKETS)
 		//return -1;
 	//if(TC_PACKET_COUNT == MAX_TM_PACKETS / 2)
@@ -785,10 +784,10 @@ static int store_current_tc(void)
 	if(xQueueSendToBack(tc_buffer, current_tc, (TickType_t)1) != pdPASS)
 	{
 		send_event_report(1, TC_BUFFER_FULL, 0, 0);		// FAILURE_RECOVERY
-		return;
+		return -1;
 	}
 	current_tc_fullf = 0;
-	return;
+	return 1;
 }
 
 /************************************************************************/
@@ -833,7 +832,7 @@ static int store_current_tm(void)
 /************************************************************************/
 static int decode_telecommand(void)
 {
-	uint8_t test = 0, i;
+	uint8_t i; //, test = 0;
 	int x, attempts;
 	
 	packet_id = (uint16_t)(tc_to_decode[151]);
@@ -863,10 +862,10 @@ static int decode_telecommand(void)
 	pec1 = pec1 << 8;
 	pec1 += (uint16_t)(tc_to_decode[0]);
 	
-	for(i = 0; i < PACKET_LENGTH; i++)
-	{
-		test = tc_to_decode[i];
-	}
+	//for(i = 0; i < PACKET_LENGTH; i++)
+	//{
+		//test = tc_to_decode[i];
+	//}
 	
 	/* Check that the packet error control is correct		*/
 	pec0 = fletcher16(tc_to_decode + 2, 150);
@@ -897,13 +896,13 @@ static int decode_telecommand(void)
 /************************************************************************/
 static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 {	
-	uint8_t sID = 0xFF;
+	sID = 0xFF;
 	collection_interval = 0;
 	npar1 = 0;
 	uint8_t i; //severity=0;
 	uint32_t val = 0;
 	uint32_t time = 0;
-	int* status;
+	int status = 0;
 	clear_current_command();
 	for(i = 0; i < DATA_LENGTH; i++)
 	{
@@ -1067,7 +1066,7 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			val += ((uint32_t)current_command[134]) << 16;
 			val += ((uint32_t)current_command[135]) << 24;
 			if(ssmID < 3)
-				val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], status);
+				val = request_sensor_data(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], &status);
 			else
 				val = get_obc_variable(current_command[136]);
 			send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);

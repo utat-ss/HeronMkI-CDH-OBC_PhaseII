@@ -308,8 +308,8 @@ static void exec_commands_H(void)
 	uint8_t* mem_ptr = 0;
 	uint32_t address, length, num_transfers = 0;
 	uint32_t* temp_address = 0;
-	uint64_t check = 0; 
-	int attempts = 0;
+	int check = 0;
+	uint64_t checksum; 
 	command = current_command[146];
 	packet_id = ((uint16_t)current_command[140]) << 8;
 	packet_id += (uint16_t)current_command[139];
@@ -337,7 +337,7 @@ static void exec_commands_H(void)
 			}
 			else
 			{
-				attempts = 0; check = -1;	
+				check = -1;	
 				//while (attempts<3 && check<0){
 					check = spimem_write(address, current_command, length);
 					//attempts++;
@@ -369,7 +369,7 @@ static void exec_commands_H(void)
 				}
 				else
 				{
-					check = -1; attempts = 0;
+					check = -1;
 					//while (attempts<3 && check<0){
 						check = spimem_read(address, current_command, length);
 						//attempts++;
@@ -393,12 +393,12 @@ static void exec_commands_H(void)
 			if(!memid)
 			{
 				temp_address = address;
-				check = fletcher64(temp_address, length);
+				checksum = fletcher64(temp_address, length);
 				send_tc_execution_verify(1, packet_id, psc);
 			}
 			else
 			{
-				check = fletcher64_on_spimem(address, length, &status);
+				checksum = fletcher64_on_spimem(address, length, &status);
 				if(status > 1)
 				{
 					send_tc_execution_verify(0xFF, packet_id, psc);
@@ -407,14 +407,14 @@ static void exec_commands_H(void)
 				send_tc_execution_verify(1, packet_id, psc);
 			}
 			current_command[146] = MEMORY_CHECK_ABS;
-			current_command[7] = (uint8_t)((check & 0xFF00000000000000) >> 56);
-			current_command[6] = (uint8_t)((check & 0x00FF000000000000) >> 48);
-			current_command[5] = (uint8_t)((check & 0x0000FF0000000000) >> 40);
-			current_command[4] = (uint8_t)((check & 0xFF0000FF00000000) >> 32);
-			current_command[3] = (uint8_t)((check & 0xFF000000FF000000) >> 24);
-			current_command[2] = (uint8_t)((check & 0xFF00000000FF0000) >> 26);
-			current_command[1] = (uint8_t)((check & 0xFF0000000000FF00) >> 8);
-			current_command[0] = (uint8_t)(check & 0x00000000000000FF);
+			current_command[7] = (uint8_t)((checksum & 0xFF00000000000000) >> 56);
+			current_command[6] = (uint8_t)((checksum & 0x00FF000000000000) >> 48);
+			current_command[5] = (uint8_t)((checksum & 0x0000FF0000000000) >> 40);
+			current_command[4] = (uint8_t)((checksum & 0xFF0000FF00000000) >> 32);
+			current_command[3] = (uint8_t)((checksum & 0xFF000000FF000000) >> 24);
+			current_command[2] = (uint8_t)((checksum & 0xFF00000000FF0000) >> 26);
+			current_command[1] = (uint8_t)((checksum & 0xFF0000000000FF00) >> 8);
+			current_command[0] = (uint8_t)(checksum & 0x00000000000000FF);
 			xQueueSendToBack(mem_to_obc_fifo, current_command, (TickType_t)1);
 		default:
 			return;
@@ -488,8 +488,6 @@ static void send_event_report(uint8_t severity, uint8_t report_id, uint8_t param
 
 void downlink_science(void)		// TO BE USED FOR CSDC PURPOSES
 {
-	uint32_t length = 0;
-	uint8_t i;
 	clear_current_command();
 	if((science_offset - downlinked_science_offset) >= 53)	// We can downlink a packet.
 	{

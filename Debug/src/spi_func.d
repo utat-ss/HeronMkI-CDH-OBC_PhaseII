@@ -123,7 +123,7 @@ src/spi_func.d src/spi_func.o: ../src/spi_func.c ../src/spi_func.h \
  ../src/asf/sam/drivers/pio/pio_handler.h \
  ../src/asf/sam/drivers/rtt/rtt.h ../src/asf/sam/drivers/tc/tc.h \
  ../src/asf/sam/drivers/spi/spi.h ../src/config/conf_board.h \
- ../src/asf/sam/drivers/spi/conf_spi.h
+ ../src/asf/sam/drivers/spi/conf_spi.h ../src/time.h
 
 ../src/spi_func.h:
 
@@ -390,3 +390,5 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/config/conf_board.h:
 
 ../src/asf/sam/drivers/spi/conf_spi.h:
+
+../src/time.h:

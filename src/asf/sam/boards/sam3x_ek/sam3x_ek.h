@@ -34,6 +34,9 @@ Edited by: Keenan Burnett
 *	DEVELOPMENT HISTORY:
 *	11/29/2014			Header Changed.
 *
+*	04/11/2016			Deleted lines related to PCK, SSC and others which aren't relevant anymore.
+*						Added lines for the temperature sensor chip-select.
+*
 */
 
 #ifndef _SAM3X_EK_H_
@@ -330,67 +333,13 @@ Edited by: Keenan Burnett
 #define SPI0_NPCS3_PB23_GPIO       (PIO_PB23_IDX)
 #define SPI0_NPCS3_PB23_FLAGS      (PIO_PERIPH_B | PIO_DEFAULT)
 
-/*		Write-Protect and Hold Pins	Definition		*/
-#define SPI0_MEM2_WP				(PIO_PA28_IDX)
-#define SPI0_MEM2_WP_FLAGS			(PIO_PERIPH_A| PIO_DEFAULT)
-#define SPI0_MEM2_HOLD				(PIO_PB0_IDX)
-#define SPI0_MEM2_HOLD_FLAGS		(PIO_PERIPH_B| PIO_DEFAULT)
-
-#define SPI0_MEM1_WP				(PIO_PB19_IDX)
-#define SPI0_MEM1_WP_FLAGS			(PIO_PERIPH_B| PIO_DEFAULT)
+/*		Hold Pins for SPIMEM1					*/
 #define	SPI0_MEM1_HOLD				(PIO_PA21_IDX)
-#define SPI0_MEM1_HOLD_FLAGS		(PIO_PERIPH_A| PIO_DEFAULT)			
+#define SPI0_MEM1_HOLD_FLAGS		(PIO_PERIPH_A| PIO_DEFAULT)
 
-/**
- * \file
- * SSC
- * - \ref PIN_SSC_TD
- * - \ref PIN_SSC_TK
- * - \ref PIN_SSC_TF
- * - \ref PINS_SSC_CODEC
- *
- */
-
-/* ------------------------------------------------------------------------ */
-/* SSC                                                                      */
-/* ------------------------------------------------------------------------ */
-/*! SSC pin Transmitter Data (TD) */
-#define PIN_SSC_TD      {PIO_PA16B_TD, PIOA, ID_PIOA, PIO_PERIPH_B, PIO_DEFAULT}
-/*! SSC pin Transmitter Clock (TK) */
-#define PIN_SSC_TK      {PIO_PA14B_TK, PIOA, ID_PIOA, PIO_PERIPH_B, PIO_DEFAULT}
-/*! SSC pin Transmitter FrameSync (TF) */
-#define PIN_SSC_TF      {PIO_PA15B_TF, PIOA, ID_PIOA, PIO_PERIPH_B, PIO_DEFAULT}
-
-/*! SSC pin Receiver Data (RD) */
-#define PIN_SSC_RD      {PIO_PB18A_RD, PIOB, ID_PIOB, PIO_PERIPH_A, PIO_DEFAULT}
-/*! SSC pin Receiver Clock (RK) */
-#define PIN_SSC_RK      {PIO_PB19A_RK, PIOB, ID_PIOB, PIO_PERIPH_A, PIO_DEFAULT}
-/*! SSC pin Receiver FrameSync (RF) */
-#define PIN_SSC_RF      {PIO_PB17A_RF, PIOB, ID_PIOB, PIO_PERIPH_A, PIO_DEFAULT}
-
-/*! SSC pins definition for codec. */
-#define PINS_SSC_CODEC  PIN_SSC_TD, PIN_SSC_TK, PIN_SSC_TF,\
-	PIN_SSC_RD, PIN_SSC_RK, PIN_SSC_RF
-
-/**
- * \file
- * PCK0
- * - \ref PIN_PCK0
- *
- */
-
-/* ------------------------------------------------------------------------ */
-/* PCK                                                                      */
-/* ------------------------------------------------------------------------ */
-/*! PCK0 */
-#define PIN_PCK0        (PIO_PB22_IDX)
-#define PIN_PCK0_FLAGS  (PIO_PERIPH_B | PIO_DEFAULT)
-
-#define PIN_PCK_0_MASK  PIO_PB22
-#define PIN_PCK_0_PIO   PIOB
-#define PIN_PCK_0_ID    ID_PIOB
-#define PIN_PCK_0_TYPE  PIO_PERIPH_B
-#define PIN_PCK_0_ATTR  PIO_DEFAULT
+/*		Extra SPI Chip Select Definitions			*/
+#define	TEMP_SS						(PIO_PB19_IDX)
+#define TEMP_SS_FLAGS				(PIO_PERIPH_B| PIO_DEFAULT)	
 
 /* ------------------------------------------------------------------------ */
 /* SSM RESET                                                                */
@@ -398,14 +347,34 @@ Edited by: Keenan Burnett
 #define PINS_SSM_RESET   PIN_USER_LED1, PIN_USER_LED2, PIN_USER_LED3, PIN_POWER_LED, PIN_USER_LED4
 
 /* EPS RESET*/
-#define EPS_RST_GPIO       (PIO_PB26_IDX)
-#define EPS_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+#define EPS_RST_GPIO		(PIO_PB26_IDX)
+#define EPS_RST_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define EPS_RST_FLAGS_ON	(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
 /* COMS RESET*/
-#define COMS_RST_GPIO       (PIO_PB0_IDX)
-#define COMS_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+#define COMS_RST_GPIO		(PIO_PB0_IDX)
+#define COMS_RST_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define COMS_RST_FLAGS_ON	(PIO_TYPE_PIO_OUTPUT_1| PIO_DEFAULT)
 /* PAY RESET*/
-#define PAY_RST_GPIO       (PIO_PA14_IDX)
-#define PAY_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+#define PAY_RST_GPIO		(PIO_PA14_IDX)
+#define PAY_RST_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define PAY_RST_FLAGS_ON	(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+
+/* ------------------------------------------------------------------------ */
+/* SSM REPROGRAM                                                            */
+/* ------------------------------------------------------------------------ */
+
+/* MISO_A*/
+#define MISO_A_GPIO			(PIO_PA27_IDX)
+#define MISO_A_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define MISO_A_FLAGS_ON		(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+/* MOSI_A*/
+#define MOSI_A_GPIO			(PIO_PA27_IDX)
+#define MOSI_A_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define MOSI_A_FLAGS_ON		(PIO_TYPE_PIO_OUTPUT_1| PIO_DEFAULT)
+/* SCK_A*/
+#define SCK_A_GPIO			(PIO_PA27_IDX)
+#define SCK_A_FLAGS_OFF		(PIO_TYPE_PIO_INPUT)
+#define SCK_A_FLAGS_ON		(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
 
 /**
  * \file
@@ -467,88 +436,6 @@ Edited by: Keenan Burnett
 	{PIO_PA17B_SCK0, PIOA, ID_PIOA, PIO_PERIPH_B, PIO_DEFAULT}
 #define PIN_USART0_SCK_IDX        (PIO_PA17_IDX)
 #define PIN_USART0_SCK_FLAGS      (PIO_PERIPH_B | PIO_DEFAULT)
-
-/**
- * \file
- * USART1
- * - \ref PIN_USART1_RXD
- * - \ref PIN_USART1_TXD
- * - \ref PIN_USART1_CTS
- * - \ref PIN_USART1_RTS
- * - \ref PIN_USART1_SCK
- *
- */
-
-/* ------------------------------------------------------------------------ */
-/* USART1                                                                   */
-/* ------------------------------------------------------------------------ */
-/*! USART1 pin RX */
-#define PIN_USART1_RXD\
-	{PIO_PA12A_RXD1, PIOA, ID_PIOA, PIO_PERIPH_A, PIO_DEFAULT}
-#define PIN_USART1_RXD_IDX        (PIO_PA12_IDX)
-#define PIN_USART1_RXD_FLAGS      (PIO_PERIPH_A | PIO_DEFAULT)
-/*! USART1 pin TX */
-#define PIN_USART1_TXD\
-	{PIO_PA13A_TXD1, PIOA, ID_PIOA, PIO_PERIPH_A, PIO_DEFAULT}
-#define PIN_USART1_TXD_IDX        (PIO_PA13_IDX)
-#define PIN_USART1_TXD_FLAGS      (PIO_PERIPH_A | PIO_DEFAULT)
-/*! USART1 pin CTS */
-#define PIN_USART1_CTS\
-	{PIO_PA15A_CTS1, PIOA, ID_PIOA, PIO_PERIPH_A, PIO_DEFAULT}
-#define PIN_USART1_CTS_IDX        (PIO_PA15_IDX)
-#define PIN_USART1_CTS_FLAGS      (PIO_PERIPH_A | PIO_DEFAULT)
-/*! USART1 pin RTS */
-#define PIN_USART1_RTS\
-	{PIO_PA14A_RTS1, PIOA, ID_PIOA, PIO_PERIPH_A, PIO_DEFAULT}
-#define PIN_USART1_RTS_IDX        (PIO_PA14_IDX)
-#define PIN_USART1_RTS_FLAGS      (PIO_PERIPH_A | PIO_DEFAULT)
-/*! USART1 pin SCK */
-#define PIN_USART1_SCK\
-	{PIO_PA16A_SCK1, PIOA, ID_PIOA, PIO_PERIPH_A, PIO_DEFAULT}
-#define PIN_USART1_SCK_IDX        (PIO_PA16_IDX)
-#define PIN_USART1_SCK_FLAGS      (PIO_PERIPH_A | PIO_DEFAULT)
-
-/**
- * \file
- * USART3
- * - \ref PIN_USART3_RXD
- * - \ref PIN_USART3_TXD
- * - \ref PIN_USART3_CTS
- * - \ref PIN_USART3_RTS
- * - \ref PIN_USART3_SCK
- *
- */
-
-/* ------------------------------------------------------------------------ */
-/* USART3                                                                   */
-/* ------------------------------------------------------------------------ */
-/*! USART1 pin RX */
-#define PIN_USART3_RXD\
-	{PIO_PD5B_RXD3, PIOD, ID_PIOD, PIO_PERIPH_B, PIO_DEFAULT}
-#define PIN_USART3_RXD_IDX        (PIO_PD5_IDX)
-#define PIN_USART3_RXD_FLAGS      (PIO_PERIPH_B | PIO_DEFAULT)
-/*! USART1 pin TX */
-#define PIN_USART3_TXD\
-	{PIO_PD4B_TXD3, PIOD, ID_PIOD, PIO_PERIPH_B, PIO_DEFAULT}
-#define PIN_USART3_TXD_IDX        (PIO_PD4_IDX)
-#define PIN_USART3_TXD_FLAGS      (PIO_PERIPH_B | PIO_DEFAULT)
-/*! USART1 pin CTS */
-#define PIN_USART3_CTS\
-	{PIO_PF4A_CTS3, PIOF, ID_PIOF, PIO_PERIPH_A, PIO_DEFAULT}
-#define PIN_USART3_CTS_IDX        (PIO_PF4_IDX)
-#define PIN_USART3_CTS_FLAGS      (PIO_PERIPH_A | PIO_DEFAULT)
-/*! USART1 pin RTS */
-#define PIN_USART3_RTS\
-	{PIO_PF5A_RTS3, PIOF, ID_PIOF, PIO_PERIPH_A, PIO_DEFAULT}
-#define PIN_USART3_RTS_IDX        (PIO_PF5_IDX)
-#define PIN_USART3_RTS_FLAGS      (PIO_PERIPH_A | PIO_DEFAULT)
-/*! USART1 pin SCK */
-#define PIN_USART3_SCK\
-	{PIO_PE16B_SCK3, PIOE, ID_PIOE, PIO_PERIPH_B, PIO_DEFAULT}
-#define PIN_USART3_SCK_IDX        (PIO_PE16_IDX)
-#define PIN_USART3_SCK_FLAGS      (PIO_PERIPH_B | PIO_DEFAULT)
-
-/* ------------------------------------------------------------------------ */
 
 /**
  * \file

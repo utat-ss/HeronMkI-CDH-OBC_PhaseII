@@ -186,7 +186,7 @@
     <com_atmel_avrdbg_tool_samice>
       <ToolType>com.atmel.avrdbg.tool.samice</ToolType>
       <ToolName>J-Link</ToolName>
-      <ToolNumber>269303623</ToolNumber>
+      <ToolNumber>269301773</ToolNumber>
       <Channel>
         <host>127.0.0.1</host>
         <port>1596</port>
@@ -430,10 +430,25 @@
     <Compile Include="src\atomic.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="src\camera.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\camera.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="src\checksum.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\eps.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\error_handling.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\error_handling.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\fdir.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\memory_manage.c">
@@ -443,6 +458,12 @@
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\scheduling.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\ssm_programming.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\ssm_programming.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="src\time_manage.c">
@@ -801,10 +822,6 @@
     </Compile>
     <Compile Include="src\main.c">
       <SubType>compile</SubType>
-    </Compile>
-    <Compile Include="src\my_blink.c">
-      <SubType>compile</SubType>
-      <Link>my_blink.c</Link>
     </Compile>
     <None Include="src\asf.h">
       <SubType>compile</SubType>

@@ -65,7 +65,7 @@ void SPI_Handler(void)
 {
 	static uint16_t data;
 	uint8_t uc_pcs;
-	uint32_t* reg_ptr = 0x4000800C;		// SPI_TDR (SPI0)
+	uint32_t* reg_ptr = (uint32_t*)0x4000800C;		// SPI_TDR (SPI0)
 
 	if (spi_read_status(SPI_SLAVE_BASE) & SPI_SR_RDRF) 
 	{
@@ -277,6 +277,26 @@ void spi_master_read(void *p_buf, uint32_t size, uint32_t chip_sel)
 		spi_read(SPI_MASTER_BASE, &data, &pcs);
 		p_buffer[i] = (uint8_t)data;
 	}
+}
+
+uint16_t spi_retrieve_temp(void)
+{
+	uint16_t msg_ptr = 0;
+	uint16_t ret_val;
+	gpio_set_pin_high(SPI0_MEM1_HOLD);		// Hold SPIMEM1
+	gpio_set_pin_low(TEMP_SS);
+	spi_master_transfer_keepcslow(&msg_ptr, 1, 1);
+	delay_us(128);
+	msg_ptr = 0;
+	spi_master_transfer_keepcslow(&msg_ptr, 1, 1);
+	ret_val = (msg_ptr) << 8;
+	delay_us(128);
+	msg_ptr = 0;
+	spi_master_transfer_keepcslow(&msg_ptr, 1, 1);
+	gpio_set_pin_high(TEMP_SS);
+	gpio_set_pin_low(SPI0_MEM1_HOLD);		// Hold-off SPIMEM1
+	ret_val += msg_ptr;
+	return ret_val;
 }
 
 /************************************************************************/

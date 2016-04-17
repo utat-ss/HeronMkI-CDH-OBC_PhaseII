@@ -139,14 +139,15 @@ src/main.d src/main.o: ../src/main.c \
  ../src/asf/thirdparty/FreeRTOS/include/semphr.h \
  ../src/asf/thirdparty/FreeRTOS/include/queue.h \
  ../src/asf/thirdparty/FreeRTOS/include/queue.h ../src/global_var.h \
- ../src/usart_func.h ../src/asf.h \
+ ../src/time.h ../src/usart_func.h ../src/asf.h \
  ../src/asf/common/utils/stdio/stdio_serial/stdio_serial.h \
  ../src/Common-Demo-Source/include/serial.h \
  ../src/asf/common/services/serial/portmacro.h \
  ../src/asf/common/services/serial/sam_uart/uart_serial.h \
  ../src/asf/sam/drivers/uart/uart.h ../src/config/conf_uart_serial.h \
  ../src/spi_func.h ../src/asf/sam/drivers/spi/conf_spi.h ../src/rtc.h \
- ../src/spimem.h ../src/time.h ../src/atomic.h
+ ../src/spimem.h ../src/atomic.h ../src/error_handling.h \
+ ../src/checksum.h ../src/camera.h
 
 c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu-toolchain\arm-none-eabi\include\stdio.h:
 
@@ -446,6 +447,8 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 
 ../src/global_var.h:
 
+../src/time.h:
+
 ../src/usart_func.h:
 
 ../src/asf.h:
@@ -470,6 +473,10 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 
 ../src/spimem.h:
 
-../src/time.h:
-
 ../src/atomic.h:
+
+../src/error_handling.h:
+
+../src/checksum.h:
+
+../src/camera.h:

@@ -109,7 +109,7 @@ extern "C" {
 #define USER_EXT_BOARD              99  //!< User-reserved extension board (if any).
 //! @}
 
-# define BOARD 99
+//# define BOARD 43
 
 #if BOARD == EVK1100
 #  include "evk1100/evk1100.h"

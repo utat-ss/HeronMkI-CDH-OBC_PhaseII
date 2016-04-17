@@ -101,7 +101,7 @@ static void prvDataTask( void *pvParameters )
 	const TickType_t xTimeToWait = 10000;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t low, high, PRIORITY, i;
+	uint32_t low, high, PRIORITY;
 	uint8_t byte_four = SPI_TEMP1;
 	int x;
 	PRIORITY = DATA_PRIO;

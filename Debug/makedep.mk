@@ -10,13 +10,21 @@ src\asf\sam\drivers\uart\uart.c
 
 src\atomic.c
 
+src\camera.c
+
 src\eps.c
+
+src\error_handling.c
+
+src\fdir.c
 
 src\memory_manage.c
 
 src\obc_packet_router.c
 
 src\scheduling.c
+
+src\ssm_programming.c
 
 src\time_manage.c
 
@@ -117,6 +125,4 @@ src\Common-Demo-Source\recmutex.c
 src\Common-Demo-Source\semtest.c
 
 src\main.c
-
-src\my_blink.c
 

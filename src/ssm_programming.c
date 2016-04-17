@@ -49,6 +49,7 @@
 int reprogram_ssm(uint8_t ssmID)
 {
 	uint32_t length = 0;
+	uint8_t msg[4];
 	uint32_t base = 0, RST = 0;
 	uint8_t tries = 10;
 	int ret_val = -1;
@@ -72,7 +73,11 @@ int reprogram_ssm(uint8_t ssmID)
 		RST = COMS_RST_GPIO;
 	}
 	
-	length = spimem_read(base, &length, 4);
+	spimem_read(base, msg, 4);
+	length = (uint32_t)msg[0];
+	length += ((uint32_t)msg[1]) << 8;
+	length += ((uint32_t)msg[2]) << 16;
+	length += ((uint32_t)msg[3]) << 24;
 	if(!length)
 		return -2;		// Program needs to have a nonzero length
 	
@@ -217,7 +222,6 @@ uint32_t read_signature(void)
 int upload_mem_to_ssm(uint32_t size, uint32_t base)
 {
 	uint32_t i, j, pages = 0, leftover = 0, position = 0;
-	uint8_t byte = 0;
 	uint32_t oddness = 0, temp = 0;
 	pages = (size / 128);
 	leftover = size % 128;
@@ -243,14 +247,14 @@ int upload_mem_to_ssm(uint32_t size, uint32_t base)
 		spi_master_transfer(&temp, 4, 1);
 		delay_ms(5);
 		if(position % 2)
-		oddness = 0x08000000;
+			oddness = 0x08000000;
 		else
-		oddness = 0;
+			oddness = 0;
 		temp = (READ_PROG_MEM) | oddness | (j << 14) | ((position/2) << 8);
 		spi_master_transfer(&temp, 4, 1);
 		temp &= 0x000000FF;
 		if(temp != write_buff[position])
-		return -1;
+			return -1;
 	}
 	/* Whatever is left over as less than a page */
 	if(leftover)

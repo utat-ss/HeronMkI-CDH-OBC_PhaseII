@@ -138,7 +138,11 @@ src/usart_func.d src/usart_func.o: ../src/usart_func.c \
  ../src/asf/thirdparty/FreeRTOS/include/projdefs.h \
  ../src/asf/thirdparty/FreeRTOS/include/portable.h \
  ../src/asf/thirdparty/FreeRTOS/include/mpu_wrappers.h \
- ../src/asf/thirdparty/FreeRTOS/include/queue.h
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h \
+ ../src/asf/thirdparty/FreeRTOS/include/semphr.h \
+ ../src/asf/thirdparty/FreeRTOS/include/queue.h \
+ ../src/asf/thirdparty/FreeRTOS/include/task.h \
+ ../src/asf/thirdparty/FreeRTOS/include/list.h
 
 ../src/usart_func.h:
 
@@ -435,3 +439,11 @@ c:\program\ files\ (x86)\atmel\atmel\ toolchain\arm\ gcc\native\4.8.1437\arm-gnu
 ../src/asf/thirdparty/FreeRTOS/include/mpu_wrappers.h:
 
 ../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
+../src/asf/thirdparty/FreeRTOS/include/semphr.h:
+
+../src/asf/thirdparty/FreeRTOS/include/queue.h:
+
+../src/asf/thirdparty/FreeRTOS/include/task.h:
+
+../src/asf/thirdparty/FreeRTOS/include/list.h:

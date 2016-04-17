@@ -106,9 +106,8 @@ static void prvCommandTask( void *pvParameters )
 	const TickType_t xTimeToWait = 10000;	//Number entered here corresponds to the number of ticks we should wait.
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	
-	uint32_t low, high, ID, PRIORITY;
+	uint32_t low, PRIORITY;
 	uint8_t byte_four = 0;
-	int x;
 	
 	low = DUMMY_COMMAND;
 	PRIORITY = COMMAND_PRIO;
@@ -116,9 +115,9 @@ static void prvCommandTask( void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		x = send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_RESPONSE, PRIORITY);				// Request response from COMS.
-		x = send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_RESPONSE, PRIORITY);				// Request response from EPS.
-		x = send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_RESPONSE, PRIORITY);				// Request response from PAY.
+		send_can_command(low, byte_four, OBC_ID, EPS_ID, REQ_RESPONSE, PRIORITY);				// Request response from COMS.
+		send_can_command(low, byte_four, OBC_ID, COMS_ID, REQ_RESPONSE, PRIORITY);				// Request response from EPS.
+		send_can_command(low, byte_four, OBC_ID, PAY_ID, REQ_RESPONSE, PRIORITY);				// Request response from PAY.
 		
 		xLastWakeTime = xTaskGetTickCount();
 		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);

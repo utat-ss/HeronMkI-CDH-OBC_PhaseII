@@ -150,7 +150,7 @@ void rtc_get(struct timestamp *t)
 {	
     uint8_t time_date[7];        // second, minute, hour, day of week, day of month, month, year
     uint8_t i, ret_val;
-    uint16_t year_full, message;
+    uint16_t message;
 	
     for (i = 0; i < 7; i++) 
 	{

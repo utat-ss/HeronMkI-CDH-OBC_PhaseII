@@ -100,10 +100,14 @@ C_SRCS +=  \
 ../src/asf/sam/drivers/tc/tc.c \
 ../src/asf/sam/drivers/uart/uart.c \
 ../src/atomic.c \
+../src/camera.c \
 ../src/eps.c \
+../src/error_handling.c \
+../src/fdir.c \
 ../src/memory_manage.c \
 ../src/obc_packet_router.c \
 ../src/scheduling.c \
+../src/ssm_programming.c \
 ../src/time_manage.c \
 ../src/wdt_reset.c \
 ../src/checksum.c \
@@ -153,8 +157,7 @@ C_SRCS +=  \
 ../src/Common-Demo-Source/PollQ.c \
 ../src/Common-Demo-Source/recmutex.c \
 ../src/Common-Demo-Source/semtest.c \
-../src/main.c \
-../src/my_blink.c
+../src/main.c
 
 
 PREPROCESSING_SRCS += 
@@ -168,10 +171,14 @@ src/asf/sam/drivers/spi/spi.o \
 src/asf/sam/drivers/tc/tc.o \
 src/asf/sam/drivers/uart/uart.o \
 src/atomic.o \
+src/camera.o \
 src/eps.o \
+src/error_handling.o \
+src/fdir.o \
 src/memory_manage.o \
 src/obc_packet_router.o \
 src/scheduling.o \
+src/ssm_programming.o \
 src/time_manage.o \
 src/wdt_reset.o \
 src/checksum.o \
@@ -221,18 +228,21 @@ src/Common-Demo-Source/integer.o \
 src/Common-Demo-Source/PollQ.o \
 src/Common-Demo-Source/recmutex.o \
 src/Common-Demo-Source/semtest.o \
-src/main.o \
-my_blink.o
+src/main.o
 
 OBJS_AS_ARGS +=  \
 src/asf/sam/drivers/spi/spi.o \
 src/asf/sam/drivers/tc/tc.o \
 src/asf/sam/drivers/uart/uart.o \
 src/atomic.o \
+src/camera.o \
 src/eps.o \
+src/error_handling.o \
+src/fdir.o \
 src/memory_manage.o \
 src/obc_packet_router.o \
 src/scheduling.o \
+src/ssm_programming.o \
 src/time_manage.o \
 src/wdt_reset.o \
 src/checksum.o \
@@ -282,18 +292,21 @@ src/Common-Demo-Source/integer.o \
 src/Common-Demo-Source/PollQ.o \
 src/Common-Demo-Source/recmutex.o \
 src/Common-Demo-Source/semtest.o \
-src/main.o \
-my_blink.o
+src/main.o
 
 C_DEPS +=  \
 src/asf/sam/drivers/spi/spi.d \
 src/asf/sam/drivers/tc/tc.d \
 src/asf/sam/drivers/uart/uart.d \
 src/atomic.d \
+src/camera.d \
 src/eps.d \
+src/error_handling.d \
+src/fdir.d \
 src/memory_manage.d \
 src/obc_packet_router.d \
 src/scheduling.d \
+src/ssm_programming.d \
 src/time_manage.d \
 src/wdt_reset.d \
 src/checksum.d \
@@ -343,18 +356,21 @@ src/Common-Demo-Source/integer.d \
 src/Common-Demo-Source/PollQ.d \
 src/Common-Demo-Source/recmutex.d \
 src/Common-Demo-Source/semtest.d \
-src/main.d \
-my_blink.d
+src/main.d
 
 C_DEPS_AS_ARGS +=  \
 src/asf/sam/drivers/spi/spi.d \
 src/asf/sam/drivers/tc/tc.d \
 src/asf/sam/drivers/uart/uart.d \
 src/atomic.d \
+src/camera.d \
 src/eps.d \
+src/error_handling.d \
+src/fdir.d \
 src/memory_manage.d \
 src/obc_packet_router.d \
 src/scheduling.d \
+src/ssm_programming.d \
 src/time_manage.d \
 src/wdt_reset.d \
 src/checksum.d \
@@ -404,8 +420,7 @@ src/Common-Demo-Source/integer.d \
 src/Common-Demo-Source/PollQ.d \
 src/Common-Demo-Source/recmutex.d \
 src/Common-Demo-Source/semtest.d \
-src/main.d \
-my_blink.d
+src/main.d
 
 OUTPUT_FILE_PATH +=Main_Program.elf
 
@@ -422,6 +437,12 @@ LINKER_SCRIPT_DEP+=  \
 
 
 # AVR32/GNU C Compiler
+
+
+
+
+
+
 
 
 
@@ -682,13 +703,6 @@ src/asf/thirdparty/FreeRTOS/portable/MemMang/%.o: ../src/asf/thirdparty/FreeRTOS
 	
 
 src/Common-Demo-Source/%.o: ../src/Common-Demo-Source/%.c
-	@echo Building file: $<
-	@echo Invoking: ARM/GNU C Compiler : 4.8.4
-	$(QUOTE)C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\arm-none-eabi-gcc.exe$(QUOTE)  -x c -mthumb -D__SAM3X8E__ -DBOARD=SAM3X_EK -D__SAM3X8H__  -I"../src" -I"../src/asf/common/applications/user_application/sam3x8h_sam3x_ek" -I"../src/asf/common/boards" -I"../src/asf/common/services/gpio" -I"../src/asf/common/utils" -I"../src/asf/sam/boards" -I"../src/asf/sam/boards/sam3x_ek" -I"../src/asf/sam/drivers/pio" -I"../src/asf/sam/utils" -I"../src/asf/sam/utils/cmsis/sam3x/include" -I"../src/asf/sam/utils/cmsis/sam3x/source/templates" -I"../src/asf/sam/utils/header_files" -I"../src/asf/sam/utils/preprocessor" -I"../src/asf/thirdparty/CMSIS/Include" -I"../src/config" -I"../src/asf/thirdparty/FreeRTOS/include" -I"../src/asf/thirdparty/FreeRTOS/portable/GCC/ARM_CM3" -I"../src/Common-Demo-Source/include" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles\CMSIS\Include" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles\Device\ATMEL" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles\Device\ATMEL\sam3xa\include" -I"../src/asf/sam/drivers/pmc" -I"../src/asf/common/services/clock" -I"../src/asf/sam/drivers/usart" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel\Device\ATMEL\sam3xa\include" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel\CMSIS\Include" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel\Device\ATMEL"  -O0 -fdata-sections -ffunction-sections -mlong-calls -g3 -Wall -mcpu=cortex-m3 -c -pipe -Wall -Wextra -std=gnu99 -ffunction-sections -fdata-sections --param max-inline-insns-single=500 -Dprintf=iprintf -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 
-	@echo Finished building: $<
-	
-
-./%.o: ../src/%.c
 	@echo Building file: $<
 	@echo Invoking: ARM/GNU C Compiler : 4.8.4
 	$(QUOTE)C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\arm-none-eabi-gcc.exe$(QUOTE)  -x c -mthumb -D__SAM3X8E__ -DBOARD=SAM3X_EK -D__SAM3X8H__  -I"../src" -I"../src/asf/common/applications/user_application/sam3x8h_sam3x_ek" -I"../src/asf/common/boards" -I"../src/asf/common/services/gpio" -I"../src/asf/common/utils" -I"../src/asf/sam/boards" -I"../src/asf/sam/boards/sam3x_ek" -I"../src/asf/sam/drivers/pio" -I"../src/asf/sam/utils" -I"../src/asf/sam/utils/cmsis/sam3x/include" -I"../src/asf/sam/utils/cmsis/sam3x/source/templates" -I"../src/asf/sam/utils/header_files" -I"../src/asf/sam/utils/preprocessor" -I"../src/asf/thirdparty/CMSIS/Include" -I"../src/config" -I"../src/asf/thirdparty/FreeRTOS/include" -I"../src/asf/thirdparty/FreeRTOS/portable/GCC/ARM_CM3" -I"../src/Common-Demo-Source/include" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles\CMSIS\Include" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles\Device\ATMEL" -I"C:\devtools\Atmel\Atmel Studio 6.0\extensions\Atmel\ARMGCC\3.3.1.83\ARMSupportFiles\Device\ATMEL\sam3xa\include" -I"../src/asf/sam/drivers/pmc" -I"../src/asf/common/services/clock" -I"../src/asf/sam/drivers/usart" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel\Device\ATMEL\sam3xa\include" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel\CMSIS\Include" -I"C:\Program Files (x86)\Atmel\Atmel Toolchain\ARM GCC\Native\4.8.1437\arm-gnu-toolchain\bin\..\..\CMSIS_Atmel\Device\ATMEL"  -O0 -fdata-sections -ffunction-sections -mlong-calls -g3 -Wall -mcpu=cortex-m3 -c -pipe -Wall -Wextra -std=gnu99 -ffunction-sections -fdata-sections --param max-inline-insns-single=500 -Dprintf=iprintf -MD -MP -MF "$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)"   -o "$@" "$<" 

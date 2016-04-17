@@ -126,9 +126,14 @@ void board_init(void)
 	gpio_configure_pin(LED2_GPIO, LED2_FLAGS);
 	
 	/* Configure SSM Reset pins */
-	gpio_configure_pin(EPS_RST_GPIO, EPS_RST_FLAGS);
-	gpio_configure_pin(COMS_RST_GPIO, COMS_RST_FLAGS);
-	gpio_configure_pin(PAY_RST_GPIO, PAY_RST_FLAGS);	
+	gpio_configure_pin(EPS_RST_GPIO, EPS_RST_FLAGS_OFF);
+	gpio_configure_pin(COMS_RST_GPIO, COMS_RST_FLAGS_OFF);
+	gpio_configure_pin(PAY_RST_GPIO, PAY_RST_FLAGS_OFF);	
+	
+	/* Configure SSM Reprogramming pins */
+	gpio_configure_pin(MISO_A_GPIO, MISO_A_FLAGS_OFF);
+	gpio_configure_pin(MOSI_A_GPIO, MOSI_A_FLAGS_OFF);
+	gpio_configure_pin(SCK_A_GPIO, SCK_A_FLAGS_OFF);
 	
 #ifdef CONF_BOARD_UART_CONSOLE
 	/* Configure UART pins */

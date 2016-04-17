@@ -347,14 +347,34 @@ Edited by: Keenan Burnett
 #define PINS_SSM_RESET   PIN_USER_LED1, PIN_USER_LED2, PIN_USER_LED3, PIN_POWER_LED, PIN_USER_LED4
 
 /* EPS RESET*/
-#define EPS_RST_GPIO       (PIO_PB26_IDX)
-#define EPS_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+#define EPS_RST_GPIO		(PIO_PB26_IDX)
+#define EPS_RST_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define EPS_RST_FLAGS_ON	(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
 /* COMS RESET*/
-#define COMS_RST_GPIO       (PIO_PB0_IDX)
-#define COMS_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+#define COMS_RST_GPIO		(PIO_PB0_IDX)
+#define COMS_RST_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define COMS_RST_FLAGS_ON	(PIO_TYPE_PIO_OUTPUT_1| PIO_DEFAULT)
 /* PAY RESET*/
-#define PAY_RST_GPIO       (PIO_PA14_IDX)
-#define PAY_RST_FLAGS      (PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+#define PAY_RST_GPIO		(PIO_PA14_IDX)
+#define PAY_RST_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define PAY_RST_FLAGS_ON	(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+
+/* ------------------------------------------------------------------------ */
+/* SSM REPROGRAM                                                            */
+/* ------------------------------------------------------------------------ */
+
+/* MISO_A*/
+#define MISO_A_GPIO			(PIO_PA27_IDX)
+#define MISO_A_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define MISO_A_FLAGS_ON		(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
+/* MOSI_A*/
+#define MOSI_A_GPIO			(PIO_PA27_IDX)
+#define MOSI_A_FLAGS_OFF	(PIO_TYPE_PIO_INPUT)
+#define MOSI_A_FLAGS_ON		(PIO_TYPE_PIO_OUTPUT_1| PIO_DEFAULT)
+/* SCK_A*/
+#define SCK_A_GPIO			(PIO_PA27_IDX)
+#define SCK_A_FLAGS_OFF		(PIO_TYPE_PIO_INPUT)
+#define SCK_A_FLAGS_ON		(PIO_TYPE_PIO_OUTPUT_1 | PIO_DEFAULT)
 
 /**
  * \file

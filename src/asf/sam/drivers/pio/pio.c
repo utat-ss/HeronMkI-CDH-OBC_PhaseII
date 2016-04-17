@@ -250,7 +250,7 @@ void pio_set_input(Pio *p_pio, const uint32_t ul_mask,
 		const uint32_t ul_attribute)
 {
 	pio_disable_interrupt(p_pio, ul_mask);
-	pio_pull_up(p_pio, ul_mask, ul_attribute & PIO_PULLUP);
+	//pio_pull_up(p_pio, ul_mask, ul_attribute & PIO_PULLUP);
 
 	/* Enable Input Filter if necessary */
 	if (ul_attribute & (PIO_DEGLITCH | PIO_DEBOUNCE)) {

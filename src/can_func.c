@@ -224,7 +224,7 @@ void CAN0_Handler(void)
 /************************************************************************/
 void debug_can_msg(can_mb_conf_t *p_mailbox, Can* controller)
 {
-	uint32_t ul_data_incom = p_mailbox->ul_datal;
+	//uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
 	uint8_t big_type, small_type;
 
@@ -356,7 +356,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			COMS_TAKEOVER_MODE = 0;
 			break;
 		case OPERATIONS_PAUSED:
-			if(sender = COMS_ID)
+			if(sender == COMS_ID)
 				COMS_PAUSED = 1;
 			if(sender == EPS_ID)
 				EPS_PAUSED = 1;
@@ -541,7 +541,7 @@ void reset_mailbox_conf(can_mb_conf_t *p_mailbox)
 /************************************************************************/
 uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t PRIORITY)
 {	
-	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	//uint32_t timeout = 8400;		// ~ 100 us timeout.
 	/* Init CAN0 Mailbox 7 to Transmit Mailbox. */	
 	/* CAN0 MB7 == COMMAND/MSG MB				*/
 	reset_mailbox_conf(&can0_mailbox);
@@ -577,7 +577,7 @@ uint32_t send_can_command_h(uint32_t low, uint32_t high, uint32_t ID, uint32_t P
 /************************************************************************/
 int send_can_command_h2(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {	
-	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	//uint32_t timeout = 8400;		// ~ 100 us timeout.
 	uint32_t id, ret_val, high;
 	
 	if(ssm_id == COMS_ID)
@@ -607,7 +607,7 @@ int send_can_command_h2(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint
 /************************************************************************/
 int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {	
-	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	//uint32_t timeout = 8400;		// ~ 100 us timeout.
 	uint32_t id, ret_val, high;
 	
 	if(ssm_id == COMS_ID)
@@ -641,7 +641,7 @@ int send_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t
 /************************************************************************/
 int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
-	uint32_t timeout = 8400;		// ~ 100 us timeout.//
+	//uint32_t timeout = 8400;		// ~ 100 us timeout.//
 	uint32_t id, ret_val, high;
 	
 	if(ssm_id == COMS_ID)
@@ -671,7 +671,7 @@ int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint
 /************************************************************************/
 int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
-	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	//uint32_t timeout = 8400;		// ~ 100 us timeout.
 	uint32_t id, ret_val, high;
 	BaseType_t* higher_task_woken;
 	higher_task_woken = pdFALSE;
@@ -707,7 +707,7 @@ int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id
 /************************************************************************/
 int send_tc_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority)
 {
-	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	//uint32_t timeout = 8400;		// ~ 100 us timeout.
 	uint32_t id, ret_val, high;
 	BaseType_t* higher_task_woken;
 	higher_task_woken = pdFALSE;
@@ -867,7 +867,7 @@ uint32_t read_can_coms(uint32_t* message_high, uint32_t* message_low, uint32_t a
 uint32_t request_housekeeping(uint32_t ssm_id)
 {
 	uint32_t high, id;
-	uint32_t timeout = 8400;		// ~ 100 us timeout.
+	//uint32_t timeout = 8400;		// ~ 100 us timeout.
 	
 	if(ssm_id == COMS_ID)
 		id = SUB0_ID5;				// Housekeeping request mailbox in the SSM.
@@ -970,7 +970,7 @@ void restore_can_object(can_mb_conf_t *original, can_temp_t *temp)
 void can_initialize(void)
 {
 	uint32_t ul_sysclk;
-	uint32_t x = 1, i = 0;
+	uint32_t x = 1;
 
 	/* Enable CAN0 & CAN1 clock. */
 	pmc_enable_periph_clk(ID_CAN0);
@@ -1318,8 +1318,7 @@ uint8_t write_to_SSM(uint8_t sender_id, uint8_t ssm_id, uint8_t passkey, uint8_t
 
 static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t sensor_name, uint8_t* status)
 {
-	uint32_t high, s, ret_val;
-	uint8_t id;
+	uint32_t s, ret_val;
 	uint32_t timeout = req_data_timeout;
 	
 	if (send_can_command_h2(0x00, sensor_name, sender_id, ssm_id, REQ_DATA, COMMAND_PRIO) < 0)

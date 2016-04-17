@@ -115,8 +115,6 @@ static uint8_t current_command[DATA_LENGTH + 10];
 static uint8_t sched_buff0[256], sched_buff1[256];
 static int x;
 static uint8_t command_array[16];
-static TickType_t xLastWakeTime;
-static TickType_t xTimeToWait;
 static uint16_t packet_id, psc;
 static uint32_t new_time;
 static uint32_t stored_time;
@@ -154,8 +152,6 @@ TaskHandle_t scheduling( void )
 static void prvSchedulingTask( void *pvParameters )
 {
 	configASSERT( ( ( unsigned long ) pvParameters ) == SCHEDULING_PARAMETER );
-	xTimeToWait = 10;	// Number entered here corresponds to the number of ticks we should wait.
-	x = -1;
 	task_spimem_read(SCHEDULING_TASK_ID, SCHEDULE_BASE, temp_arr, 4);			// FDIR implemented for spimem_read
 	num_commands = ((uint32_t)temp_arr[3]) << 24;
 	num_commands = ((uint32_t)temp_arr[2]) << 16;
@@ -211,7 +207,7 @@ static void exec_pus_commands(void)
 				while (tries<3 && x==-1){x = modify_schedule(&status, &kicked_count);}
 				if (x==-1){errorREPORT(SCHEDULING_TASK_ID, 0,SCHED_COMMAND_EXEC_ERROR, 0);}
 				
-				if(status == -1)
+				if(status == 0xFF)
 					send_tc_execution_verify(0xFF, packet_id, psc);			// The Schedule modification failed
 				if(status == 2)
 					send_event_report(1, KICK_COM_FROM_SCHEDULE, kicked_count, 0);		// the modification kicked out commands.
@@ -464,7 +460,7 @@ static int check_schedule(void){
 		}
 		if(ret_val == -1)										// The scheduled command failed.
 		{	
-			errorREPORT(SCHEDULING_TASK_ID, 0, SCHED_COMMAND_EXEC_ERROR, &command_array); //FIX: what should the third parameter be?	
+			errorREPORT(SCHEDULING_TASK_ID, 0, SCHED_COMMAND_EXEC_ERROR, command_array); //FIX: what should the third parameter be?	
 		}
 		else
 		{
@@ -500,7 +496,7 @@ static int check_schedule(void){
 static int exec_k_commands(void)
 {
 	service_type = command_array[10] >> 4;
-	uint8_t i;
+	//uint8_t i;
 	val = 0;
 	service_sub_type = command_array[10] & 0x0F;
 	clear_current_command();
@@ -532,7 +528,7 @@ static int exec_k_commands(void)
 			if(service_sub_type == START_EXPERIMENT_ARM)
 			{
 				experiment_armed = 1;
-				send_tc_verification(0, 0, 0, SCHEDULING_TASK_ID, 0, 2);	// Successful command execution report.
+				send_tc_execution_verify(1, packet_id, psc);	// Successful command execution report.
 				return 1;
 			}
 			if(service_sub_type == START_EXPERIMENT_FIRE)
@@ -540,11 +536,11 @@ static int exec_k_commands(void)
 				if(experiment_armed)
 				{
 					experiment_started = 1;
-					send_tc_verification(0, 0, 0, SCHEDULING_TASK_ID, 0, 2);	// Successful command execution report.
+					send_tc_execution_verify(1, packet_id, psc);	// Successful command execution report.
 				}
 				else
 				{
-					send_tc_verification(0, 0, 0xFF, 5, 0, 2);				// Failed telecommand execution report (usage error due to experiment_armed = 0)
+					send_tc_execution_verify(0xFF, packet_id, psc);				// Failed telecommand execution report (usage error due to experiment_armed = 0)
 					return -1;
 				}
 			}
@@ -559,7 +555,7 @@ static int exec_k_commands(void)
 					set_variable(OBC_PACKET_ROUTER_ID, ssmID, current_command[136], (uint16_t)val);
 				else
 					set_obc_variable(current_command[136], val);
-				send_tc_verification(0, 0, 0, OBC_PACKET_ROUTER_ID, 0, 2);
+				send_tc_execution_verify(1, packet_id, psc);
 				return 1;
 			}
 		default:

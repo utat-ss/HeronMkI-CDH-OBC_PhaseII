@@ -53,7 +53,7 @@ Author: Keenan Burnett
 functionality. */
 #define COMS_PARAMETER	( 0xABCD )
 
-#define COMS_LOOP_TIMEOUT		1000							// Specifies how many ticks to wait before running coms again.
+#define COMS_LOOP_TIMEOUT		10000							// Specifies how many ticks to wait before running coms again.
 /*-----------------------------------------------------------*/
 
 /* Function Prototypes										 */

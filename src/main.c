@@ -223,7 +223,7 @@ int main(void)
 	//time_manage_HANDLE = time_manage();
 	//memory_manage_HANDLE = memory_manage();
 	//eps_HANDLE = eps();
-	//coms_HANDLE = coms();
+	coms_HANDLE = coms();
 	//pay_HANDLE = payload();
 	wdt_reset_HANDLE = wdt_reset();
 	/* Start Scheduler */
@@ -300,7 +300,7 @@ static void prvSetupHardware(void)
 	rtc_init(DS3234_INTCN);
 	
 	/* Initialize the SPI memory chips	*/
-	spimem_initialize();
+	//spimem_initialize();
 	
 	/* Initialize the Camera */
 	//camera_initialize();

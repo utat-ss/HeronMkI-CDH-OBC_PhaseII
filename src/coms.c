@@ -30,6 +30,8 @@ Author: Keenan Burnett
 * 07/06/2015 	K: Created.
 *
 * 10/09/2015	K: Updated comments and a few lines to make things neater.
+* 
+* 05/03/2016	Bill: Adding beacon control.
 */
 
 /* Standard includes.										*/
@@ -53,13 +55,27 @@ Author: Keenan Burnett
 functionality. */
 #define COMS_PARAMETER	( 0xABCD )
 
+/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 #define COMS_LOOP_TIMEOUT		10000							// Specifies how many ticks to wait before running coms again.
+
+#define COMS_BEACON_WAIT		1000 * 60 * 5					// Send the beacon once every 5 minutes
+#define COMS_PASS_LOW			1000 * 60 * 10					// Start sending the beacon 10 minutes after receiving the last tele-command					
+#define COMS_PASS_HIGH			1000 * 60 * 70					// Stop sending the beacon 70 minutes after receiving the last tele-command
+																// Each pass should be around 90 minutes long
+																// Stop sending the beacon before the pass will begin again
+
 /*-----------------------------------------------------------*/
+
+/* Variables												 */
+static TickType_t pass_control_timer;
 
 /* Function Prototypes										 */
 static void prvComsTask( void *pvParameters );
 TaskHandle_t coms(void);
 void coms_kill(uint8_t killer);
+
+void update_pass_timer(void);
+uint8_t should_send_beacon(void);
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -102,6 +118,11 @@ static void prvComsTask(void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	int* status = 0;
 	uint32_t data = 0;
+	
+	/* variables for beacon control */
+	TickType_t last_beacon;
+	pass_control_timer = xTaskGetTickCount(); last_beacon = xTaskGetTickCount();
+	
 	/* @non-terminating@ */	
 	for( ;; )
 	{
@@ -110,6 +131,35 @@ static void prvComsTask(void *pvParameters )
 			data = request_sensor_data(COMS_TASK_ID, COMS_ID, COMS_TEMP, status);
 			last_tick_count = xTaskGetTickCount();	
 		}	
+		
+		
+		/* beacon control */
+		
+		if (should_send_beacon()) /* check if we are OK to send the beacon */
+		{ /* stop sending beacon when we are approaching the pass (b/c we will be communicating with ground station then) */
+			
+			if (xTaskGetTickCount() - last_beacon > COMS_BEACON_WAIT) /* send beacon every 5 minutes */
+			{
+				//tells COMS SSM to send the beacon
+				//(COMS keeps most recent hk data, so we just have to tell it to send)
+				if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+				{
+					if (send_can_command_h2(0x00, 0x00, COMS_TASK_ID, COMS_ID, SEND_BEACON, COMMAND_PRIO) < 0)
+					{
+						//failed to send, don't update beacon time
+					}
+					else {
+						//update beacon timer
+						last_beacon = xTaskGetTickCount();
+					}
+					xSemaphoreGive(Can0_Mutex);
+										
+				}
+								
+			}
+		}
+		
+		
 	}
 }
 
@@ -125,4 +175,19 @@ void coms_kill(uint8_t killer)
 	else
 		vTaskDelete(NULL);
 	return;
+}
+
+void update_pass_timer(void) 
+{
+	/* pass_control_timer will contain the last time a tele-command was received */
+	pass_control_timer = xTaskGetTickCount();
+}
+
+uint8_t should_send_beacon(void)
+{
+	/* based on the pass timer, decide when to send the beacon */
+	if ( xTaskGetTickCount() - pass_control_timer > COMS_PASS_LOW  &&  xTaskGetTickCount() - pass_control_timer < COMS_PASS_HIGH )
+		return 1;
+	else
+		return 0;
 }

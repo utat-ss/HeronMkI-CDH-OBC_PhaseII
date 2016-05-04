@@ -281,7 +281,10 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 		if(!receiving_tcf)
 		{
 			if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
+			{
 				decode_telecommand();
+				update_pass_timer(); /* got a telecommand, so update pass timer for COMS to send beacon */
+			}
 
 			if (tm_down_fullf)
 			{

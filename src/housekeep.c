@@ -390,7 +390,7 @@ static int request_housekeeping_all(void)
 /************************************************************************/
 static int store_housekeeping(void)
 {
-	num_parameters = current_hk_definition[129];	// ALTERED FOR CSDC 134 --> 129
+	num_parameters = current_hk_definition[135];	// ALTERED FOR CSDC 134 --> 135
 	parameter_name = 0;
 	//int attempts = 1;
 	int* status = 0; // this might be wrong
@@ -417,7 +417,7 @@ static int store_housekeeping(void)
 		{
 			parameter_count--;
 			parameter_name = (new_hk_msg_high & 0x00000FF);	// Name of the parameter for housekeeping (either sensor or variable).
-			for(i = 79; i < 79 + num_parameters * 2; i+=2)					// ALTERED FOR CSDC (i = 0 before)
+			for(i = 76; i < (76 + num_parameters * 2); i+=2)					// ALTERED FOR CSDC (i = 0 before)
 			{
 				if(current_hk_definition[i] == parameter_name)
 				{
@@ -431,7 +431,7 @@ static int store_housekeeping(void)
 		taskYIELD();		// Allows for more messages to come in.
 	}
 	
-	for(i = 79; i < 79 + num_parameters * 2; i+=2)							// ALTERED FOR CSDC (i = 0 before)
+	for(i = 76; i < 76 + num_parameters * 2; i+=2)							// ALTERED FOR CSDC (i = 0 before)
 	{
 		if(!hk_updated[i])
 		{//failed updates are requested 3 times. If they fail, error is reported
@@ -471,7 +471,7 @@ uint8_t get_ssm_id(uint8_t sensor_name)
 		return COMS_ID;
 	if ((sensor_name == 0x13) || (sensor_name == 0xFA) || (sensor_name>=0xF2 && sensor_name <=0xF8))
 		return OBC_ID; //not sure if this is right
-	if ((sensor_name>0x13 && sensor_name <= 0x63) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
+	if ((sensor_name>0x13 && sensor_name <= 0x67) || (sensor_name == 0xFB) || (sensor_name == 0xF9))
 		return PAY_ID;
 	//for global variables:
 	if ((sensor_name == MPPTX) || (sensor_name == MPPTY) || (sensor_name == EPS_MODE) || (sensor_name == EPS_FDIR_SIGNAL) || 
@@ -624,59 +624,67 @@ static void setup_default_definition(void)
 	
 	/* The definition below is meant to be used in the CSDC environmental testing */
 	
-	hk_definition0[131] = 0;							// sID = 0
-	hk_definition0[130] = collection_interval0;			// Collection interval = 30 min
-	hk_definition0[129] = 25;							// Number of parameters (2B each)
+	hk_definition0[136] = 0;							// sID = 0
+	hk_definition0[135] = collection_interval0;			// Collection interval = 30 min
+	hk_definition0[134] = 25;							// Number of parameters (2B each)
+	hk_definition0[133] = PAY_FL_PD5;
+	hk_definition0[132] = PAY_FL_PD5;
+	hk_definition0[131] = PAY_FL_PD4;
+	hk_definition0[130] = PAY_FL_PD4;
+	hk_definition0[129] = PANELX_V;
 	hk_definition0[128] = PANELX_V;
-	hk_definition0[127] = PANELX_V;
+	hk_definition0[127] = PANELX_I;
 	hk_definition0[126] = PANELX_I;
-	hk_definition0[125] = PANELX_I;
+	hk_definition0[125] = PANELY_V;
 	hk_definition0[124] = PANELY_V;
-	hk_definition0[123] = PANELY_V;
+	hk_definition0[123] = PANELY_I;
 	hk_definition0[122] = PANELY_I;
-	hk_definition0[121] = PANELY_I;
-	hk_definition0[120] = BATTM_V;
-	hk_definition0[119] = BATTM_V;
+	hk_definition0[121] = PAY_FL_PD3;
+	hk_definition0[120] = PAY_FL_PD3;
+	hk_definition0[119] = BATT_V;
 	hk_definition0[118] = BATT_V;
-	hk_definition0[117] = BATT_V;
+	hk_definition0[117] = BATTIN_I;
 	hk_definition0[116] = BATTIN_I;
-	hk_definition0[115] = BATTIN_I;
+	hk_definition0[115] = BATTOUT_I;
 	hk_definition0[114] = BATTOUT_I;
-	hk_definition0[113] = BATTOUT_I;
-	hk_definition0[112] = BATT_TEMP;
-	hk_definition0[111] = BATT_TEMP;	//
-	hk_definition0[110] = EPS_TEMP;
-	hk_definition0[109] = EPS_TEMP;	//
+	hk_definition0[113] = PAY_FL_PD2;
+	hk_definition0[112] = PAY_FL_PD2;
+	hk_definition0[111] = EPS_TEMP;
+	hk_definition0[110] = EPS_TEMP;	//
+	hk_definition0[109] = COMS_V;
 	hk_definition0[108] = COMS_V;
-	hk_definition0[107] = COMS_V;
+	hk_definition0[107] = COMS_I;
 	hk_definition0[106] = COMS_I;
-	hk_definition0[105] = COMS_I;
+	hk_definition0[105] = PAY_V;
 	hk_definition0[104] = PAY_V;
-	hk_definition0[103] = PAY_V;
+	hk_definition0[103] = PAY_I;
 	hk_definition0[102] = PAY_I;
-	hk_definition0[101] = PAY_I;
+	hk_definition0[101] = OBC_V;
 	hk_definition0[100] = OBC_V;
-	hk_definition0[99] = OBC_V;
+	hk_definition0[99] = OBC_I;
 	hk_definition0[98] = OBC_I;
-	hk_definition0[97] = OBC_I;
-	hk_definition0[96] = COMS_TEMP;	//
-	hk_definition0[95] = COMS_TEMP;
-	hk_definition0[94] = OBC_TEMP;	//
-	hk_definition0[93] = OBC_TEMP;
+	hk_definition0[97] = COMS_TEMP;	//
+	hk_definition0[96] = COMS_TEMP;
+	hk_definition0[95] = OBC_TEMP;	//
+	hk_definition0[94] = OBC_TEMP;
+	hk_definition0[93] = PAY_TEMP0;
 	hk_definition0[92] = PAY_TEMP0;
-	hk_definition0[91] = PAY_TEMP0;
+	hk_definition0[91] = PAY_PRESS;
 	hk_definition0[90] = PAY_PRESS;
-	hk_definition0[89] = PAY_PRESS;
+	hk_definition0[89] = MPPTX;
 	hk_definition0[88] = MPPTX;
-	hk_definition0[87] = MPPTX;
+	hk_definition0[87] = MPPTY;
 	hk_definition0[86] = MPPTY;
-	hk_definition0[85] = MPPTY;
+	hk_definition0[85] = PAY_ACCEL_X;
 	hk_definition0[84] = PAY_ACCEL_X;
-	hk_definition0[83] = PAY_ACCEL_X;
 	hk_definition0[83] = PAY_ACCEL_Y;
-	hk_definition0[81] = PAY_ACCEL_Y;
+	hk_definition0[82] = PAY_ACCEL_Y;
+	hk_definition0[81] = PAY_ACCEL_Z;
 	hk_definition0[80] = PAY_ACCEL_Z;
-	hk_definition0[79] = PAY_ACCEL_Z;
+	hk_definition0[79] = PAY_FL_PD1;
+	hk_definition0[78] = PAY_FL_PD1;
+	hk_definition0[77] = PAY_FL_PD0;
+	hk_definition0[76] = PAY_FL_PD0;
 	
 	return;
 }

@@ -524,7 +524,7 @@ static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t servic
 	if(num_packets == 1)
 	{
 		sequence_count++;
-		for(j = 2; j < (DATA_LENGTH + 2); j++)
+		for(j = 2; j < 130; j++)
 		{
 			current_tm[j] = *(data + (j - 2));
 		}

@@ -234,6 +234,7 @@ uint8_t pay_data_receivedf;
 uint8_t opr_data_receivedf;
 uint8_t sched_data_receivedf;
 uint8_t fdir_data_receivedf;
+uint8_t hk_data_receivedf;
 
 /* HOUSEKEEPING COMMAND RESPONSE REGS */
 uint32_t hk_read_receive[2];
@@ -246,6 +247,7 @@ uint32_t pay_data_receive[2];
 uint32_t opr_data_receive[2];
 uint32_t sched_data_receive[2];
 uint32_t fdir_data_receive[2];
+uint32_t hk_data_receive[2];
 
 /*	DATA STORAGE POITNER		   */
 uint32_t  glob_stored_data[2];			// Initialized in can_initialize

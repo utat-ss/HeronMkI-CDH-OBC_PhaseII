@@ -2296,8 +2296,8 @@ static void setup_default_definition(void)
 	diag_definition0[32] = PAY_HUM;
 	diag_definition0[31] = PAY_PRESS;
 	diag_definition0[30] = PAY_PRESS;
-	diag_definition0[29] = PAY_ACCEL;
-	diag_definition0[28] = PAY_ACCEL;
+	diag_definition0[29] = PAY_ACCEL_X;
+	diag_definition0[28] = PAY_ACCEL_X;
 	diag_definition0[27] = MPPTX;
 	diag_definition0[26] = MPPTX;
 	diag_definition0[25] = MPPTY;

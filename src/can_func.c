@@ -441,6 +441,11 @@ void alert_can_data(can_mb_conf_t *p_mailbox, Can* controller)
 			sched_data_receive[1] = uh_data_incom;
 			sched_data_receive[0] = ul_data_incom;
 			break;
+		case HK_TASK_ID:
+			hk_data_receivedf = 1;
+			hk_data_receive[1] = uh_data_incom;
+			hk_data_receive[0] = ul_data_incom;
+			break;
 		default:
 			return;	
 	}
@@ -1468,6 +1473,27 @@ static uint32_t request_sensor_data_h(uint8_t sender_id, uint8_t ssm_id, uint8_t
 		
 		ret_val = sched_data_receive[0];	// 32-bit return value.
 		
+		sched_data_receivedf = 0;		// Zero this last to keep in sync.
+	}
+	if(sender_id == HK_TASK_ID)
+	{
+		while(!hk_data_receivedf)	// Wait for the response to come back.
+		{
+			if(!timeout--)
+			{
+				*status = 0xFF;
+				return 0xFFFFFFFF;			// The operation failed.
+			}
+		}
+		s = (uint8_t)((hk_data_receive[1] & 0x0000FF00) >> 8);	// Name of the sensor
+		
+		if (s != sensor_name)
+		{
+			sched_data_receivedf = 0;
+			*status = 0xFF;
+			return 0xFFFFFFFF;			// The operation failed.
+		}
+		ret_val = sched_data_receive[0];	// 32-bit return value.
 		sched_data_receivedf = 0;		// Zero this last to keep in sync.
 	}
 

@@ -408,17 +408,8 @@ static int store_housekeeping(void)
 	// CSDC ONLY  // (Filling in OBC values for housekeeping)
 	current_hk[94] = 0x55;
 	current_hk[93] = 0x55;
-	current_hk[83] = ABSOLUTE_DAY;
-	current_hk[81] = CURRENT_HOUR;
-	current_hk[79] = CURRENT_MINUTE;
 	hk_updated[94] = 1;
 	hk_updated[93] = 1;
-	hk_updated[84] = 1;
-	hk_updated[83] = 1;
-	hk_updated[82] = 1;
-	hk_updated[81] = 1;
-	hk_updated[80] = 1;
-	hk_updated[79] = 1;
 	
 	while(parameter_count && timeout--)
 	{
@@ -674,18 +665,19 @@ static void setup_default_definition(void)
 	hk_definition0[93] = OBC_TEMP;
 	hk_definition0[92] = PAY_TEMP0;
 	hk_definition0[91] = PAY_TEMP0;
-	hk_definition0[90] = PAY_HUM;
-	hk_definition0[89] = PAY_HUM;
-	hk_definition0[88] = PAY_PRESS;
-	hk_definition0[87] = PAY_PRESS;
-	hk_definition0[86] = PAY_ACCEL;
-	hk_definition0[85] = PAY_ACCEL;
-	hk_definition0[84] = ABS_TIME_D;
-	hk_definition0[83] = ABS_TIME_D;
-	hk_definition0[82] = ABS_TIME_H;
-	hk_definition0[81] = ABS_TIME_H;
-	hk_definition0[80] = ABS_TIME_M;
-	hk_definition0[79] = ABS_TIME_M;
+	hk_definition0[90] = PAY_PRESS;
+	hk_definition0[89] = PAY_PRESS;
+	hk_definition0[88] = MPPTX;
+	hk_definition0[87] = MPPTX;
+	hk_definition0[86] = MPPTY;
+	hk_definition0[85] = MPPTY;
+	hk_definition0[84] = PAY_ACCEL_X;
+	hk_definition0[83] = PAY_ACCEL_X;
+	hk_definition0[83] = PAY_ACCEL_Y;
+	hk_definition0[81] = PAY_ACCEL_Y;
+	hk_definition0[80] = PAY_ACCEL_Z;
+	hk_definition0[79] = PAY_ACCEL_Z;
+	
 	return;
 }
 

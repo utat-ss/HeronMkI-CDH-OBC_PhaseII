@@ -285,7 +285,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define PAY_TEMP4				0x18
 #define PAY_HUM					0x19
 #define PAY_PRESS				0x1A
-#define PAY_ACCEL				0x1B
+#define PAY_ACCEL_X				0x1B
 #define PAY_FL_PD0				0x1C
 #define PAY_FL_PD1				0x1D
 #define PAY_FL_PD2				0x1E
@@ -358,6 +358,9 @@ SemaphoreHandle_t	Can0_Mutex;
 #define PAY_MIC_OD_PD45			0x61
 #define PAY_MIC_OD_PD46			0x62
 #define PAY_MIC_OD_PD47			0x63
+#define PAY_TEMP				0x64
+#define PAY_ACCEL_Y				0x65
+#define PAY_ACCEL_Z				0x66
 
 
 /* VARIABLE NAMES		*/

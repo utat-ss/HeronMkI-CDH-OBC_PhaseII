@@ -326,7 +326,7 @@ static uint16_t read_accel(int* s)
 {
 	accelval = 0;
 	*status = 0;
-	accelval = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL, status);
+	accelval = (uint16_t)request_sensor_data(PAY_TASK_ID, PAY_ID, PAY_ACCEL_X, status);
 	*s = *status;
 	if(*status < 0)
 		return 0;

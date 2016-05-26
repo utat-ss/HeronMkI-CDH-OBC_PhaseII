@@ -97,7 +97,7 @@ functionality. */
 #define DEFAULT					0
 #define ALTERNATE				1
 
-#define HK_LOOP_TIMEOUT			15000							// Specifies how many ticks to wait before running housekeeping again.
+#define HK_LOOP_TIMEOUT			5000							// Specifies how many ticks to wait before running housekeeping again.
 
 /* Definitions to clarify which service subtypes represent what	*/
 /* Housekeeping							
@@ -198,6 +198,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	collection_interval1 = 30;
 	xTimeToWait = 10;
 	TickType_t last_tick_count = xTaskGetTickCount();
+	TickType_t value = 0;
 
 	clear_current_hk();
 	clear_current_command();
@@ -209,6 +210,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	/* @non-terminating@ */	
 	for( ;; )
 	{
+		//value = xTaskGetTickCount();
 		if(xTaskGetTickCount() - last_tick_count > HK_LOOP_TIMEOUT)
 		{
 			if(request_housekeeping_all())
@@ -390,13 +392,13 @@ static int request_housekeeping_all(void)
 /************************************************************************/
 static int store_housekeeping(void)
 {
-	num_parameters = current_hk_definition[135];	// ALTERED FOR CSDC 134 --> 135
+	num_parameters = current_hk_definition[134];	// ALTERED FOR CSDC 134 --> 135
 	parameter_name = 0;
 	//int attempts = 1;
 	int* status = 0; // this might be wrong
 	req_data_result = 0;
-	if(current_hk_fullf)
-		return -1;
+	//if(current_hk_fullf)
+		//return -1;
 	for(i = 0; i < PACKET_LENGTH; i++)
 	{
 		hk_updated[i] = 0;
@@ -406,10 +408,10 @@ static int store_housekeeping(void)
 	//clear_current_hk();									// Commented out for CSDC
 	
 	// CSDC ONLY  // (Filling in OBC values for housekeeping)
-	current_hk[94] = 0x55;
-	current_hk[93] = 0x55;
+	current_hk[95] = 0;
+	current_hk[94] = 23;
+	hk_updated[95] = 1;
 	hk_updated[94] = 1;
-	hk_updated[93] = 1;
 	
 	while(parameter_count && timeout--)
 	{
@@ -431,7 +433,7 @@ static int store_housekeeping(void)
 		taskYIELD();		// Allows for more messages to come in.
 	}
 	
-	for(i = 76; i < 76 + num_parameters * 2; i+=2)							// ALTERED FOR CSDC (i = 0 before)
+	for(i = 76; i < (76 + num_parameters * 2); i+=2)							// ALTERED FOR CSDC (i = 0 before)
 	{
 		if(!hk_updated[i])
 		{//failed updates are requested 3 times. If they fail, error is reported
@@ -453,6 +455,13 @@ static int store_housekeeping(void)
 				hk_updated[i + 1] = 1;
 			}
 		}
+	}
+	uint16_t value = 0;
+	for(i = 76; i < (76 + num_parameters * 2); i+=2)
+	{
+		value = current_hk[i];
+		value += (((uint16_t)current_hk[i + 1]) << 8);
+		value =  value;
 	}
 	/* Store the new housekeeping in SPI memory */
 	//store_hk_in_spimem();				// Removed for CSDC
@@ -626,7 +635,7 @@ static void setup_default_definition(void)
 	
 	hk_definition0[136] = 0;							// sID = 0
 	hk_definition0[135] = collection_interval0;			// Collection interval = 30 min
-	hk_definition0[134] = 25;							// Number of parameters (2B each)
+	hk_definition0[134] = 29;							// Number of parameters (2B each)
 	hk_definition0[133] = PAY_FL_PD5;
 	hk_definition0[132] = PAY_FL_PD5;
 	hk_definition0[131] = PAY_FL_PD4;

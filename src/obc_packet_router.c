@@ -309,7 +309,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 				//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 			//}	
 			exec_commands();
-			xTimeToWait = 5; // Sleep task for 5 ticks.
+			xTimeToWait = 1000; // Sleep task for 5 ticks.
 			xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
 			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 		}

@@ -215,7 +215,7 @@ int main(void)
 	/* Create Tasks */
 	//fdir_HANDLE = fdir();
 	housekeeping_HANDLE = housekeep();
-	//opr_HANDLE = obc_packet_router();
+	opr_HANDLE = obc_packet_router();
 	//scheduling_HANDLE = scheduling();
 	//command_loop();
 

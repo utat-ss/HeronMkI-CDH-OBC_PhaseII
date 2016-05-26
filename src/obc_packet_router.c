@@ -290,7 +290,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			{
 				send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
 			}
-			else if(xQueueReceive(tm_buffer, tm_to_downlink, (TickType_t)1) == pdTRUE)
+			else if(should_send_tm() /* check that we are curently in a pass */
+						&& xQueueReceive(tm_buffer, tm_to_downlink, (TickType_t)1) == pdTRUE)
 			{
 				tm_down_fullf = 1;
 				send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY

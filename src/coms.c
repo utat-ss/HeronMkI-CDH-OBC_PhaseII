@@ -76,6 +76,7 @@ void coms_kill(uint8_t killer);
 
 void update_pass_timer(void);
 uint8_t should_send_beacon(void);
+uint8_t should_send_tm(void);
 /*-----------------------------------------------------------*/
 
 /************************************************************************/
@@ -187,6 +188,15 @@ uint8_t should_send_beacon(void)
 {
 	/* based on the pass timer, decide when to send the beacon */
 	if ( xTaskGetTickCount() - pass_control_timer > COMS_PASS_LOW  &&  xTaskGetTickCount() - pass_control_timer < COMS_PASS_HIGH )
+		return 1;
+	else
+		return 0;
+}
+
+uint8_t should_send_tm(void)
+{
+	/* based on the pass timer, decide when to send TM responses to ground station */
+	if (xTaskGetTickCount() - pass_control_timer < COMS_PASS_LOW)
 		return 1;
 	else
 		return 0;

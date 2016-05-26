@@ -405,6 +405,10 @@ can_mb_conf_t can1_mailbox;
 can_temp_t temp_mailbox_C0;
 can_temp_t temp_mailbox_C1;
 
+extern uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
+extern uint8_t hk_definition0[DATA_LENGTH];			// Used to store the current housekeeping format definition.
+extern uint8_t hk_updated[DATA_LENGTH];
+
 /* Function Prototypes */
 
 void CAN1_Handler(void);

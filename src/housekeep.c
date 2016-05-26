@@ -138,11 +138,12 @@ uint8_t get_ssm_id(uint8_t sensor_name);
 
 
 /* Global Variables for Housekeeping */
-static uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
+uint8_t current_hk[DATA_LENGTH];				// Used to store the next housekeeping packet we would like to downlink.
+uint8_t hk_definition0[DATA_LENGTH];			// Used to store the current housekeeping format definition.
+uint8_t hk_updated[DATA_LENGTH];
 static uint8_t current_command[DATA_LENGTH + 10];	// Used to store commands which are sent from the OBC_PACKET_ROUTER.
-static uint8_t hk_definition0[DATA_LENGTH];			// Used to store the current housekeeping format definition.
 static uint8_t hk_definition1[DATA_LENGTH];			// Used to store an alternate housekeeping definition.
-static uint8_t hk_updated[DATA_LENGTH];
+
 static uint8_t current_hk_definition[DATA_LENGTH];
 static uint8_t current_hk_definitionf;					// Unique identifier for the housekeeping format definition.
 //static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
@@ -423,8 +424,8 @@ static int store_housekeeping(void)
 			{
 				if(current_hk_definition[i] == parameter_name)
 				{
-					current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
-					current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
+					//current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
+					//current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
 					hk_updated[i] = 1;
 					hk_updated[i + 1] = 1;
 				}

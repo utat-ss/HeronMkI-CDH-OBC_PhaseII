@@ -466,6 +466,24 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
 	BaseType_t wake_task;	// Not needed here.
 
+	uint32_t parameter_name = 0;
+	if(mb == 0 || mb == 1)
+		parameter_name = (uh_data_incom & 0x000FF00);
+	if(mb == 5 || mb == 6)
+		parameter_name = (uh_data_incom & 0x00000FF);
+	if(parameter_name)
+	{
+		for(uint8_t i = 76; i < 134; i+=2)
+		{
+			if(hk_definition0[i] == parameter_name)
+			{
+				current_hk[i] = (uint8_t)(ul_data_incom & 0x000000FF);
+				current_hk[i + 1] = (uint8_t)((ul_data_incom & 0x0000FF00) >> 8);
+				hk_updated[i] = 1;
+				hk_updated[i + 1] = 1;
+			}
+		}
+	}
 	/* UPDATE THE GLOBAL CAN REGS		*/
 	switch(mb)
 	{		

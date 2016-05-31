@@ -109,6 +109,7 @@
 #define SET_VARIABLE					10
 #define GET_PARAMETER					11
 #define SINGLE_PARAMETER_REPORT			12
+#define DEPLOY_ANTENNA					13
 /* FDIR Service							*/
 #define ENTER_LOW_POWER_MODE			1
 #define EXIT_LOW_POWER_MODE				2

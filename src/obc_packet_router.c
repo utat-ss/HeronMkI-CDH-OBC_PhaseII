@@ -102,6 +102,8 @@ Author: Keenan Burnett
 functionality. */
 #define OBC_PACKET_ROUTER_PARAMETER		( 0xABCD )
 
+#define DEPLOY_TIMEOUT 60000
+
 /* Functions Prototypes. */
 static void prvOBCPacketRouterTask( void *pvParameters );
 TaskHandle_t obc_packet_router(void);
@@ -161,6 +163,8 @@ static uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];	// Arrays a
 static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH];
 static uint32_t low_received, high_received;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
+static uint32_t time_of_deploy;
+static uint32_t deployed_antenna;
 
 /************************************************************************/
 /* OBC_PACKET_ROUTER (Function)											*/
@@ -217,6 +221,8 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 	mem_check_count = 0;
 	sin_par_rep_count = 0;
 	science_packet_count = 0;
+	time_of_deploy = 0;
+	deployed_antenna = 0;
 	clear_current_data();
 	clear_current_command();
 	//task_spimem_read(OBC_PACKET_ROUTER_ID, TM_BASE, &TM_PACKET_COUNT, 4);	// FAILURE_HANDLING
@@ -278,11 +284,11 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//spimem_write(TC_BASE + 4, &NEXT_TC_PACKET, 4);	// Update the position of the next packet		
 			//decode_telecommand();
 		//}
+
 		if(!receiving_tcf)
 		{
 			if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
 				decode_telecommand();
-
 			if (tm_down_fullf)
 			{
 				send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY			
@@ -309,9 +315,19 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 				//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 			//}	
 			exec_commands();
-			xTimeToWait = 1000; // Sleep task for 5 ticks.
-			xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+			//xTimeToWait = 100; // Sleep task for 5 ticks.
+			//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
+			//if(deployed_antenna == 1)
+			//{
+				//send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_COMMAND, DEF_PRIO);
+				//if(xTaskGetTickCount() - time_of_deploy > DEPLOY_TIMEOUT)
+				//{
+					//send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_OFF, DEF_PRIO);
+					//deployed_antenna = 0;
+				//}			
+			//}
+
+			//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 		}
 	}
 }
@@ -871,16 +887,16 @@ static int decode_telecommand(void)
 	pec0 = fletcher16(tc_to_decode + 2, 150);
 	/* Verify that the telecommand is ready to be decoded.	*/
 	
-	attempts = 0; x = -1;
-	while (attempts<3 && x<0){
+	//attempts = 0; x = -1;
+	//while (attempts<3 && x<0){
 		x = verify_telecommand(apid, packet_length, pec0, pec1, service_type, service_sub_type, version1, ccsds_flag, packet_version);		// FAILURE_RECOVERY required if x == -1.
-		attempts++;
-	}
-	if(x < 0)
-	{	
-		errorREPORT(OBC_ID, service_type, OBC_TC_PACKET_ERROR, 0);
-		return -1;
-	}
+		//attempts++;
+	//}
+	//if(x < 0)
+	//{	
+		//errorREPORT(OBC_ID, service_type, OBC_TC_PACKET_ERROR, 0);
+		//return -1;
+	//}
 	/* Decode the telecommand packet						*/		// To be updated on a rolling basis
 	return decode_telecommand_h(service_type, service_sub_type);
 }
@@ -1079,6 +1095,13 @@ static int decode_telecommand_h(uint8_t service_type, uint8_t service_sub_type)
 			current_command[135] = (uint8_t)(val >> 24);			
 			packetize_send_telemetry(OBC_PACKET_ROUTER_ID, GROUND_PACKET_ROUTER_ID, K_SERVICE, SINGLE_PARAMETER_REPORT, sin_par_rep_count++, 1, current_command);
 		}
+		if(service_sub_type == DEPLOY_ANTENNA)
+		{
+			send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_COMMAND, DEF_PRIO);
+			send_tc_verification(packet_id, psc, 0, OBC_PACKET_ROUTER_ID, 0, 2);	// Let ground know the command was executed.
+			time_of_deploy = xTaskGetTickCount();
+			deployed_antenna = 1;
+		}
 		else
 		{
 			/* Everything else should be sent to the scheduling task. */
@@ -1198,7 +1221,7 @@ static int verify_telecommand(uint8_t apid, uint8_t packet_length, uint16_t pec0
 	{
 		length = tc_to_decode[136];
 		
-		if((service_sub_type > 11) || !service_sub_type)
+		if((service_sub_type > 13) || !service_sub_type)
 		{
 			send_tc_verification(packet_id, psc, 0xFF, 4, (uint32_t)service_sub_type, 1);
 			return -1;

@@ -61,6 +61,8 @@
 #define PACKET_LENGTH	152
 #define DATA_LENGTH		137
 
+#define BEACON_LENGTH	14
+
 /* Definitions to clarify which services represent what.		*/
 #define TC_VERIFY_SERVICE				1
 #define HK_SERVICE						3
@@ -79,6 +81,7 @@
 #define REPORT_HK_DEFINITIONS			9
 #define HK_DEFINITON_REPORT				10
 #define HK_REPORT						25
+#define BEACON_REPORT					30
 /* Diagnostics							*/
 #define NEW_DIAG_DEFINITION				2
 #define CLEAR_DIAG_DEFINITION			4

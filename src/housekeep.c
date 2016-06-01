@@ -99,6 +99,7 @@ functionality. */
 
 #define HK_LOOP_TIMEOUT			15000							// Specifies how many ticks to wait before running housekeeping again.
 
+
 /* Definitions to clarify which service subtypes represent what	*/
 /* Housekeeping							
 #define NEW_HK_DEFINITION				1
@@ -122,6 +123,7 @@ static int request_housekeeping_all(void);
 static int store_housekeeping(void);
 //static int store_housekeeping_H(void);
 static void setup_default_definition(void);
+static void initialize_beacon_def(void);
 static void set_definition(uint8_t sID);
 static void clear_alternate_hk_definition(void);
 static void clear_current_command(void);
@@ -133,6 +135,7 @@ static int exec_commands_H2(void);
 static int store_hk_in_spimem(void);
 static void set_hk_mem_offset(void);
 static void send_tc_execution_verify(uint8_t status, uint16_t packet_id, uint16_t psc);
+static int get_beacon_data(void);
 
 uint8_t get_ssm_id(uint8_t sensor_name);
 
@@ -145,6 +148,7 @@ static uint8_t hk_definition1[DATA_LENGTH];			// Used to store an alternate hous
 static uint8_t hk_updated[DATA_LENGTH];
 static uint8_t current_hk_definition[DATA_LENGTH];
 static uint8_t current_hk_definitionf;					// Unique identifier for the housekeeping format definition.
+static uint8_t beacon_def[BEACON_LENGTH];
 //static uint8_t current_eps_hk[DATA_LENGTH / 4], current_coms_hk[DATA_LENGTH / 4], current_pay_hk[DATA_LENGTH / 4], current_obc_hk[DATA_LENGTH / 4];
 static uint32_t new_hk_msg_high, new_hk_msg_low;
 static uint8_t current_hk_fullf, param_report_requiredf;
@@ -202,6 +206,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	clear_current_hk();
 	clear_current_command();
 	setup_default_definition();
+	initialize_beacon_def();
 	set_definition(DEFAULT);
 	clear_alternate_hk_definition();
 	//set_hk_mem_offset();
@@ -789,4 +794,55 @@ void housekeep_kill(uint8_t killer)
 	else
 		vTaskDelete(NULL);	
 	return;
+}
+
+static void initialize_beacon_def(void)
+{
+	//time
+	beacon_def[0] = ABS_TIME_D;
+	beacon_def[1] = ABS_TIME_D;
+	beacon_def[2] = ABS_TIME_H;
+	beacon_def[3] = ABS_TIME_H;
+	beacon_def[4] = ABS_TIME_M;
+	beacon_def[5] = ABS_TIME_M;
+	
+	//battery
+	beacon_def[6] = BATTM_V;
+	beacon_def[7] = BATTM_V;
+	beacon_def[8] = BATT_V;
+	beacon_def[9] = BATT_V;
+	
+	//solar panel current
+	beacon_def[10] = PANELX_I;
+	beacon_def[11] = PANELX_I;
+	beacon_def[12] = PANELY_I;
+	beacon_def[13] = PANELY_I;
+	
+}
+
+static int get_beacon_data(void)
+{
+	clear_current_command();
+		
+	current_command[146] = BEACON_REPORT;
+	//go through beacon def and add the relevant info to current_tm
+	for (i=0; i<BEACON_LENGTH; i++) 
+	{
+		for (int j=0; j<DATA_LENGTH; j++) 
+		{
+			if (beacon_def[i] == current_hk_definition[j]) 
+			{
+				if (!hk_updated[j])
+					return -1;
+				else 
+					current_command[i] = current_hk[j];
+				
+			}
+		}
+	}
+	
+	if (xQueueSendToBackTask(HK_TASK_ID, 1, hk_to_obc_fifo, current_command, (TickType_t)1) != pdPASS)		// FAILURE_RECOVERY if this doesn't return pdPASS
+		return -1;
+		
+	return 0;
 }

@@ -107,6 +107,7 @@ static void prvOBCPacketRouterTask( void *pvParameters );
 TaskHandle_t obc_packet_router(void);
 void opr_kill(uint8_t killer);
 static int packetize_send_telemetry(uint8_t sender, uint8_t dest, uint8_t service_type, uint8_t service_sub_type, uint8_t packet_sub_counter, uint16_t num_packets, uint8_t* data);
+static int send_beacon_data(uint8_t* data);
 static int receive_tc_msg(void);
 static int send_pus_packet_tm(uint8_t sender_id);
 static void send_tc_transaction_response(uint8_t code);
@@ -353,6 +354,16 @@ static void exec_commands(void)
 		if(current_command[146] == TASK_TO_OPR_TCV)
 		{
 			send_tc_verification(packet_id, psc, current_command[145], current_command[144], 0, 2);		// Verify execution completion.
+		}
+		if(current_command[146] == BEACON_REPORT)
+		{
+			if (!tm_down_fullf) 
+			{
+				tm_down_fullf = 1;
+				send_beacon_data(current_command);
+				tm_down_fullf = 0;
+			}
+			
 		}
 	}
 	if(xQueueReceive(time_to_obc_fifo, current_command, (TickType_t)1) == pdTRUE)
@@ -1456,4 +1467,76 @@ uint32_t get_obc_variable(uint8_t parameter)
 			return 0;
 	}
 	return 0;
+}
+
+
+/************************************************************************/
+/* SEND_BEACON_DATA 	                                                */
+/* @Purpose: This function breaks down the beacon data into multiple CAN*/
+/* messages that are sent in turn and then placed into a				*/
+/* buffer on the side of the SSM.										*/
+/* @Note: The data to send should be in the array parameter.			*/
+/* @Note: It should also be obvious that this packet is being sent to	*/
+/* the COMS SSM.														*/
+/* @Note: DO NOT call this function from an ISR.						*/
+/* @Note: Copied from SEND_PUS_PACKET_TM								*/
+/************************************************************************/
+static int send_beacon_data(uint8_t* data)
+{
+	//packetize the data to send over CAN to COMS SSM
+	//different from TM because this is not getting sent to ground station
+	//also bypasses tm_buffer (which waits for a pass before sending across CAN)
+	
+	uint32_t i;
+	num_transfers = BEACON_LENGTH / 4;
+	timeout = 500;
+	xTimeToWait = 25;
+	
+	tm_transfer_completef = 0;
+	start_tm_transferf = 0;
+	send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, BEACON_READY, COMMAND_PRIO);	// Let the SSM know that a beacon packet is ready.
+	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
+	{
+		if(!timeout--)
+		{
+			return -1;
+		}
+		send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, BEACON_READY, COMMAND_PRIO);	// Let the SSM know that a beacon packet is ready.
+		taskYIELD();
+	}
+	start_tm_transferf = 0;
+	
+	for(i = 0; i < num_transfers; i++)
+	{
+		if(tm_transfer_completef == 0xFF)			// The transaction has failed.
+		return -1;
+		low =	(uint32_t)data[(i * 4)];			// Place the data into the lower 4 bytes of the CAN message.
+		low += (uint32_t)(data[(i * 4) + 1] << 8);
+		low += (uint32_t)(data[(i * 4) + 2] << 16);
+		low += (uint32_t)(data[(i * 4) + 3] << 24);
+		send_tc_can_command(low, i, sender_id, COMS_ID, SEND_BEACON, COMMAND_PRIO);
+		xLastWakeTime = xTaskGetTickCount();		// Causes a mandatory delay of at least 100ms (10 * 1ms)
+		vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+	}
+	timeout = 500;
+	while(!tm_transfer_completef)					// Delay for ~100 ms for the SSM to let the OBC know that
+	{												// the transfer has completed.
+		if(!timeout--)
+		{
+			return -1;
+		}
+		taskYIELD();
+	}
+	
+	if(tm_transfer_completef != num_transfers - 1)
+	{
+		tm_transfer_completef = 0;
+		return -1;
+	}
+	else
+	{
+		tm_transfer_completef = 0;
+		tm_down_fullf = 0;
+		return tm_transfer_completef;
+	}
 }

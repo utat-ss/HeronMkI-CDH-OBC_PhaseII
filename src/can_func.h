@@ -243,6 +243,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define COLLECT_PD				0x28
 #define PD_COLLECTED			0x29
 #define SEND_BEACON				0x2A
+#define RX_ENABLE				0x2B
+#define BEACON_READY			0x2C
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

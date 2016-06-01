@@ -123,6 +123,7 @@ static void prvComsTask(void *pvParameters )
 	/* variables for beacon control */
 	TickType_t last_beacon;
 	pass_control_timer = xTaskGetTickCount(); last_beacon = xTaskGetTickCount();
+	uint8_t enable_coms_rx = 0;
 	
 	/* @non-terminating@ */	
 	for( ;; )
@@ -138,25 +139,39 @@ static void prvComsTask(void *pvParameters )
 		
 		if (should_send_beacon()) /* check if we are OK to send the beacon */
 		{ /* stop sending beacon when we are approaching the pass (b/c we will be communicating with ground station then) */
+			enable_coms_rx = 1;
 			
 			if (xTaskGetTickCount() - last_beacon > COMS_BEACON_WAIT) /* send beacon every 5 minutes */
 			{
-				//tells COMS SSM to send the beacon
-				//(COMS keeps most recent hk data, so we just have to tell it to send)
-				if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+				
+				
+				//get housekeeping data to send
+				
+				//attempt to send some hk data to COMS SSM (via packet router) for the beacon
+				if (get_beacon_data() >= 0)
 				{
-					if (send_can_command_h2(0x00, 0x00, COMS_TASK_ID, COMS_ID, SEND_BEACON, COMMAND_PRIO) < 0)
-					{
-						//failed to send, don't update beacon time
-					}
-					else {
-						//update beacon timer
-						last_beacon = xTaskGetTickCount();
-					}
-					xSemaphoreGive(Can0_Mutex);
-										
+					//update beacon timer
+					last_beacon = xTaskGetTickCount();
 				}
 								
+			}
+		}
+		else if (enable_coms_rx) 
+		{ /* after a certain amount of time, enable RX on the COMS to listen for telecommands (pass should be happening) */
+			
+			
+			if (xSemaphoreTake(Can0_Mutex, (TickType_t) 0) == pdTRUE)		// Attempt to acquire CAN1 Mutex, block for 1 tick.
+			{
+				if (send_can_command_h2(0x00, 0x00, COMS_TASK_ID, COMS_ID, RX_ENABLE, COMMAND_PRIO) < 0)
+				{
+					//failed to send
+				}
+				else {
+					//clear the flag (only need to send once)
+					enable_coms_rx = 0;
+				}
+				xSemaphoreGive(Can0_Mutex);
+									
 			}
 		}
 		

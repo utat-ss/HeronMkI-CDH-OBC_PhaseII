@@ -242,6 +242,7 @@ SemaphoreHandle_t	Can0_Mutex;
 #define OPEN_VALVES				0x27	
 #define COLLECT_PD				0x28
 #define PD_COLLECTED			0x29
+#define ALERT_DEPLOY			0x2A
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

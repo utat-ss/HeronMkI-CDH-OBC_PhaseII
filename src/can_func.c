@@ -374,6 +374,9 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 		case PD_COLLECTED:
 			pd_collectedf = 1;
 			break;
+		case ALERT_DEPLOY:
+			antenna_deploy = 1;
+			break;
 		default :
 			return;
 	}

@@ -275,6 +275,8 @@ uint8_t CURRENT_SECOND;
 uint32_t CURRENT_TIME;
 uint8_t absolute_time_arr[4];
 
+uint8_t antenna_deploy;
+
 /* Global variables for indicating SPI Chip health */
 uint8_t SPI_HEALTH1, SPI_HEALTH2, SPI_HEALTH3;
 

@@ -281,6 +281,8 @@ uint8_t antenna_deploy;
 /* Global variables for indicating SPI Chip health */
 uint8_t SPI_HEALTH1, SPI_HEALTH2, SPI_HEALTH3;
 
+uint32_t time_of_deploy;
+
 /* Task Handles for each of the running tasks	*/
 TaskHandle_t time_manage_HANDLE;
 TaskHandle_t memory_manage_HANDLE;

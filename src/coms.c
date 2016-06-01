@@ -102,14 +102,19 @@ static void prvComsTask(void *pvParameters )
 	/* As SysTick will be approx. 1kHz, Num = 1000 * 60 * 60 = 1 hour.*/
 	int* status = 0;
 	uint32_t data = 0;
+	uint64_t counter = 0;
 	/* @non-terminating@ */	
 	for( ;; )
 	{
-		if(xTaskGetTickCount() - last_tick_count > COMS_LOOP_TIMEOUT)
+		//if(xTaskGetTickCount() - last_tick_count > COMS_LOOP_TIMEOUT)
+		//{
+		counter++;
+		if(counter > 84000000 * 10)
 		{
 			data = request_sensor_data(COMS_TASK_ID, COMS_ID, COMS_TEMP, status);
-			last_tick_count = xTaskGetTickCount();	
-		}	
+		}
+			//last_tick_count = xTaskGetTickCount();	
+		//}	
 	}
 }
 

@@ -102,7 +102,7 @@ Author: Keenan Burnett
 functionality. */
 #define OBC_PACKET_ROUTER_PARAMETER		( 0xABCD )
 
-#define DEPLOY_TIMEOUT 60000
+#define DEPLOY_TIMEOUT 1000
 
 /* Functions Prototypes. */
 static void prvOBCPacketRouterTask( void *pvParameters );
@@ -163,7 +163,6 @@ static uint8_t current_tc[PACKET_LENGTH], current_tm[PACKET_LENGTH];	// Arrays a
 static uint8_t tc_to_decode[PACKET_LENGTH], tm_to_downlink[PACKET_LENGTH];
 static uint32_t low_received, high_received;
 static uint32_t new_tc_msg_high, new_tc_msg_low;
-static uint32_t time_of_deploy;
 static uint32_t deployed_antenna;
 
 /************************************************************************/
@@ -284,6 +283,17 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			//spimem_write(TC_BASE + 4, &NEXT_TC_PACKET, 4);	// Update the position of the next packet		
 			//decode_telecommand();
 		//}
+		if(antenna_deploy == 1)
+		{
+			send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_COMMAND, DEF_PRIO);
+			if(xTaskGetTickCount() - time_of_deploy > DEPLOY_TIMEOUT)
+			{
+				send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_OFF, DEF_PRIO);
+				antenna_deploy = 0;
+			}
+			xTimeToWait = 100; // Sleep task for 100 ticks.
+			xLastWakeTime = xTaskGetTickCount();		
+		}
 
 		if(!receiving_tcf)
 		{
@@ -315,17 +325,7 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 				//send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 			//}	
 			exec_commands();
-			//xTimeToWait = 100; // Sleep task for 5 ticks.
-			//xLastWakeTime = xTaskGetTickCount();						// Delay for 10 ticks.
-			//if(deployed_antenna == 1)
-			//{
-				//send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_COMMAND, DEF_PRIO);
-				//if(xTaskGetTickCount() - time_of_deploy > DEPLOY_TIMEOUT)
-				//{
-					//send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_OFF, DEF_PRIO);
-					//deployed_antenna = 0;
-				//}			
-			//}
+
 
 			//vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
 		}

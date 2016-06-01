@@ -376,6 +376,7 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			break;
 		case ALERT_DEPLOY:
 			antenna_deploy = 1;
+			time_of_deploy = xTaskGetTickCountFromISR();
 			break;
 		default :
 			return;

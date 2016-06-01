@@ -243,6 +243,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define COLLECT_PD				0x28
 #define PD_COLLECTED			0x29
 #define ALERT_DEPLOY			0x2A
+#define DEP_ANT_COMMAND			0x2B
+#define DEP_ANT_OFF				0x2C
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

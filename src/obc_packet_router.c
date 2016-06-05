@@ -102,7 +102,7 @@ Author: Keenan Burnett
 functionality. */
 #define OBC_PACKET_ROUTER_PARAMETER		( 0xABCD )
 
-#define DEPLOY_TIMEOUT 1000
+#define DEPLOY_TIMEOUT 60000
 
 /* Functions Prototypes. */
 static void prvOBCPacketRouterTask( void *pvParameters );
@@ -308,6 +308,14 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 				tm_down_fullf = 1;
 				send_pus_packet_tm(tm_to_downlink[150]);		// FAILURE_RECOVERY
 			}
+			if(tm_transfer_completef)
+			{
+				xTimeToWait = 3000; // Sleep task for 100 ticks.
+				xLastWakeTime = xTaskGetTickCount();				
+				vTaskDelayUntil(&xLastWakeTime, xTimeToWait);
+				tm_transfer_completef = 0;
+			}
+				
 		
 			//if (tm_down_fullf)
 			//{
@@ -708,7 +716,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	}
 	else
 	{
-		tm_transfer_completef = 0;
+		tm_transfer_completef = 1;
 		tm_down_fullf = 0;
 		return tm_transfer_completef;
 	}

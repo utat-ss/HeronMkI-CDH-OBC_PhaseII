@@ -245,6 +245,8 @@ SemaphoreHandle_t	Can0_Mutex;
 #define ALERT_DEPLOY			0x2A
 #define DEP_ANT_COMMAND			0x2B
 #define DEP_ANT_OFF				0x2C
+#define DISABLE_RADIO			0x2D
+#define ENABLE_RADIO			0x2E
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09

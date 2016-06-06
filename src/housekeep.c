@@ -373,13 +373,23 @@ static void clear_alternate_hk_definition(void)
 /* @return: 1 = action succeeded, -1 = something bad happened.			*/
 /************************************************************************/
 static int request_housekeeping_all(void)
-{			
+{	
+	send_can_command(0, 0, HK_TASK_ID, COMS_ID, DISABLE_RADIO, DEF_PRIO);
 	if(request_housekeeping(EPS_ID) > 1)							// Request housekeeping from COMS.
+	{
 		return -1;
+		send_can_command(0, 0, HK_TASK_ID, COMS_ID, ENABLE_RADIO, DEF_PRIO);	
+	}
 	if(request_housekeeping(COMS_ID) > 1)							// Request housekeeping from EPS.
+	{
 		return -1;
+		send_can_command(0, 0, HK_TASK_ID, COMS_ID, ENABLE_RADIO, DEF_PRIO);	
+	}
 	if(request_housekeeping(PAY_ID) > 1)							// Request housekeeping from PAY.
+	{
 		return -1;
+		send_can_command(0, 0, HK_TASK_ID, COMS_ID, ENABLE_RADIO, DEF_PRIO);	
+	}
 	return 1;
 }
 
@@ -466,7 +476,7 @@ static int store_housekeeping(void)
 	}
 	/* Store the new housekeeping in SPI memory */
 	//store_hk_in_spimem();				// Removed for CSDC
-	
+	send_can_command(0, 0, HK_TASK_ID, COMS_ID, ENABLE_RADIO, DEF_PRIO);
 	current_hk_fullf = 1;
 	return 1;
 }

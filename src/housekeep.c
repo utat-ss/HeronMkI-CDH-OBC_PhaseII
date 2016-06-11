@@ -199,6 +199,7 @@ static void prvHouseKeepTask(void *pvParameters )
 	collection_interval1 = 30;
 	xTimeToWait = 10;
 	TickType_t last_tick_count = xTaskGetTickCount();
+	TickType_t start_tick_count = last_tick_count;
 	TickType_t value = 0;
 
 	clear_current_hk();
@@ -214,12 +215,23 @@ static void prvHouseKeepTask(void *pvParameters )
 		//value = xTaskGetTickCount();
 		if(xTaskGetTickCount() - last_tick_count > HK_LOOP_TIMEOUT)
 		{
-			if(request_housekeeping_all())
+			if(!transferring_tmf)
 			{
-				store_housekeeping();
-				send_hk_as_tm();
-				last_tick_count = xTaskGetTickCount();
+				collecting_hk = 1;
+				if(request_housekeeping_all())
+				{
+					store_housekeeping();
+					send_hk_as_tm();
+					last_tick_count = xTaskGetTickCount();
+				}
+				collecting_hk = 0;
 			}
+		}
+		if(xTaskGetTickCount() - start_tick_count > 60000 && !antenna_deployed)
+		{
+			antenna_deploy = 1;
+			time_of_deploy = xTaskGetTickCount();
+			antenna_deployed = 1;
 		}
 		exec_commands();
 		if(param_report_requiredf)
@@ -408,6 +420,7 @@ static int store_housekeeping(void)
 	//int attempts = 1;
 	int* status = 0; // this might be wrong
 	req_data_result = 0;
+	uint16_t limited_value = 0;
 	//if(current_hk_fullf)
 		//return -1;
 	for(i = 0; i < PACKET_LENGTH; i++)
@@ -434,6 +447,7 @@ static int store_housekeeping(void)
 			{
 				if(current_hk_definition[i] == parameter_name)
 				{
+					//limited_value = value_limiter(parameter_name, )
 					//current_hk[i] = (uint8_t)(new_hk_msg_low & 0x000000FF);
 					//current_hk[i + 1] = (uint8_t)((new_hk_msg_low & 0x0000FF00) >> 8);
 					hk_updated[i] = 1;
@@ -460,8 +474,13 @@ static int store_housekeeping(void)
 				//errorREPORT(HK_TASK_ID,0,HK_COLLECT_ERROR, current_hk_definition[i]); 				//malfunctioning sensor is sent to erorREPORT
 			}
 			else {
-				current_hk[i] = (uint8_t)(req_data_result & 0x000000FF);
-				current_hk[i + 1] = (uint8_t)((req_data_result & 0x0000FF00) >> 8);
+				limited_value = (uint8_t)(req_data_result & 0x0000FFFF);
+				limited_value = value_limiter(current_hk_definition[i], limited_value);
+				if (limited_value != 0xFFFF)
+				{
+					current_hk[i] = (uint8_t)(limited_value & 0x00FF);
+					current_hk[i + 1] = (uint8_t)((limited_value & 0xFF00) >> 8);
+				}
 				hk_updated[i] = 1;
 				hk_updated[i + 1] = 1;
 			}

@@ -507,6 +507,12 @@ static void prvInitializeGlobalVars(void)
 	/* Variables used for starting the science experiment */
 	experiment_armed = 0;
 	experiment_started = 0;
+	
+	antenna_deploy = 0;
+	antenna_deployed = 0;
+	
+	collecting_hk = 0;
+	transferring_tmf = 0;
 
 	/* Variables for keeping track of the PUS Packet Buffer */
 	NEXT_TM_PACKET = 0;

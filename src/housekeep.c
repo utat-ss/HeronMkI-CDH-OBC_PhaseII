@@ -826,7 +826,7 @@ static int get_beacon_data(void)
 		
 	current_command[146] = BEACON_REPORT;
 	//go through beacon def and add the relevant info to current_tm
-	for (i=0; i<BEACON_LENGTH; i++) 
+	for (i=0; i<BEACON_LENGTH; i+=2) 
 	{
 		for (int j=0; j<DATA_LENGTH; j++) 
 		{
@@ -834,8 +834,10 @@ static int get_beacon_data(void)
 			{
 				if (!hk_updated[j])
 					return -1;
-				else 
+				else {
 					current_command[i] = current_hk[j];
+					current_command[i+1] = current_hk[j+1];
+				}
 				
 			}
 		}

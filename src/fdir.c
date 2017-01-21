@@ -404,11 +404,11 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence5(task, code);			// code: 0 = from OPR, 1 = to OPR
-			case 6:
+			case 6: // Corresponds to 2.1
 				if(task != HK_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence5(task, code);
-			case 7:
+			case 7: // Corresponds to 2.2
 				if(task != HK_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
 				resolution_sequence7(task, code);			// Here code is ID for the parameter that failed.
@@ -890,6 +890,16 @@ static void resolution_sequence5(uint8_t task, uint8_t code)
 
 static void resolution_sequence7(uint8_t task, uint8_t parameter)
 {
+	/*
+	 * Corresponds to error 2.2 Variable not updated during HK collect.
+	 *	Resolution:
+	 *				1. If the variable is internal to the OBC, enter SAFE_MODE
+	 *				2. If the variable is internal to an SSM:
+	 *					a. Increase the timeout and try again.
+	 *					b. Reset the SSM which has the malfunctioning variable.
+	 *					c. Reprogram the SSM which was malfunctioning.
+	 *					d. Enter safe mode if b and c did not work.
+	 */
 	uint8_t ssmID = 0xFF;
 	int *status = 0;
 	ssmID = get_ssm_id(parameter);

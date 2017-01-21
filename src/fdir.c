@@ -682,6 +682,7 @@ static void resolution_sequence1_4(uint8_t task)
 		}
 	}
 	// There are no functional chips, INTERNAL MEMORY FALLBACK MODE
+	// TODO: should enter_INTERNAL_MEMORY_FALLBACK() be called here
 	clear_fdir_signal(task);
 	return;
 }
@@ -702,6 +703,14 @@ static void resolution_sequence4(uint8_t task, uint8_t command)
 
 static void resolution_sequence5(uint8_t task, uint8_t code)
 {
+	/*
+     * Read/Write from a FIFO failed.
+	 * Steps:
+	 *			1. Increment a counter corresponding to this fifo failing.
+	 *				a. If the counter is low, proceed to 2.
+	 *				b. If the counter gets too high, attempt to reset the calling task.
+	 *			2. Try deleting and recreating the FIFO.
+	 */
 	switch(task)
 	{
 		case HK_TASK_ID:

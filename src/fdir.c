@@ -384,6 +384,10 @@ static void decode_error(uint32_t error, uint8_t severity, uint8_t task, uint8_t
 	{
 		switch(error)
 		{
+			/* 
+			 * Should there be breaks in each case? why would we want every proceeding
+			 * case to be called as well?
+			 */
 			case 1:
 				if(task != SCHEDULING_TASK_ID)
 					enter_SAFE_MODE(INC_USAGE_OF_DECODE_ERROR);
@@ -1019,7 +1023,7 @@ static void resolution_sequence20(uint8_t task)
 	// The chip is being buggy, attempt to repair it.
 	resolution_sequence1_4(task);
 	status = get_fdir_signal(task);
-	// If the error stil hasn't been resolve, enter SAFE_MODE.
+	// If the error still hasn't been resolved, enter SAFE_MODE.
 	if(status)
 	enter_SAFE_MODE(SPIMEM_FAIL_IN_MEM_WASH);
 	clear_fdir_signal(task);

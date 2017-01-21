@@ -942,6 +942,15 @@ static void resolution_sequence7(uint8_t task, uint8_t parameter)
 
 static void resolution_sequence11(uint8_t task)
 {
+	/*
+	 * Corresponds to error 4.2 Erasing chip takes too long.
+	 *		Resolution:
+	 *					1. Increase the timeout which is being used for erasing spi memory chips.
+	 *					2. Try the erase operation again.
+	 *						a. If it still failed, enter safe mode.
+	 *						b. If it worked, return that the issue was resolved.
+	 */
+	
 	chip_erase_timeout += 100;		// Increase the timeout by 1s.
 	if(chip_erase_timeout > 3000)	// 30s timeout.
 	{

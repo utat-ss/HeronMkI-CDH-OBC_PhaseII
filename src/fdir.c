@@ -516,13 +516,13 @@ static void resolution_sequence1(uint8_t code, uint8_t task)
 		resolution_sequence1_2(task);
 	if(code == 0xFD)				// Spi0_Mutex was not free when this task was called.
 		resolution_sequence1_3(task);
-	if(code == 0xFC)
+	if(code == 0xFC)				// The chip was not "ready for command" during SPI operation.
 		resolution_sequence1_4(task);
 	return;
 }
 
 static void resolution_sequence1_1(uint8_t task)
-{					
+{
 	enter_INTERNAL_MEMORY_FALLBACK();
 	clear_fdir_signal(task);
 	return;
@@ -530,6 +530,7 @@ static void resolution_sequence1_1(uint8_t task)
 
 static void resolution_sequence1_2(uint8_t task)
 {					
+	// The calling task was used incorrectly.
 	scheduling_fumble_count++;
 	if(scheduling_fumble_count == 10)
 		restart_task(SCHEDULING_TASK_ID, (TaskHandle_t)0);
@@ -562,10 +563,10 @@ static void resolution_sequence1_3(uint8_t task)
 	restart_task(temp_task, (TaskHandle_t)0);
 	Spi0_Mutex = xSemaphoreCreateBinary();
 	xSemaphoreGive(Spi0_Mutex);
-	exit_atomic();
+	exit_atomic();		// END CRITICAL SECTION
 	for (i = 0; i < 50; i++)
 	{
-		taskYIELD();				// Give the new task ample time to start runnig again.
+		taskYIELD();				// Give the new task ample time to start running again.
 	}
 	// Try to acquire the mutex again.
 	if (xSemaphoreTake(Spi0_Mutex, (TickType_t)5000) == pdTRUE)	// Wait for a maximum of 5 seconds.
@@ -574,7 +575,7 @@ static void resolution_sequence1_3(uint8_t task)
 		xSemaphoreGive(Spi0_Mutex);		// Nothing seems to be wrong.
 		return;
 	}
-	// Something has gone wrong, etner SAFE_MODE and let ground know.
+	// Something has gone wrong, enter SAFE_MODE and let ground know.
 	enter_SAFE_MODE(SPI0_MUTEX_MALFUNCTION);
 	return;
 }

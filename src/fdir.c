@@ -970,6 +970,19 @@ static void resolution_sequence11(uint8_t task)
 // Address - location of the sector which took too long to erase.
 static void resolution_sequence14(uint8_t task, uint32_t sect_num, uint8_t chip)
 {
+	/*
+	 * Corresponds with error 4.3 Load sector into buffered return incorrect # of bytes.
+	 *		Resolution:
+	 *			a. Increment a counter indicating the chip is buggy.
+	 *				i. if the counter exceeds threshold, mark chip as buggy and goto b.
+	 *			b. check if reading/writing from the chip is possible.
+	 *				i.  if it worked, the issue was resolved.
+	 *				ii. if not, switch to a different chip.
+	 *			c. repeat b until a functional chip is reached.
+	 *			d. if no functional chips, enter INTERAL MEMORY FALLBACK MODE.
+	 *			e. return that the issue was resolved.
+	 */
+	
 	erase_sector_timeout += 10;		// Increase the timeout by 100ms.
 	if (erase_sector_timeout == 100)
 	{

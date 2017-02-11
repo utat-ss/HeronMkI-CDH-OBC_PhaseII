@@ -277,15 +277,11 @@ uint32_t CURRENT_TIME;
 uint8_t absolute_time_arr[4];
 
 uint8_t antenna_deploy;
-uint8_t antenna_deployed;
 
 /* Global variables for indicating SPI Chip health */
 uint8_t SPI_HEALTH1, SPI_HEALTH2, SPI_HEALTH3;
 
 uint32_t time_of_deploy;
-uint8_t transferring_tmf;
-
-uint8_t collecting_hk;
 
 /* Task Handles for each of the running tasks	*/
 TaskHandle_t time_manage_HANDLE;

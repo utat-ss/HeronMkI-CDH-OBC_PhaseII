@@ -247,8 +247,6 @@ SemaphoreHandle_t	Can0_Mutex;
 #define DEP_ANT_OFF				0x2C
 #define DISABLE_RADIO			0x2D
 #define ENABLE_RADIO			0x2E
-#define DISABLE_UART			0x2F
-#define ENABLE_UART				0x30
 
 /* Checksum only */
 #define SAFE_MODE_VAR			0x09
@@ -447,5 +445,4 @@ int send_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id
 int send_can_command_h2(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);
 int send_tc_can_command(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);
 int send_tc_can_command_from_int(uint32_t low, uint8_t byte_four, uint8_t sender_id, uint8_t ssm_id, uint8_t smalltype, uint8_t priority);
-uint16_t value_limiter(uint32_t parameter_name, uint16_t nonlimited_value);
 #endif

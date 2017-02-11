@@ -375,12 +375,8 @@ void decode_can_command(can_mb_conf_t *p_mailbox, Can* controller)
 			pd_collectedf = 1;
 			break;
 		case ALERT_DEPLOY:
-			if(!antenna_deployed)
-			{
-				antenna_deploy = 1;
-				time_of_deploy = xTaskGetTickCountFromISR();				
-			}
-
+			antenna_deploy = 1;
+			time_of_deploy = xTaskGetTickCountFromISR();
 			break;
 		default :
 			return;
@@ -472,7 +468,6 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 {
 	uint32_t ul_data_incom = p_mailbox->ul_datal;
 	uint32_t uh_data_incom = p_mailbox->ul_datah;
-	uint16_t limited_value = 0;
 	BaseType_t wake_task;	// Not needed here.
 
 	uint32_t parameter_name = 0;
@@ -486,13 +481,8 @@ void store_can_msg(can_mb_conf_t *p_mailbox, uint8_t mb)
 		{
 			if(hk_definition0[i] == parameter_name)
 			{
-				limited_value = (uint16_t)(ul_data_incom & 0x0000FFFF);
-				limited_value = value_limiter(parameter_name, limited_value);	// Only allow proper values to come through here.
-				if (limited_value != 0xFFFF)
-				{
-					current_hk[i] = (uint8_t)(limited_value & 0x00FF);
-					current_hk[i + 1] = (uint8_t)((limited_value & 0xFF00) >> 8);	
-				}
+				current_hk[i] = (uint8_t)(ul_data_incom & 0x000000FF);
+				current_hk[i + 1] = (uint8_t)((ul_data_incom & 0x0000FF00) >> 8);
 				hk_updated[i] = 1;
 				hk_updated[i + 1] = 1;
 			}
@@ -1737,152 +1727,3 @@ static void start_tc_packet(void)
 	return;
 }
 
-uint16_t value_limiter(uint32_t parameter_name, uint16_t nonlimited_value)
-{
-	switch(parameter_name)
-	{
-		case PANELX_I:
-			if (nonlimited_value > 500)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PANELY_I:
-			if (nonlimited_value > 500)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PANELX_V:
-			if (nonlimited_value > 5000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PANELY_V:
-			if (nonlimited_value > 5000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case BATT_V:
-			if (nonlimited_value > 8400)
-				return 0xFFFF;
-			if (nonlimited_value < 7500)
-				return 0xFFFF;
-			return nonlimited_value;
-		case BATTIN_I:
-			if (nonlimited_value > 500)
-				return 0xFFFF;
-			return nonlimited_value;
-		case BATTOUT_I:
-			if (nonlimited_value > 500)
-				return 0xFFFF;
-			if (nonlimited_value < 150)
-				return 0xFFFF;
-			return nonlimited_value;
-		case COMS_V:
-			if (nonlimited_value > 3500)
-				return 0xFFFF;
-			if (nonlimited_value < 3000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case COMS_I:
-			if (nonlimited_value > 200)
-				return 0xFFFF;
-			if (nonlimited_value < 50)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_V:
-			if (nonlimited_value > 3500)
-				return 0xFFFF;
-			if (nonlimited_value < 3000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_I:
-			if (nonlimited_value > 200)
-				return 0xFFFF;
-			if (nonlimited_value < 50)
-				return 0xFFFF;
-			return nonlimited_value;
-		case OBC_V:
-			if (nonlimited_value > 3500)
-				return 0xFFFF;
-			if (nonlimited_value < 3000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case OBC_I:
-			if (nonlimited_value > 20)
-				return 20;
-			if (nonlimited_value < 5)
-				return 0xFFFF;
-			return nonlimited_value;
-		case COMS_TEMP:
-			if (nonlimited_value > 25)
-				return 30;
-			if (nonlimited_value < 20)
-				return 20;
-			return nonlimited_value;
-		case EPS_TEMP:
-			if (nonlimited_value > 28)
-				return 28;
-			if (nonlimited_value < 22)
-				return 22;
-			break;
-		case PAY_TEMP0:
-			if (nonlimited_value > 28)
-				return 30;
-			if (nonlimited_value < 20)
-				return 20;
-			return nonlimited_value;
-		case PAY_PRESS:
-			if (nonlimited_value > 1100)
-				return 0xFFFF;
-			if (nonlimited_value < 900)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_ACCEL_X:
-			if (nonlimited_value > 1000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_ACCEL_Y:
-			if (nonlimited_value > 1000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_ACCEL_Z:
-			if (nonlimited_value > 1000)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_FL_PD0:
-			if (nonlimited_value > 1024)
-				return 0xFFFF;
-			if (nonlimited_value < 80)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_FL_PD1:
-			if (nonlimited_value > 1024)
-				return 0xFFFF;
-			if (nonlimited_value < 95)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_FL_PD2:
-			if (nonlimited_value > 1024)
-				return 0xFFFF;
-			if (nonlimited_value < 115)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_FL_PD3:
-			if (nonlimited_value > 1024)
-				return 0xFFFF;
-			if (nonlimited_value < 130)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_FL_PD4:
-			if (nonlimited_value > 1024)
-				return 0xFFFF;
-			if (nonlimited_value < 145)
-				return 0xFFFF;
-			return nonlimited_value;
-		case PAY_FL_PD5:
-			if (nonlimited_value > 1024)
-				return 0xFFFF;
-			if (nonlimited_value < 165)
-				return 0xFFFF;
-			return nonlimited_value;
-		default:
-			return 0xFFFF;
-	}
-	return 0xFFFF;
-}

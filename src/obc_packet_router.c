@@ -290,18 +290,12 @@ static void prvOBCPacketRouterTask( void *pvParameters )
 			{
 				send_can_command(0, 0, OBC_PACKET_ROUTER_ID, EPS_ID, DEP_ANT_OFF, DEF_PRIO);
 				antenna_deploy = 0;
-				antenna_deployed = 1;
 			}
 			xTimeToWait = 100; // Sleep task for 100 ticks.
 			xLastWakeTime = xTaskGetTickCount();		
 		}
-		if(collecting_hk)
-		{
-			xTimeToWait = 100; // Sleep task for 100 ticks.
-			xLastWakeTime = xTaskGetTickCount();
-			vTaskDelayUntil(&xLastWakeTime, xTimeToWait);	
-		}
-		if(!collecting_hk)
+
+		if(!receiving_tcf)
 		{
 			if(xQueueReceive(tc_buffer, tc_to_decode, (TickType_t)1) == pdTRUE)
 				decode_telecommand();
@@ -678,20 +672,14 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	num_transfers = PACKET_LENGTH / 4;
 	timeout = 500;
 	xTimeToWait = 25;
-	transferring_tmf = 1;
+	
 	tm_transfer_completef = 0;
 	start_tm_transferf = 0;
-	// Need to tell payload and EPS to shut the hell up.
-	//send_tc_can_command(0x00, 0x00, sender_id, EPS_ID, DISABLE_UART, COMMAND_PRIO);
-	//send_tc_can_command(0x00, 0x00, sender_id, PAY_ID, DISABLE_UART, COMMAND_PRIO);	
 	send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
 	while(!start_tm_transferf)					// Wait for ~25 ms, for the SSM to say that we're good to start/
 	{
 		if(!timeout--)
 		{
-			//send_tc_can_command(0x00, 0x00, sender_id, EPS_ID, ENABLE_UART, COMMAND_PRIO);
-			//send_tc_can_command(0x00, 0x00, sender_id, PAY_ID, ENABLE_UART, COMMAND_PRIO);
-			transferring_tmf = 0;	
 			return -1;
 		}
 		send_tc_can_command(0x00, 0x00, sender_id, COMS_ID, TM_PACKET_READY, COMMAND_PRIO);	// Let the SSM know that a TM packet is ready.
@@ -702,12 +690,7 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	for(i = 0; i < num_transfers; i++)
 	{
 		if(tm_transfer_completef == 0xFF)			// The transaction has failed.
-		{
-			//send_tc_can_command(0x00, 0x00, sender_id, EPS_ID, ENABLE_UART, COMMAND_PRIO);
-			//send_tc_can_command(0x00, 0x00, sender_id, PAY_ID, ENABLE_UART, COMMAND_PRIO);
-			transferring_tmf = 0;
 			return -1;
-		}
 		low =	(uint32_t)tm_to_downlink[(i * 4)];			// Place the data into the lower 4 bytes of the CAN message.
 		low += (uint32_t)(tm_to_downlink[(i * 4) + 1] << 8);
 		low += (uint32_t)(tm_to_downlink[(i * 4) + 2] << 16);
@@ -721,9 +704,6 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	{												// the transfer has completed.
 		if(!timeout--)
 		{
-			//send_tc_can_command(0x00, 0x00, sender_id, EPS_ID, ENABLE_UART, COMMAND_PRIO);
-			//send_tc_can_command(0x00, 0x00, sender_id, PAY_ID, ENABLE_UART, COMMAND_PRIO);
-			transferring_tmf = 0;
 			return -1;			
 		}
 		taskYIELD();
@@ -731,19 +711,13 @@ static int send_pus_packet_tm(uint8_t sender_id)
 	
 	if(tm_transfer_completef != (PACKET_LENGTH / 4) - 1)
 	{
-		//send_tc_can_command(0x00, 0x00, sender_id, EPS_ID, ENABLE_UART, COMMAND_PRIO);
-		//send_tc_can_command(0x00, 0x00, sender_id, PAY_ID, ENABLE_UART, COMMAND_PRIO);
 		tm_transfer_completef = 0;
-		transferring_tmf = 0;
 		return -1;
 	}
 	else
 	{
 		tm_transfer_completef = 1;
 		tm_down_fullf = 0;
-		transferring_tmf = 0;
-		//send_tc_can_command(0x00, 0x00, sender_id, EPS_ID, ENABLE_UART, COMMAND_PRIO);
-		//send_tc_can_command(0x00, 0x00, sender_id, PAY_ID, ENABLE_UART, COMMAND_PRIO);
 		return tm_transfer_completef;
 	}
 }
